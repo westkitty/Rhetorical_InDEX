@@ -1,0 +1,301 @@
+{
+  "checks": [
+    {
+      "name": "desktop: scanner visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: one semantic article",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: overlay aria hidden",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: overlay geometry aligned",
+      "pass": true,
+      "detail": "delta=0.00"
+    },
+    {
+      "name": "desktop: first finding has geometry",
+      "pass": true,
+      "detail": "{'x': 344.578125, 'y': 817.84375, 'width': 204.09375, 'height': 21}"
+    },
+    {
+      "name": "desktop: lens readout appears over finding",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: Reveal All class applied",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: drawer opens",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: focus remains trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: drawer restores focus",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: Reduced Motion class applied",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: Pattern mode class applied",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: local preview banner",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: local preview produces candidates",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: single-document Compare is unavailable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: no console errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: no external requests",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "name": "tablet-portrait: scanner visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: one semantic article",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: overlay aria hidden",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: overlay geometry aligned",
+      "pass": true,
+      "detail": "delta=0.00"
+    },
+    {
+      "name": "tablet-portrait: touch handle visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: lens radius-aware x bounds",
+      "pass": true,
+      "detail": "{\"x\": 180, \"y\": 232, \"r\": 145, \"w\": 734}"
+    },
+    {
+      "name": "tablet-portrait: no horizontal overflow",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: sticky scanner clears wrapped topbar",
+      "pass": true,
+      "detail": "{\"topbar\": {\"x\": 0, \"y\": 0, \"width\": 768, \"height\": 187.421875}, \"toolbar\": {\"x\": 16, \"y\": 196, \"width\": 736, \"height\": 111.671875}}"
+    },
+    {
+      "name": "tablet-portrait: pointer ownership begins",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: pointercancel clears ownership",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: no console errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-portrait: no external requests",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "name": "tablet-landscape: scanner visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: one semantic article",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: overlay aria hidden",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: overlay geometry aligned",
+      "pass": true,
+      "detail": "delta=0.00"
+    },
+    {
+      "name": "tablet-landscape: touch handle visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: lens radius-aware x bounds",
+      "pass": true,
+      "detail": "{\"x\": 390, \"y\": 290, \"r\": 145, \"w\": 990}"
+    },
+    {
+      "name": "tablet-landscape: no horizontal overflow",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: sticky scanner clears wrapped topbar",
+      "pass": true,
+      "detail": "{\"topbar\": {\"x\": 0, \"y\": 0, \"width\": 1024, \"height\": 187.421875}, \"toolbar\": {\"x\": 16, \"y\": 196, \"width\": 992, \"height\": 66.78125}}"
+    },
+    {
+      "name": "tablet-landscape: pointer ownership begins",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: pointercancel clears ownership",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: no console errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "tablet-landscape: no external requests",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "name": "phone: scanner visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: one semantic article",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: overlay aria hidden",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: overlay geometry aligned",
+      "pass": true,
+      "detail": "delta=0.00"
+    },
+    {
+      "name": "phone: touch handle visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: lens radius-aware x bounds",
+      "pass": true,
+      "detail": "{\"x\": 248, \"y\": 290, \"r\": 132, \"w\": 388}"
+    },
+    {
+      "name": "phone: no horizontal overflow",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: pointer ownership begins",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: pointercancel clears ownership",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: no console errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "phone: no external requests",
+      "pass": true,
+      "detail": "[]"
+    }
+  ],
+  "passed": 59,
+  "total": 59
+}

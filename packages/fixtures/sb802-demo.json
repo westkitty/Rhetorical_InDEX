@@ -1,0 +1,409 @@
+{
+  "mode": "synthetic_fixture",
+  "event": {
+    "id": "event-sb802-privacy",
+    "title": "Senate Bill 802 Digital Platform Security & Privacy Oversight (Synthetic Fixture Demo)",
+    "description": "Legislative debate over SB-802, a bill establishing mandatory encryption standards and regulatory oversight for large digital service providers.",
+    "timeWindow": {
+      "start": "2026-07-10T08:00:00Z",
+      "end": "2026-07-15T18:00:00Z"
+    },
+    "memberArticleIds": [
+      "art-sentinel-802",
+      "art-techwire-802",
+      "art-policy-802"
+    ],
+    "articles": [
+      {
+        "id": "art-sentinel-802",
+        "sourceId": "sentinel",
+        "publisher": "The Daily Sentinel",
+        "title": "Draconian Cyber Scheme Siphons Freedom Under Veil of Security",
+        "author": "Marcus Vance",
+        "url": "https://example.invalid/demo/draconian-cyber-scheme-sb802",
+        "publishedAt": "2026-07-12T10:30:00Z",
+        "extractedAt": "2026-07-12T10:35:00Z",
+        "snapshotHash": "a7f39b12d8e401",
+        "paragraphs": [
+          "Lawmakers unveiled a draconian, reckless scheme yesterday that will inevitably siphon individual freedoms from ordinary citizens under the cynical veil of cyber security.",
+          "Under the provisions of Senate Bill 802, government regulators will forcibly inspect private digital platforms without judicial warrants, effectively dismantling fundamental constitutional protections.",
+          "Officials refused to explain why they allowed this unprecedented surveillance apparatus to collapse civil liberties, leaving millions vulnerable to immediate state overreach.",
+          "If this legislation passes, private communication will cease to exist in our country overnight, forcing law-abiding citizens into an inescapable binary between government monitoring or digital exile.",
+          "A single leaked memorandum demonstrates that the entire regulatory commission is bent on unchecked institutional power."
+        ],
+        "content": "Lawmakers unveiled a draconian, reckless scheme yesterday that will inevitably siphon individual freedoms from ordinary citizens under the cynical veil of cyber security.\nUnder the provisions of Senate Bill 802, government regulators will forcibly inspect private digital platforms without judicial warrants, effectively dismantling fundamental constitutional protections.\nOfficials refused to explain why they allowed this unprecedented surveillance apparatus to collapse civil liberties, leaving millions vulnerable to immediate state overreach.\nIf this legislation passes, private communication will cease to exist in our country overnight, forcing law-abiding citizens into an inescapable binary between government monitoring or digital exile.\nA single leaked memorandum demonstrates that the entire regulatory commission is bent on unchecked institutional power."
+      },
+      {
+        "id": "art-techwire-802",
+        "sourceId": "techwire",
+        "publisher": "Tech Wire Today",
+        "title": "Senate Bill 802 Proposes Technical Audit Requirements for Data Platforms",
+        "author": "Elena Rostova",
+        "url": "https://example.invalid/demo/sb802-technical-audit-requirements",
+        "publishedAt": "2026-07-12T11:15:00Z",
+        "extractedAt": "2026-07-12T11:20:00Z",
+        "snapshotHash": "b8e401c9f2d502",
+        "paragraphs": [
+          "The Senate Commerce Committee released the full text of Senate Bill 802 today, establishing technical reporting benchmarks for platforms with over 20 million active monthly users.",
+          "The bill mandates annual third-party cybersecurity audits and requires platforms to maintain end-to-end encryption for user messaging, with specific judicial warrant exceptions.",
+          "Civil liberties groups noted that while section 4(b) preserves warrant requirements for content inspection, section 9 creates new compliance logging obligations for metadata storage.",
+          "Industry representatives expressed concern regarding implementation costs for mid-sized providers, estimating compliance expenses at $1.2M annually per infrastructure cluster."
+        ],
+        "content": "The Senate Commerce Committee released the full text of Senate Bill 802 today, establishing technical reporting benchmarks for platforms with over 20 million active monthly users.\nThe bill mandates annual third-party cybersecurity audits and requires platforms to maintain end-to-end encryption for user messaging, with specific judicial warrant exceptions.\nCivil liberties groups noted that while section 4(b) preserves warrant requirements for content inspection, section 9 creates new compliance logging obligations for metadata storage.\nIndustry representatives expressed concern regarding implementation costs for mid-sized providers, estimating compliance expenses at $1.2M annually per infrastructure cluster."
+      },
+      {
+        "id": "art-policy-802",
+        "sourceId": "policy_journal",
+        "publisher": "National Policy Journal",
+        "title": "Evaluating SB-802: Oversight Frameworks and Statutory Safeguards",
+        "author": "Dr. Arthur Sterling",
+        "url": "https://example.invalid/demo/evaluating-sb802-oversight-frameworks",
+        "publishedAt": "2026-07-12T14:00:00Z",
+        "extractedAt": "2026-07-12T14:05:00Z",
+        "snapshotHash": "c9f502d1a3e603",
+        "paragraphs": [
+          "Senate Bill 802 attempts to strike a regulatory balance between consumer privacy protections and platform cybersecurity standards.",
+          "Section 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate before any individual message content can be inspected.",
+          "Analyses from independent legal institutes suggest that claims regarding warrant-free content surveillance misinterpret the statutory language of Section 4(b)."
+        ],
+        "content": "Senate Bill 802 attempts to strike a regulatory balance between consumer privacy protections and platform cybersecurity standards.\nSection 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate before any individual message content can be inspected.\nAnalyses from independent legal institutes suggest that claims regarding warrant-free content surveillance misinterpret the statutory language of Section 4(b)."
+      }
+    ],
+    "primaryEvidence": [
+      {
+        "id": "ev-sb802-statute",
+        "title": "Senate Bill 802 Official Statutory Text (Section 4b & Section 9)",
+        "type": "statute",
+        "description": "Official legislative text of SB-802 as introduced in the Senate Commerce Committee.",
+        "provenanceUrl": "https://example.invalid/demo/sb802_text.pdf",
+        "directness": "direct",
+        "authenticityState": "verified",
+        "publishedAt": "2026-07-10T09:00:00Z",
+        "excerptText": "Section 4(b): Nothing in this title shall authorize administrative inspection of user communication content without a warrant issued by a magistrate upon probable cause pursuant to 18 U.S.C. § 2703."
+      },
+      {
+        "id": "ev-committee-hearing",
+        "title": "Senate Commerce Committee Public Hearing Transcript",
+        "type": "transcript",
+        "description": "Verbatim transcript of testimony from FTC Commissioners and Constitutional Law Experts.",
+        "provenanceUrl": "https://example.invalid/demo/2026-07-11-commerce.pdf",
+        "directness": "direct",
+        "authenticityState": "verified",
+        "publishedAt": "2026-07-11T16:00:00Z",
+        "excerptText": "Chairman Vance: Does Section 4(b) allow regulators to read private DMs?\nProf. Aris: No, Senator. Section 4(b) explicitly mandates a judicial warrant requirement for any message content access."
+      }
+    ],
+    "sourceDependencies": [
+      {
+        "sourcePair": [
+          "sentinel",
+          "techwire"
+        ],
+        "relationshipType": "independent_reporting",
+        "confidence": "High",
+        "notes": "Distinct reporting angles and separate primary source interviews."
+      },
+      {
+        "sourcePair": [
+          "techwire",
+          "policy_journal"
+        ],
+        "relationshipType": "independent_reporting",
+        "confidence": "High",
+        "notes": "Policy Journal provides academic analysis of statute text cited in TechWire."
+      }
+    ],
+    "omissions": [
+      {
+        "id": "om-sentinel-warrant-clause",
+        "articleId": "art-sentinel-802",
+        "missingClaim": "Section 4(b) of SB-802 explicitly requires a magistrate-issued judicial warrant before regulators can inspect private message content.",
+        "dimension": "Responsibility",
+        "rationale": "Omitting Section 4(b) misleads readers into believing regulators have unrestricted, warrant-free access to private communications.",
+        "supportingSources": [
+          "Tech Wire Today",
+          "National Policy Journal"
+        ],
+        "primaryEvidenceIds": [
+          "ev-sb802-statute",
+          "ev-committee-hearing"
+        ],
+        "knowableAtTimestamp": "2026-07-10T09:00:00Z",
+        "confidence": "High"
+      }
+    ],
+    "atomicClaims": [
+      {
+        "id": "claim-warrant-requirement",
+        "eventId": "event-sb802-privacy",
+        "normalizedClaim": "SB-802 preserves judicial warrant requirements for accessing private user message content.",
+        "attribution": "Senate Statutory Text / Section 4(b)",
+        "firstKnownTimestamp": "2026-07-10T09:00:00Z",
+        "state": "supported_by_direct_evidence",
+        "confidence": "High",
+        "evidenceItemIds": [
+          "ev-sb802-statute",
+          "ev-committee-hearing"
+        ],
+        "sourceWordings": [
+          {
+            "sourceId": "sentinel",
+            "sourceName": "The Daily Sentinel",
+            "excerpt": "Government regulators will forcibly inspect private digital platforms without judicial warrants...",
+            "articleTitle": "Draconian Cyber Scheme Siphons Freedom Under Veil of Security",
+            "articleUrl": "https://example.invalid/demo/draconian-cyber-scheme-sb802",
+            "publishedAt": "2026-07-12T10:30:00Z",
+            "pressure": "P4",
+            "mechanismIds": [
+              "epistemic_overstatement",
+              "presupposition"
+            ]
+          },
+          {
+            "sourceId": "techwire",
+            "sourceName": "Tech Wire Today",
+            "excerpt": "The bill mandates annual cybersecurity audits and requires platforms to maintain end-to-end encryption with specific warrant exceptions...",
+            "articleTitle": "Senate Bill 802 Proposes Technical Audit Requirements",
+            "articleUrl": "https://example.invalid/demo/sb802-technical-audit-requirements",
+            "publishedAt": "2026-07-12T11:15:00Z",
+            "pressure": "P1"
+          },
+          {
+            "sourceId": "policy_journal",
+            "sourceName": "National Policy Journal",
+            "excerpt": "Section 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate...",
+            "articleTitle": "Evaluating SB-802: Oversight Frameworks and Statutory Safeguards",
+            "articleUrl": "https://example.invalid/demo/evaluating-sb802-oversight-frameworks",
+            "publishedAt": "2026-07-12T14:00:00Z",
+            "pressure": "P1"
+          }
+        ]
+      }
+    ],
+    "versionHistory": [
+      {
+        "version": 1,
+        "timestamp": "2026-07-12T15:00:00Z",
+        "summary": "Initial synthetic demo event record compiled across reporting sources and statutory documents."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "fnd-sentinel-1a",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 21,
+        "endChar": 47,
+        "paragraphIndex": 0,
+        "text": "draconian, reckless scheme"
+      },
+      "mechanism": "loaded_language",
+      "family": "intrinsic_linguistic",
+      "pressure": "P3",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Contains strongly evaluative adjectives (\"draconian\", \"reckless\")."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z",
+      "nearMissCriteria": [
+        "Not an appeal to fear because it lacks explicit existential threat claims."
+      ],
+      "alternateInterpretation": "The author may consider \"scheme\" a descriptive synonym for a complex multi-part policy, though standard journalistic usage avoids evaluative modifiers."
+    },
+    {
+      "id": "fnd-sentinel-1b",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 21,
+        "endChar": 47,
+        "paragraphIndex": 0,
+        "text": "draconian, reckless scheme"
+      },
+      "mechanism": "euphemism_dysphemism",
+      "family": "intrinsic_linguistic",
+      "pressure": "P3",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Replaces neutral legislative terms (\"bill\", \"proposal\") with dysphemistic term \"scheme\"."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-2",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 79,
+        "endChar": 105,
+        "paragraphIndex": 0,
+        "text": "siphon individual freedoms"
+      },
+      "mechanism": "presupposition",
+      "family": "framing_epistemic",
+      "pressure": "P3",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Presupposes that statutory audit requirements inherently constitute the covert theft (\"siphoning\") of individual freedoms."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-3",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 139,
+        "endChar": 169,
+        "paragraphIndex": 0,
+        "text": "cynical veil of cyber security"
+      },
+      "mechanism": "loaded_language",
+      "family": "intrinsic_linguistic",
+      "pressure": "P2",
+      "confidence": "Medium",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Attributes malicious, duplicitous motive (\"cynical veil\") to legislative sponsors."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-4",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 111,
+        "endChar": 136,
+        "paragraphIndex": 1,
+        "text": "without judicial warrants"
+      },
+      "mechanism": "epistemic_overstatement",
+      "family": "framing_epistemic",
+      "pressure": "P4",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Asserts as absolute fact that inspections occur without judicial warrants.",
+        "Contradicted directly by statutory text Section 4(b) requiring a magistrate order for message content."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z",
+      "nearMissCriteria": [
+        "Metadata logging in Section 9 does not require content warrants, but target statement generalizes to all inspections."
+      ],
+      "alternateInterpretation": "The author may be referring specifically to Section 9 metadata logging, but fails to distinguish metadata from content inspection."
+    },
+    {
+      "id": "fnd-sentinel-5",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 29,
+        "endChar": 99,
+        "paragraphIndex": 2,
+        "text": "why they allowed this unprecedented surveillance apparatus to collapse"
+      },
+      "mechanism": "presupposition",
+      "family": "framing_epistemic",
+      "pressure": "P3",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Presupposes factively that officials \"allowed\" a collapse before establishing that any collapse occurred."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-6",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 28,
+        "endChar": 94,
+        "paragraphIndex": 3,
+        "text": "private communication will cease to exist in our country overnight"
+      },
+      "mechanism": "appeal_to_fear",
+      "family": "framing_epistemic",
+      "pressure": "P4",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Invokes catastrophic existential imagery (\"cease to exist... overnight\") without empirical basis."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-7",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 133,
+        "endChar": 198,
+        "paragraphIndex": 3,
+        "text": "inescapable binary between government monitoring or digital exile"
+      },
+      "mechanism": "false_dilemma",
+      "family": "framing_epistemic",
+      "pressure": "P4",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Forces a complex regulatory policy into an artificial binary choice between total monitoring or total digital exile."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    },
+    {
+      "id": "fnd-sentinel-8",
+      "articleId": "art-sentinel-802",
+      "span": {
+        "startChar": 0,
+        "endChar": 77,
+        "paragraphIndex": 4,
+        "text": "A single leaked memorandum demonstrates that the entire regulatory commission"
+      },
+      "mechanism": "hasty_generalization",
+      "family": "agency_causality",
+      "pressure": "P3",
+      "confidence": "High",
+      "state": "confirmed",
+      "voiceClass": "reporter",
+      "triggeredCriteria": [
+        "Extrapolates a broad conclusion about an entire commission from a single unverified memorandum."
+      ],
+      "taxonomyVersion": "1.0.0-alpha0",
+      "detectorVersion": "intrinsic-heuristic-v1.0",
+      "analysisRunId": "run-synthetic-demo-802",
+      "timestamp": "2026-07-12T10:36:00Z"
+    }
+  ]
+}

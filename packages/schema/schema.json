@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rhetorical-index.example/schema/instrument-alpha.json",
+  "title": "Rhetorical InDEX Instrument Alpha Contracts",
+  "type": "object",
+  "description": "Shared contract summary. TypeScript contracts in packages/schema/src/contracts.ts are the executable source for the current dependency-light web build.",
+  "properties": {
+    "pressureLevel": { "enum": ["P1", "P2", "P3", "P4"] },
+    "confidenceLevel": { "enum": ["Low", "Medium", "High"] },
+    "findingRule": { "const": "one finding = one mechanism on one exact span" }
+  },
+  "additionalProperties": true
+}

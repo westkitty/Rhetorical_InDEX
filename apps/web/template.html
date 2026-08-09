@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Rhetorical InDEX — Instrument Alpha Foundation</title>
+<style>__RI_STYLES__</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to scanner</a>
+<div id="liveRegion" class="sr-only" aria-live="polite"></div>
+<header class="topbar" id="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span><div><div class="brand-name">Rhetorical <em>InDEX</em></div><div class="brand-sub">Inspect the pressure inside the language.</div></div></div>
+  <nav class="nav" aria-label="Primary"><button class="nav-btn" data-view="scanner" aria-current="page">Scanner</button><button class="nav-btn" data-view="compare">Compare</button><button class="nav-btn" data-view="event">Event Record</button><button class="nav-btn" data-view="taxonomy">Taxonomy</button><button class="nav-btn" data-view="methodology">Method</button></nav>
+  <div class="top-actions"><button class="control-btn compact" data-action="load-demo">Demo</button><button class="primary-btn compact" data-action="open-paste">Paste article</button></div>
+</header>
+<div id="modeBanner" class="mode-banner fixture"></div>
+<main class="main" id="main">
+  <section class="view active" id="scannerView" aria-label="Article scanner">
+    <div class="wrap">
+      <div class="entry-strip"><div class="entry-copy"><strong>Article-first inspection</strong><span>The fixture proves the full journey; pasted text uses a bounded, unbenchmarked local preview.</span></div><div class="entry-actions"><button class="ghost-btn" data-action="load-demo">Restore fixture</button><button class="primary-btn" data-action="open-paste">Paste text</button></div></div>
+      <section class="paste-panel" id="pastePanel" hidden><label for="pasteText">Paste article text</label><p>No network request is made. The local preview emits candidates for four intrinsic mechanisms only and never invents comparison or omission findings.</p><textarea id="pasteText" rows="10" placeholder="Paste plain article text here..."></textarea><div class="paste-actions"><button class="ghost-btn" id="cancelPaste">Cancel</button><button class="primary-btn" id="runPaste">Run local preview</button></div></section>
+      <div class="scanner-grid">
+        <div class="scanner-main">
+          <div class="scanner-toolbar" aria-label="Lens controls"><div class="toolbar-group"><button class="control-btn" id="lensToggle" aria-pressed="true">Lens on</button><button class="control-btn" id="pinToggle" aria-pressed="false">Pin lens</button><button class="control-btn" id="revealToggle" aria-pressed="false">Reveal all</button><label class="range-wrap">Radius <input id="radiusControl" type="range" min="78" max="210" value="145" step="1"><span id="radiusValue">145 px</span></label></div><span class="status-pill" id="scanStatus" data-stage="complete">Intrinsic analysis available</span></div>
+          <div class="profile" id="profile"></div>
+          <article class="article-surface" id="articleSurface" aria-label="Article under inspection">
+            <div class="article-layer article-base" id="articleBase"></div>
+            <div class="article-layer scan-overlay" id="articleOverlay" aria-hidden="true"></div>
+            <div class="lens-ring" aria-hidden="true"></div>
+            <div class="lens-readout" id="lensReadout" hidden></div>
+            <button class="touch-lens-handle" id="touchLensHandle" type="button" aria-label="Drag rhetorical lens" hidden>⌖</button>
+          </article>
+        </div>
+        <aside class="side-rail" aria-label="Scanner support">
+          <section class="panel"><div class="panel-head"><span class="panel-title">Findings</span><span id="findingCount">0 / 0</span></div><div class="panel-body"><div class="finding-filters"><input id="findingSearch" type="search" placeholder="Search mechanism or excerpt" aria-label="Search findings"><select id="familyFilter" aria-label="Filter findings by family"><option value="all">All families</option><option value="intrinsic_linguistic">Intrinsic linguistic</option><option value="framing_epistemic">Framing / epistemic</option><option value="agency_causality">Agency / causality</option><option value="journalism_cross_doc">Journalism / cross-document</option></select><select id="confidenceFilter" aria-label="Filter findings by state"><option value="all">All findings</option><option value="confirmed">Confirmed</option><option value="candidate">Candidates</option></select></div><div class="findings-list" id="findingsList"></div></div></section>
+          <section class="panel"><div class="panel-head"><span class="panel-title">Accessibility & display</span></div><div class="panel-body"><label class="setting-row"><span>Reduced Motion</span><input id="reducedMotionToggle" type="checkbox"></label><label class="setting-row"><span>Pattern mode</span><input id="patternModeToggle" type="checkbox"></label><div class="shortcut-card" id="shortcutHelp"><p><kbd>L</kbd> Lens · <kbd>A</kbd> Reveal All · <kbd>J/K</kbd> findings · <kbd>C</kbd> Compare · <kbd>E</kbd> Event · <kbd>Esc</kbd> close</p></div></div></section>
+        </aside>
+      </div>
+    </div>
+  </section>
+  <section class="view" id="compareView" aria-label="Compare"></section>
+  <section class="view" id="eventView" aria-label="Forensic Event Record"></section>
+  <section class="view" id="taxonomyView" aria-label="Taxonomy"></section>
+  <section class="view" id="methodologyView" aria-label="Methodology"></section>
+</main>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="findingDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" inert><div class="drawer-head"><strong>Finding inspection</strong><button class="ghost-btn" id="drawerClose" type="button" aria-label="Close finding details">Close</button></div><div class="drawer-body" id="drawerBody"></div></aside>
+<script>window.RI_BOOTSTRAP=__RI_BOOTSTRAP__;</script>
+<script>__RI_APP__</script>
+</body>
+</html>

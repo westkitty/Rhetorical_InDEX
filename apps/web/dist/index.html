@@ -1,0 +1,954 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Rhetorical InDEX — Instrument Alpha Foundation</title>
+<style>:root{
+  --shell:#101313;--shell2:#181c1b;--shell3:#222725;--paper:#f3efe5;--paper2:#ebe5d8;--ink:#1d201e;--ink-soft:#5f625d;--chrome:#f7f1e7;--muted:#a9afa9;--line:rgba(255,255,255,.13);--paper-line:rgba(29,32,30,.17);--accent:#ff7d5b;--accent-deep:#a83e2a;--intrinsic:#c65048;--epistemic:#a56e12;--agency:#356f9c;--journalism:#26796f;--ok:#6da477;--warn:#cf973a;--danger:#c75c52;--shadow:0 22px 64px rgba(0,0,0,.28);--radius:18px;--ease:cubic-bezier(.2,.75,.25,1);--lens-x:390px;--lens-y:290px;--lens-r:145px;--topbar-h:68px
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;background:var(--shell);color:var(--chrome);font:16px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{color:inherit}a{color:inherit}::selection{background:rgba(255,125,91,.3)}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}.skip-link{position:fixed;z-index:200;left:12px;top:-80px;padding:.7rem 1rem;border-radius:10px;background:var(--paper);color:var(--ink)}.skip-link:focus{top:12px}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid rgba(255,125,91,.72);outline-offset:3px}
+.topbar{position:sticky;top:0;z-index:60;display:grid;grid-template-columns:minmax(240px,1fr) auto auto;gap:1rem;align-items:center;padding:.72rem 1rem;background:rgba(16,19,19,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:.75rem;min-width:0}.brand-mark{width:34px;height:34px;border:1px solid rgba(255,125,91,.56);border-radius:9px;padding:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}.brand-mark span{background:var(--accent);opacity:.82}.brand-mark span:nth-child(2),.brand-mark span:nth-child(6){opacity:.25}.brand-name{font-weight:800;letter-spacing:.01em}.brand-name em{font-style:normal;color:var(--accent)}.brand-sub{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nav,.top-actions{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.nav-btn,.control-btn,.ghost-btn,.primary-btn,.claim-chip{border:1px solid var(--line);border-radius:999px;background:transparent;padding:.52rem .78rem;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease)}.nav-btn:hover,.control-btn:hover,.ghost-btn:hover,.claim-chip:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.25)}.nav-btn[aria-current=page]{background:var(--chrome);color:var(--shell);border-color:var(--chrome)}.primary-btn{background:var(--accent);color:#28100a;border-color:var(--accent);font-weight:800}.primary-btn:hover{transform:translateY(-1px);background:#ff8b70}.ghost-btn{color:inherit}.compact{padding:.42rem .65rem;font-size:.8rem}
+.mode-banner{min-height:38px;padding:.45rem 1rem;display:flex;align-items:center;justify-content:center;gap:.6rem;border-bottom:1px solid var(--line);font-size:.78rem}.mode-banner strong{letter-spacing:.09em;font-size:.7rem}.mode-banner.fixture{background:rgba(255,125,91,.07);color:#ffd6cc}.mode-banner.preview{background:rgba(207,151,58,.09);color:#ffe2a5}.mode-banner span{color:var(--muted)}
+.main{overflow-x:clip}.view{display:none}.view.active{display:block}.wrap{width:min(1240px,calc(100% - 32px));margin:0 auto}.scanner-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:1.2rem;align-items:start;padding:1rem 0 4rem}.scanner-main{min-width:0}.scanner-toolbar{position:sticky;top:calc(var(--topbar-h) + 8px);z-index:25;display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.65rem .75rem;margin-bottom:.75rem;background:rgba(16,19,19,.94);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(9px)}.toolbar-group{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}.status-pill{display:inline-flex;align-items:center;gap:.45rem;padding:.36rem .58rem;border-radius:999px;border:1px solid var(--line);font-size:.75rem;color:var(--muted)}.status-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok)}.status-pill[data-stage=partial]::before{background:var(--warn)}.status-pill[data-stage=failed]::before{background:var(--danger)}.range-wrap{display:flex;align-items:center;gap:.45rem;color:var(--muted);font-size:.75rem}.range-wrap input{width:96px}
+.profile{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:.75rem 0}.profile-card{padding:.75rem .8rem;border-radius:14px;border:1px solid var(--line);background:var(--shell2);min-height:92px}.profile-card span{font-size:.69rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}.profile-card strong{display:block;margin:.2rem 0;font-size:1.28rem}.profile-card small{display:block;color:var(--muted);font-size:.73rem}
+.article-surface{position:relative;background:var(--paper);color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:20px;box-shadow:var(--shadow);overflow:visible;touch-action:pan-y}.article-layer{padding:clamp(1.35rem,4vw,3rem) clamp(1.2rem,6vw,4.35rem) 3.8rem}.article-base{position:relative;z-index:1}.scan-overlay{position:absolute;inset:0;z-index:3;pointer-events:none;clip-path:circle(var(--lens-r) at var(--lens-x) var(--lens-y));color:var(--ink);overflow:hidden}.scan-overlay .article-kicker,.scan-overlay .article-title,.scan-overlay .article-dek,.scan-overlay .article-meta{visibility:hidden}.scan-overlay .scan-plain{color:transparent}.article-kicker{margin-bottom:1rem;color:var(--accent-deep);font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.13em}.article-title{font:700 clamp(2rem,5vw,4rem)/.98 Georgia,"Times New Roman",serif;letter-spacing:-.035em;margin:0 0 .85rem}.article-dek{font:400 1.08rem/1.5 Georgia,"Times New Roman",serif;color:#555a54;max-width:56rem;margin:0 0 1.15rem}.article-meta{padding:.7rem 0;margin-bottom:1.8rem;border-top:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);font-size:.8rem;color:var(--ink-soft)}.article-copy{max-width:760px;margin:0 auto;font:400 clamp(1.03rem,1.5vw,1.17rem)/1.82 Georgia,"Times New Roman",serif}.article-copy p{margin:0 0 1.5em}.base-mark,.scan-mark{border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.base-mark{cursor:pointer;box-shadow:inset 0 -1px 0 rgba(29,32,30,.24)}.base-mark:hover,.base-mark:focus-visible,.base-mark.selected{box-shadow:inset 0 -2px 0 var(--accent)}.scan-mark{--family:var(--intrinsic)}.scan-mark.family-framing_epistemic{--family:var(--epistemic)}.scan-mark.family-agency_causality{--family:var(--agency)}.scan-mark.family-journalism_cross_doc{--family:var(--journalism)}.scan-mark.p1{background:color-mix(in srgb,var(--family) 17%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--family) 50%,transparent)}.scan-mark.p2{background:color-mix(in srgb,var(--family) 28%,transparent);box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--family) 64%,transparent)}.scan-mark.p3{background:color-mix(in srgb,var(--family) 42%,transparent);box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--family) 84%,transparent)}.scan-mark.p4{background:color-mix(in srgb,var(--family) 58%,transparent);box-shadow:inset 0 -4px 0 var(--family)}.scan-mark.selected{outline:2px solid var(--ink);outline-offset:2px}.lens-ring{position:absolute;z-index:5;left:var(--lens-x);top:var(--lens-y);width:calc(var(--lens-r) * 2);height:calc(var(--lens-r) * 2);transform:translate(-50%,-50%);border:1px solid rgba(29,32,30,.45);border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.58),0 12px 36px rgba(0,0,0,.18);pointer-events:none;opacity:1}.article-surface.lens-off:not(.reveal-all) .scan-overlay{clip-path:circle(0 at -100px -100px)}.article-surface.lens-off .lens-ring,.article-surface.reveal-all .lens-ring{opacity:0}.article-surface.reveal-all .scan-overlay{clip-path:inset(0)}
+.lens-readout{position:absolute;z-index:7;width:min(228px,calc(100% - 24px));padding:.4rem;display:grid;gap:.3rem;background:rgba(16,19,19,.96);border:1px solid rgba(255,255,255,.18);box-shadow:0 10px 30px rgba(0,0,0,.22);border-radius:12px;color:#fff}.lens-readout[hidden]{display:none}.lens-readout button{display:flex;justify-content:space-between;gap:.5rem;border:0;background:transparent;color:inherit;text-align:left;padding:.35rem .4rem;border-radius:7px;cursor:pointer}.lens-readout button:hover{background:rgba(255,255,255,.08)}.lens-readout strong{font-size:.72rem}.lens-readout span{font-size:.68rem;color:#cbd0cb;white-space:nowrap}
+.touch-lens-handle{position:sticky;z-index:10;bottom:16px;margin:-64px 14px 12px auto;width:56px;height:56px;border-radius:50%;border:1px solid rgba(29,32,30,.28);background:var(--paper);color:var(--ink);box-shadow:0 8px 25px rgba(0,0,0,.2);cursor:grab;touch-action:none;font-size:1.3rem}.touch-lens-handle:active{cursor:grabbing}
+.side-rail{position:sticky;top:calc(var(--topbar-h) + 10px);display:grid;gap:.8rem}.panel{border:1px solid var(--line);background:var(--shell2);border-radius:16px;overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.75rem .85rem;border-bottom:1px solid var(--line)}.panel-title{font-size:.82rem;font-weight:800}.panel-body{padding:.8rem}.finding-filters{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}.finding-filters input{grid-column:1/-1}.finding-filters input,.finding-filters select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--shell3);color:var(--chrome);padding:.55rem .6rem}.findings-list{display:grid;gap:.4rem;max-height:52vh;overflow:auto}.finding-row{width:100%;text-align:left;border:1px solid var(--line);background:transparent;color:inherit;border-radius:11px;padding:.62rem .68rem;cursor:pointer}.finding-row:hover,.finding-row.selected{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.26)}.finding-row-top{display:flex;justify-content:space-between;gap:.5rem;font-size:.78rem}.finding-row-top span{color:var(--muted);white-space:nowrap}.finding-excerpt{display:block;margin-top:.2rem;color:#d9ddd9;font:400 .8rem/1.36 Georgia,serif}.finding-origin{display:block;margin-top:.25rem;color:var(--muted);font-size:.68rem}.empty-note{color:var(--muted);font-size:.8rem}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:.7rem;font-size:.8rem;padding:.45rem 0}.setting-row+ .setting-row{border-top:1px solid var(--line)}.setting-row input{accent-color:var(--accent)}.shortcut-card{font-size:.75rem;color:var(--muted)}.shortcut-card kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:.05rem .28rem;color:var(--chrome)}
+.entry-strip{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin:.5rem 0 .85rem;padding:.72rem .8rem;border:1px solid var(--line);border-radius:14px;background:var(--shell2)}.entry-copy strong{display:block}.entry-copy span{display:block;color:var(--muted);font-size:.77rem}.entry-actions{display:flex;gap:.45rem;flex-wrap:wrap}.paste-panel{padding:.85rem;margin-bottom:.8rem;border:1px solid rgba(207,151,58,.35);border-radius:14px;background:rgba(207,151,58,.07)}.paste-panel[hidden]{display:none}.paste-panel label{display:block;font-weight:800;margin-bottom:.45rem}.paste-panel p{color:var(--muted);font-size:.78rem}.paste-actions{display:flex;justify-content:flex-end;gap:.45rem;margin-top:.5rem}
+.drawer{position:fixed;right:0;top:0;bottom:0;z-index:100;width:min(480px,94vw);background:var(--paper);color:var(--ink);box-shadow:-24px 0 70px rgba(0,0,0,.4);transform:translateX(105%);transition:transform .24s var(--ease);overflow:auto}.drawer.open{transform:none}.drawer-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem;background:rgba(243,239,229,.96);border-bottom:1px solid var(--paper-line);backdrop-filter:blur(8px)}.drawer-body{padding:1.15rem}.drawer-body h2{font:700 1.75rem/1.1 Georgia,serif;margin:.35rem 0}.drawer-body blockquote{margin:.8rem 0;padding:.65rem .8rem;border-left:4px solid var(--accent);background:rgba(0,0,0,.035);font:600 1.03rem/1.5 Georgia,serif}.drawer-metrics{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1rem 0}.drawer-metrics div{border:1px solid var(--paper-line);border-radius:10px;padding:.65rem}.drawer-metrics span{display:block;font-size:.72rem;color:var(--ink-soft)}.drawer-metrics strong{font-size:1.1rem}.drawer details{border-top:1px solid var(--paper-line);padding:.7rem 0}.drawer summary{cursor:pointer;font-weight:800}.drawer p,.drawer li{color:#464b46}.drawer-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}.voice-chip,.evidence-state{display:inline-flex;border:1px solid var(--paper-line);border-radius:999px;padding:.2rem .45rem;font-size:.68rem;color:var(--ink-soft)}.scrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.42);opacity:0;pointer-events:none;transition:opacity .2s var(--ease)}.scrim.open{opacity:1;pointer-events:auto}
+.section-shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:1.4rem 0 4rem}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:1rem;padding-bottom:1rem;margin-bottom:1rem;border-bottom:1px solid var(--line)}.section-heading h1,.unavailable-card h1{font:720 clamp(2rem,4vw,3.6rem)/1 Georgia,serif;letter-spacing:-.03em;margin:.35rem 0}.section-heading p,.unavailable-card p{color:var(--muted);max-width:58rem}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:.72rem;color:var(--accent);font-weight:800}.claim-picker{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}.claim-chip{max-width:420px;text-align:left}.claim-chip.active{background:var(--chrome);color:var(--shell);border-color:var(--chrome)}.claim-card,.panel-card,.taxonomy-card,.wording-card,.method-grid article,.unavailable-card{border:1px solid var(--line);border-radius:16px;background:var(--shell2);padding:1rem}.claim-card h2,.panel-card h3,.ledger-row h3{font-family:Georgia,serif}.framing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin:1rem 0}.wording-card blockquote,.ledger-row blockquote{margin:.7rem 0;font:600 1rem/1.5 Georgia,serif}.wording-head{display:flex;justify-content:space-between;gap:.5rem}.wording-card small{color:var(--muted)}.compare-lower,.ledger-grid,.method-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}.ledger-row{padding:.8rem 0;border-bottom:1px solid var(--line)}.ledger-row:last-child{border-bottom:0}.evidence-state.verified{color:#b8e8c0;border-color:rgba(109,164,119,.55)}.evidence-state.disputed{color:#ffd2c7;border-color:rgba(199,92,82,.55)}.taxonomy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}.taxonomy-card{border-top:3px solid var(--intrinsic)}.taxonomy-card.family-framing_epistemic{border-top-color:var(--epistemic)}.taxonomy-card.family-agency_causality{border-top-color:var(--agency)}.taxonomy-card.family-journalism_cross_doc{border-top-color:var(--journalism)}.taxonomy-title span{display:block;color:var(--muted);font-size:.7rem}.taxonomy-title strong{display:block;font-family:Georgia,serif;font-size:1.15rem}.taxonomy-card p,.taxonomy-card li{color:#d7dcd7;font-size:.84rem}.unavailable-card{max-width:760px;margin:4rem auto;text-align:center}.methodology article p{color:var(--muted)}
+.pattern-mode .scan-mark.family-intrinsic_linguistic{outline:1px solid var(--intrinsic)}.pattern-mode .scan-mark.family-framing_epistemic{outline:1px dashed var(--epistemic)}.pattern-mode .scan-mark.family-agency_causality{outline:2px dotted var(--agency)}.pattern-mode .scan-mark.family-journalism_cross_doc{outline:3px double var(--journalism)}
+.user-reduced-motion *, .user-reduced-motion *::before,.user-reduced-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+@media(max-width:1100px){.topbar{grid-template-columns:1fr auto}.nav{grid-column:1/-1;justify-content:center}.scanner-grid{grid-template-columns:1fr}.side-rail{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.scanner-toolbar{top:calc(var(--topbar-h) + 8px)}.framing-grid,.taxonomy-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.wrap,.section-shell{width:min(100% - 20px,100%)}.topbar{padding:.65rem .7rem}.brand-sub{display:none}.top-actions{justify-content:end}.scanner-grid{padding-top:.65rem}.profile{grid-template-columns:1fr 1fr}.side-rail{grid-template-columns:1fr}.scanner-toolbar{position:static}.article-layer{padding:1.3rem 1.05rem 3.6rem}.article-title{font-size:2.2rem}.framing-grid,.compare-lower,.ledger-grid,.taxonomy-grid,.method-grid{grid-template-columns:1fr}.section-heading{display:block}.section-heading .ghost-btn{margin-top:.8rem}.drawer{top:auto;left:0;right:0;width:100%;height:min(78vh,720px);transform:translateY(105%);border-radius:18px 18px 0 0}.drawer.open{transform:none}.entry-strip{align-items:flex-start;flex-direction:column}.finding-filters{grid-template-columns:1fr}.profile-card{min-height:82px}}
+@media(pointer:coarse){.touch-lens-handle{display:block!important}.control-btn,.nav-btn,.primary-btn,.ghost-btn,.claim-chip{min-height:44px}.finding-row{min-height:48px}}
+@media(pointer:fine){.touch-lens-handle{display:none!important}}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to scanner</a>
+<div id="liveRegion" class="sr-only" aria-live="polite"></div>
+<header class="topbar" id="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span><div><div class="brand-name">Rhetorical <em>InDEX</em></div><div class="brand-sub">Inspect the pressure inside the language.</div></div></div>
+  <nav class="nav" aria-label="Primary"><button class="nav-btn" data-view="scanner" aria-current="page">Scanner</button><button class="nav-btn" data-view="compare">Compare</button><button class="nav-btn" data-view="event">Event Record</button><button class="nav-btn" data-view="taxonomy">Taxonomy</button><button class="nav-btn" data-view="methodology">Method</button></nav>
+  <div class="top-actions"><button class="control-btn compact" data-action="load-demo">Demo</button><button class="primary-btn compact" data-action="open-paste">Paste article</button></div>
+</header>
+<div id="modeBanner" class="mode-banner fixture"></div>
+<main class="main" id="main">
+  <section class="view active" id="scannerView" aria-label="Article scanner">
+    <div class="wrap">
+      <div class="entry-strip"><div class="entry-copy"><strong>Article-first inspection</strong><span>The fixture proves the full journey; pasted text uses a bounded, unbenchmarked local preview.</span></div><div class="entry-actions"><button class="ghost-btn" data-action="load-demo">Restore fixture</button><button class="primary-btn" data-action="open-paste">Paste text</button></div></div>
+      <section class="paste-panel" id="pastePanel" hidden><label for="pasteText">Paste article text</label><p>No network request is made. The local preview emits candidates for four intrinsic mechanisms only and never invents comparison or omission findings.</p><textarea id="pasteText" rows="10" placeholder="Paste plain article text here..."></textarea><div class="paste-actions"><button class="ghost-btn" id="cancelPaste">Cancel</button><button class="primary-btn" id="runPaste">Run local preview</button></div></section>
+      <div class="scanner-grid">
+        <div class="scanner-main">
+          <div class="scanner-toolbar" aria-label="Lens controls"><div class="toolbar-group"><button class="control-btn" id="lensToggle" aria-pressed="true">Lens on</button><button class="control-btn" id="pinToggle" aria-pressed="false">Pin lens</button><button class="control-btn" id="revealToggle" aria-pressed="false">Reveal all</button><label class="range-wrap">Radius <input id="radiusControl" type="range" min="78" max="210" value="145" step="1"><span id="radiusValue">145 px</span></label></div><span class="status-pill" id="scanStatus" data-stage="complete">Intrinsic analysis available</span></div>
+          <div class="profile" id="profile"></div>
+          <article class="article-surface" id="articleSurface" aria-label="Article under inspection">
+            <div class="article-layer article-base" id="articleBase"></div>
+            <div class="article-layer scan-overlay" id="articleOverlay" aria-hidden="true"></div>
+            <div class="lens-ring" aria-hidden="true"></div>
+            <div class="lens-readout" id="lensReadout" hidden></div>
+            <button class="touch-lens-handle" id="touchLensHandle" type="button" aria-label="Drag rhetorical lens" hidden>⌖</button>
+          </article>
+        </div>
+        <aside class="side-rail" aria-label="Scanner support">
+          <section class="panel"><div class="panel-head"><span class="panel-title">Findings</span><span id="findingCount">0 / 0</span></div><div class="panel-body"><div class="finding-filters"><input id="findingSearch" type="search" placeholder="Search mechanism or excerpt" aria-label="Search findings"><select id="familyFilter" aria-label="Filter findings by family"><option value="all">All families</option><option value="intrinsic_linguistic">Intrinsic linguistic</option><option value="framing_epistemic">Framing / epistemic</option><option value="agency_causality">Agency / causality</option><option value="journalism_cross_doc">Journalism / cross-document</option></select><select id="confidenceFilter" aria-label="Filter findings by state"><option value="all">All findings</option><option value="confirmed">Confirmed</option><option value="candidate">Candidates</option></select></div><div class="findings-list" id="findingsList"></div></div></section>
+          <section class="panel"><div class="panel-head"><span class="panel-title">Accessibility & display</span></div><div class="panel-body"><label class="setting-row"><span>Reduced Motion</span><input id="reducedMotionToggle" type="checkbox"></label><label class="setting-row"><span>Pattern mode</span><input id="patternModeToggle" type="checkbox"></label><div class="shortcut-card" id="shortcutHelp"><p><kbd>L</kbd> Lens · <kbd>A</kbd> Reveal All · <kbd>J/K</kbd> findings · <kbd>C</kbd> Compare · <kbd>E</kbd> Event · <kbd>Esc</kbd> close</p></div></div></section>
+        </aside>
+      </div>
+    </div>
+  </section>
+  <section class="view" id="compareView" aria-label="Compare"></section>
+  <section class="view" id="eventView" aria-label="Forensic Event Record"></section>
+  <section class="view" id="taxonomyView" aria-label="Taxonomy"></section>
+  <section class="view" id="methodologyView" aria-label="Methodology"></section>
+</main>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="findingDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" inert><div class="drawer-head"><strong>Finding inspection</strong><button class="ghost-btn" id="drawerClose" type="button" aria-label="Close finding details">Close</button></div><div class="drawer-body" id="drawerBody"></div></aside>
+<script>window.RI_BOOTSTRAP={"taxonomy":{"version":"1.0.0-alpha0","mechanisms":[{"id":"loaded_language","canonicalName":"Loaded language","family":"intrinsic_linguistic","definition":"Words, phrases, or epithets chosen specifically to evoke strong emotional valuation (positive or negative) rather than describing observable action or state neutrally.","positiveCriteria":["Contains strongly evaluative adjectives or verbs with heavy emotional connotation.","Replaces descriptive terms with value-laden equivalents (e.g., \"draconian\" instead of \"strict\", \"scheme\" instead of \"plan\").","Encourages the reader to form a moral or emotional judgment prior to evaluating evidence."],"exclusionCriteria":["Standard technical or legal terms with precise definitions (e.g., \"felony\", \"non-compliance\").","Direct verbatim quotes from an external actor where the emotional tone belongs strictly to the quoted speaker.","Factual descriptions of extreme physical events (e.g., \"catastrophic earthquake\")."],"pressureRubric":{"p1":"Single mildly emotive modifier that slightly colors description.","p2":"Sustained use of evaluative epithets throughout a paragraph.","p3":"Highly charged framing words that directly steer moral interpretation of the subject.","p4":"Dominant inflammatory or dehumanizing terminology dominating sentence structure."},"requiredContext":"Sentence and immediate paragraph context.","confusableNeighbors":[{"neighborId":"euphemism_dysphemism","distinction":"Loaded language applies broad emotional valuation; dysphemism specifically degrades a term to diminish status."},{"neighborId":"appeal_to_fear","distinction":"Loaded language covers any emotional valuation; appeal to fear specifically invokes threat, panic, or existential danger."}],"positiveExamples":[{"text":"The administration unveiled a reckless, draconian scheme to siphon funds from essential services.","rationale":"Uses \"reckless\", \"draconian\", \"scheme\", and \"siphon\" to preload negative moral valuation.","pressure":"P3"}],"negativeExamples":[{"text":"The administration introduced a legislative proposal to reallocate municipal tax revenues.","whyNot":"Uses neutral descriptive terms without emotional preloading."}],"version":"1.0.0-alpha0"},{"id":"euphemism_dysphemism","canonicalName":"Euphemism / dysphemism","family":"intrinsic_linguistic","definition":"Substitution of an agreeable or neutral expression for one that may offend or suggest something unpleasant (euphemism), or substitution of a derogatory or harsh term for a neutral one (dysphemism).","positiveCriteria":["Deliberate word substitution designed to soften severity (euphemism) or heighten distaste (dysphemism).","Masks real-world impact through abstract bureaucratized vocabulary (e.g., \"collateral damage\", \"rightsizing\")."],"exclusionCriteria":["Accepted legal or scientific taxonomy (e.g., \"mortality rate\").","Ordinary idiomatic language without intent to obfuscate or demean."],"pressureRubric":{"p1":"Minor polite phrasing.","p2":"Noticeable softening or harshening of an objectionable action.","p3":"Systematic substitution masking physical reality or human consequence.","p4":"Orwellian language substitution that completely masks violence or severe material loss."},"requiredContext":"Sentence context and real-world semantic referent.","confusableNeighbors":[{"neighborId":"loaded_language","distinction":"Dysphemism specifically degrades a recognized term; loaded language adds evaluative tone."}],"positiveExamples":[{"text":"The facility underwent an operational optimization resulting in personnel detachment.","rationale":"Euphemistically masks mass layoffs.","pressure":"P3"}],"negativeExamples":[{"text":"The company laid off 500 employees due to declining quarterly revenues.","whyNot":"Directly states the real-world action."}],"version":"1.0.0-alpha0"},{"id":"presupposition","canonicalName":"Presupposition","family":"framing_epistemic","definition":"Embedding an unproven, controversial, or value-laden assumption inside a sentence structure such that accepting or evaluating the main clause implicitly accepts the unstated premise as established fact.","positiveCriteria":["Employs factive verbs, change-of-state verbs, or subordinate clauses that embed an unverified claim (e.g., \"When will the senator acknowledge his failure?\").","Presents disputed causation or guilt as an assumed background fact.","Prevents the reader from evaluating the premise independently without dismantling the sentence structure."],"exclusionCriteria":["Presupposing universally accepted background facts (e.g., \"Since the earth orbits the sun...\").","Subordinate clauses that explicitly cite verified evidence."],"pressureRubric":{"p1":"Minor embedded assumption regarding background timeline.","p2":"Presupposing a disputed state of mind or motive.","p3":"Presupposing guilt, illegality, or systemic deception in a major news statement.","p4":"Layered presuppositions that render neutral reading impossible without complete sentence restructuring."},"requiredContext":"Sentence syntax and presupposed premise verification.","confusableNeighbors":[{"neighborId":"epistemic_overstatement","distinction":"Presupposition embeds the assumption as unstated background syntax; epistemic overstatement explicitly asserts absolute certainty."}],"positiveExamples":[{"text":"Officials refused to explain why they allowed the security perimeter to collapse.","rationale":"Presupposes as fact that officials \"allowed\" a \"collapse\" before assessing perimeter state.","pressure":"P3"}],"negativeExamples":[{"text":"Officials were questioned regarding whether security protocols were breached during the incident.","whyNot":"Frames the breach as a question subject to investigation."}],"version":"1.0.0-alpha0"},{"id":"epistemic_overstatement","canonicalName":"Epistemic overstatement","family":"framing_epistemic","definition":"Asserting absolute certainty, universal consensus, or definitive knowledge regarding claims that remain contested, probabilistic, preliminary, or supported only by partial evidence.","positiveCriteria":["Uses absolute epistemic boosters (e.g., \"undeniably\", \"beyond doubt\", \"proves definitively\", \"everyone agrees\").","Presents preliminary investigation findings as settled facts.","Omits standard epistemic qualifications (e.g., \"alleged\", \"preliminary\", \"according to initial reports\")."],"exclusionCriteria":["Statements regarding mathematically proven or physically verified facts (e.g., \"Water boils at 100°C at sea level\").","Direct quotes where certainty belongs to the quoted source."],"pressureRubric":{"p1":"Mild certainty booster in a non-critical sentence.","p2":"Presenting strong likelihood as absolute fact without qualification.","p3":"Asserting definitive intent or guilt during an active, unresolved investigation.","p4":"Universal proclamation of absolute consensus masking major expert division or missing evidence."},"requiredContext":"Document claim state vs available evidence.","confusableNeighbors":[{"neighborId":"hasty_generalization","distinction":"Epistemic overstatement focuses on certainty level; hasty generalization focuses on overextending scope from insufficient samples."}],"positiveExamples":[{"text":"This newly released memo undeniably proves the entire department engaged in systemic cover-ups.","rationale":"Asserts absolute proof from a single unverified memo.","pressure":"P4"}],"negativeExamples":[{"text":"Investigators stated the newly released memo provides significant evidence regarding departmental oversight.","whyNot":"Uses proper attribution and appropriate evidentiary framing."}],"version":"1.0.0-alpha0"},{"id":"agent_suppression","canonicalName":"Agent suppression","family":"agency_causality","definition":"Structuring grammatical syntax (via passive voice, nominalization, or intransitive verbs) to conceal, omit, or obscure the human or institutional actor responsible for an action, decision, or outcome.","positiveCriteria":["Passive voice construction missing \"by [agent]\" phrase for significant harm, decision, or policy (e.g., \"Mistakes were made\", \"Shots were fired\").","Nominalization transforming active verbs into abstract nouns (e.g., \"The occurrence of casualties\").","Assigning agency to inanimate objects or abstract concepts (e.g., \"The policy resulted in suffering\")."],"exclusionCriteria":["Agent is genuinely unknown after reasonable investigation.","Agent was explicitly named in the preceding sentence and suppression is standard grammatical ellipsis."],"pressureRubric":{"p1":"Minor passive phrasing where agent is obvious in context.","p2":"Passive framing of a controversial institutional decision.","p3":"Concealing the responsible actor in acts of physical force, corruption, or major fiscal loss.","p4":"Systematic grammatical suppression across an entire report hiding key state or corporate actors."},"requiredContext":"Sentence syntax and preceding sentence context.","confusableNeighbors":[{"neighborId":"material_omission","distinction":"Agent suppression is grammatical syntax within a sentence; material omission is the cross-document absence of a contextual fact."}],"positiveExamples":[{"text":"Gas canisters were discharged into the crowd as teargas filled the public square.","rationale":"Hides who ordered and discharged the teargas canisters into the crowd.","pressure":"P3"}],"negativeExamples":[{"text":"Riot police officers discharged teargas canisters into the public square on commander orders.","whyNot":"Explicitly identifies the acting agents and chain of authority."}],"version":"1.0.0-alpha0"},{"id":"appeal_to_fear","canonicalName":"Appeal to fear","family":"framing_epistemic","definition":"Leveraging exaggerated, catastrophic, or existential threat language to provoke fear, panic, or urgency, compelling acceptance of a claim or policy without logical or empirical proportion.","positiveCriteria":["Warns of imminent collapse, disaster, invasion, or terror without contextual baselines or probability.","Uses vivid threat imagery to bypass rational analysis.","Presents a policy debate in terms of immediate survival vs destruction."],"exclusionCriteria":["Reporting verified, quantified emergency warnings from official scientific bodies (e.g., hurricane landfall warnings).","Quoting a public speaker warning of consequences, when attributed properly."],"pressureRubric":{"p1":"Mild warning tone.","p2":"Heightened threat vocabulary regarding economic or social changes.","p3":"Catastrophic predictions presented as imminent without comparative evidence.","p4":"Existential panic framing intended to paralyze critical appraisal."},"requiredContext":"Paragraph context and baseline risk metrics.","confusableNeighbors":[{"neighborId":"loaded_language","distinction":"Appeal to fear specifically targets threat and existential panic; loaded language covers general emotional valuation."}],"positiveExamples":[{"text":"If this ordinance passes, violent lawlessness will devour our suburban neighborhoods overnight.","rationale":"Uses catastrophic hyperbole to evoke panic without empirical backing.","pressure":"P4"}],"negativeExamples":[{"text":"Opponents argue that reducing patrol budgets could lead to increased response times in residential areas.","whyNot":"States the argument neutrally with specific hypothetical outcomes."}],"version":"1.0.0-alpha0"},{"id":"false_dilemma","canonicalName":"False dilemma","family":"framing_epistemic","definition":"Artificially forcing a complex situation into a binary choice between two extreme options, obscuring viable intermediate solutions, nuances, or alternative approaches.","positiveCriteria":["Presents options as \"either [disaster] or [our solution]\".","Excludes documented compromise proposals or alternative policy options.","Framed as an inescapable binary choice."],"exclusionCriteria":["Situations with genuine logical or legal binary states (e.g., guilty or not guilty under statute).","Explicitly listing other options in surrounding text."],"pressureRubric":{"p1":"Simplified contrast between two main views.","p2":"Praming a debate as a stark choice while ignoring known middle paths.","p3":"Forcing acceptance of a radical policy by framing the only alternative as total collapse.","p4":"Totalizing binary trap framing opposition as destruction."},"requiredContext":"Full article framing and known policy alternatives.","confusableNeighbors":[{"neighborId":"hasty_generalization","distinction":"False dilemma restricts choices to two extremes; hasty generalization overextends an sample."}],"positiveExamples":[{"text":"Lawmakers must either fully fund this surveillance bill immediately or surrender our city to organized criminal syndicates.","rationale":"Constrains a multi-faceted policy discussion into an artificial binary.","pressure":"P4"}],"negativeExamples":[{"text":"Lawmakers are debating multiple proposals, ranging from increased surveillance funding to community intervention programs.","whyNot":"Acknowledges the spectrum of policy options."}],"version":"1.0.0-alpha0"},{"id":"hasty_generalization","canonicalName":"Hasty generalization","family":"agency_causality","definition":"Drawing broad, sweeping conclusions about an entire class, demographic, organization, or system based on an insufficient, isolated, or unrepresentative sample of evidence.","positiveCriteria":["Extrapolates a single anecdote or isolated incident into a universal trend (e.g., \"One worker cheated, proving the entire welfare system is corrupt\").","Uses universal quantifiers (\"all\", \"every\", \"always\", \"never\") based on limited observations."],"exclusionCriteria":["Conclusions supported by statistically representative peer-reviewed datasets.","Explicitly qualified statements acknowledging sample boundaries."],"pressureRubric":{"p1":"Slight over-generalization in informal phrasing.","p2":"Treating a small survey as definitive proof of national sentiment.","p3":"Condemning an entire group or institution based on a single bad actor.","p4":"Systematic demonization or stereotyping rooted in isolated incidents."},"requiredContext":"Sample size vs scope of assertion.","confusableNeighbors":[{"neighborId":"epistemic_overstatement","distinction":"Hasty generalization overextends scope from a small sample; epistemic overstatement overstates degree of certainty."}],"positiveExamples":[{"text":"A video showing one protester throwing a bottle demonstrates that the entire movement is bent on violent destruction.","rationale":"Extrapolates one individual action to an entire movement.","pressure":"P3"}],"negativeExamples":[{"text":"While the majority of the protest remained peaceful, police reported isolated incidents of vandalism by individuals near the plaza.","whyNot":"Distinguishes isolated acts from the broader group behavior."}],"version":"1.0.0-alpha0"},{"id":"causal_overclaim","canonicalName":"Causal overclaim","family":"agency_causality","definition":"Asserting a direct, definitive cause-and-effect relationship between two events or variables when only correlation, temporal sequence (post hoc ergo propter hoc), or weak association exists.","positiveCriteria":["Uses definitive causal verbs (\"caused\", \"triggered\", \"led directly to\") for complex multi-factorial phenomena.","Conflates correlation with causation.","Ignores major confounding variables or baseline trends."],"exclusionCriteria":["Causation established by rigorous experimental control or accepted scientific consensus.","Phrasing that frames causation as a hypothesis."],"pressureRubric":{"p1":"Mild simplification of a multi-step process.","p2":"Attributing an economic trend entirely to a single recent speech.","p3":"Directly blaming a single policy for complex multi-year crises without evidence.","p4":"Fabricated causal chain overriding known primary factors."},"requiredContext":"Claim vs multi-variable reality.","confusableNeighbors":[{"neighborId":"hasty_generalization","distinction":"Causal overclaim asserts unsupported causation; hasty generalization asserts unsupported scope."}],"positiveExamples":[{"text":"The new mayor took office in January, directly causing the 15% drop in violent crime over the spring.","rationale":"Attributes complex crime rate changes directly to mayor tenure without controlling for seasonal or macroeconomic factors.","pressure":"P3"}],"negativeExamples":[{"text":"Crime rates declined by 15% during the spring; criminologists attribute the drop to a combination of seasonal factors, new policing strategies, and economic stabilization.","whyNot":"Reflects multi-factorial causality accurately."}],"version":"1.0.0-alpha0"},{"id":"headline_body_mismatch","canonicalName":"Headline/body mismatch","family":"journalism_cross_doc","definition":"A headline or title that asserts a far stronger, more sensational, or fundamentally different claim than what is supported or qualified within the body of the article itself.","positiveCriteria":["Headline makes an absolute assertion while the article body heavily qualifies, contradicts, or admits lack of evidence for it.","Headline uses inflammatory loaded terms absent from the reporting text.","Headline attributes guilt or definitive action while body states \"alleged\" or \"under investigation\"."],"exclusionCriteria":["Standard headline compression that accurately reflects the core thesis without distorting meaning."],"pressureRubric":{"p1":"Slightly sensational headline phrasing.","p2":"Headline removes key qualifications present in the first paragraph.","p3":"Headline asserts definitive guilt or breakthrough contradicted by body text.","p4":"Fabricated clickbait headline directly inverted by the actual reporting."},"requiredContext":"Comparison between headline and full article body.","confusableNeighbors":[{"neighborId":"epistemic_overstatement","distinction":"Headline mismatch is specific to headline vs body discrepancy; epistemic overstatement occurs within text."}],"positiveExamples":[{"text":"Headline: \"LEAK PROVES ELECTION FRAUD IN COUNTY\"\nBody: \"A audit of 100 ballots revealed minor clerical errors that investigators say did not affect the certified outcome.\"","rationale":"Headline asserts proven fraud while body confirms minor clerical errors.","pressure":"P4"}],"negativeExamples":[{"text":"Headline: \"Audit Finds Minor Clerical Errors in County Election\"\nBody: \"A routine audit of 100 ballots revealed minor clerical errors...\"","whyNot":"Headline accurately matches the body content."}],"version":"1.0.0-alpha0"},{"id":"selective_quotation","canonicalName":"Selective quotation","family":"journalism_cross_doc","definition":"Extracting a snippet of spoken or written text out of its surrounding context in a way that reverses, distorts, or exaggerates the speaker's intended meaning.","positiveCriteria":["Omits crucial qualifying clauses in the quote (e.g., removing \"if\" or \"unless\").","Frames a hypothetical scenario described by the speaker as an actual plan.","Combines non-contiguous phrases into a single quotes block altering sense."],"exclusionCriteria":["Standard grammatical truncation using ellipses that preserves core meaning.","Verbatim quotes that preserve full contextual intent."],"pressureRubric":{"p1":"Minor truncation omitting conversational filler.","p2":"Omitting a polite caveat that alters tone.","p3":"Truncating a quote to make a opponent sound like they endorse a position they opposed.","p4":"Fabricated quote synthesis fundamentally reversing speaker meaning."},"requiredContext":"Target quote vs full transcript/source text.","confusableNeighbors":[{"neighborId":"loaded_language","distinction":"Selective quotation alters speaker intent through truncation; loaded language uses evaluative wording."}],"positiveExamples":[{"text":"Mayor said: \"We will close schools...\" [omitting \"...if blizzard conditions exceed 12 inches\"].","rationale":"Removes the conditional clause to present a contingent plan as a definite decision.","pressure":"P3"}],"negativeExamples":[{"text":"Mayor said: \"We will close schools if blizzard conditions exceed 12 inches.\"","whyNot":"Preserves the conditional nature of the statement."}],"version":"1.0.0-alpha0"},{"id":"material_omission","canonicalName":"Material omission","family":"journalism_cross_doc","definition":"The absence from a news article of a verifiable, highly relevant fact, baseline figure, timeline element, or counter-evidence that was knowable at publication and whose inclusion would materially alter a reader's interpretation of event, cause, or responsibility.","positiveCriteria":["Target article omits key contextual fact present in peer reporting or primary records.","The missing fact alters agency, scale, cause, or timeline interpretation.","Fact was knowable at the article's publication timestamp."],"exclusionCriteria":["Fact occurred or emerged after publication timestamp (this is a \"Later development\").","Fact is semantically expressed elsewhere in the article using different words.","Fact is minor background detail irrelevant to core claim."],"pressureRubric":{"p1":"Omission of secondary background statistic.","p2":"Omission of official response or counter-statement.","p3":"Omission of primary evidence directly contradicting the central narrative.","p4":"Systematic deletion of baseline denominators, timeline sequences, or primary documents altering fundamental reality."},"requiredContext":"Target article vs peer coverage, primary evidence, and publication timestamp.","confusableNeighbors":[{"neighborId":"agent_suppression","distinction":"Material omission is the absence of a fact across document context; agent suppression is grammatical hiding within a sentence."}],"positiveExamples":[{"text":"Article reports a 50% spike in municipal debt without mentioning that the city annexed two new districts comprising 60% of the regional population.","rationale":"Omits the population baseline denominator, creating a false impression of fiscal reckless spending.","pressure":"P4"}],"negativeExamples":[{"text":"Article reports a 50% spike in municipal debt, noting that debt per capita remained flat following the annexation of two adjacent districts.","whyNot":"Includes the essential baseline denominator."}],"version":"1.0.0-alpha0"}]},"fixture":{"mode":"synthetic_fixture","event":{"id":"event-sb802-privacy","title":"Senate Bill 802 Digital Platform Security & Privacy Oversight (Synthetic Fixture Demo)","description":"Legislative debate over SB-802, a bill establishing mandatory encryption standards and regulatory oversight for large digital service providers.","timeWindow":{"start":"2026-07-10T08:00:00Z","end":"2026-07-15T18:00:00Z"},"memberArticleIds":["art-sentinel-802","art-techwire-802","art-policy-802"],"articles":[{"id":"art-sentinel-802","sourceId":"sentinel","publisher":"The Daily Sentinel","title":"Draconian Cyber Scheme Siphons Freedom Under Veil of Security","author":"Marcus Vance","url":"https://example.invalid/demo/draconian-cyber-scheme-sb802","publishedAt":"2026-07-12T10:30:00Z","extractedAt":"2026-07-12T10:35:00Z","snapshotHash":"a7f39b12d8e401","paragraphs":["Lawmakers unveiled a draconian, reckless scheme yesterday that will inevitably siphon individual freedoms from ordinary citizens under the cynical veil of cyber security.","Under the provisions of Senate Bill 802, government regulators will forcibly inspect private digital platforms without judicial warrants, effectively dismantling fundamental constitutional protections.","Officials refused to explain why they allowed this unprecedented surveillance apparatus to collapse civil liberties, leaving millions vulnerable to immediate state overreach.","If this legislation passes, private communication will cease to exist in our country overnight, forcing law-abiding citizens into an inescapable binary between government monitoring or digital exile.","A single leaked memorandum demonstrates that the entire regulatory commission is bent on unchecked institutional power."],"content":"Lawmakers unveiled a draconian, reckless scheme yesterday that will inevitably siphon individual freedoms from ordinary citizens under the cynical veil of cyber security.\nUnder the provisions of Senate Bill 802, government regulators will forcibly inspect private digital platforms without judicial warrants, effectively dismantling fundamental constitutional protections.\nOfficials refused to explain why they allowed this unprecedented surveillance apparatus to collapse civil liberties, leaving millions vulnerable to immediate state overreach.\nIf this legislation passes, private communication will cease to exist in our country overnight, forcing law-abiding citizens into an inescapable binary between government monitoring or digital exile.\nA single leaked memorandum demonstrates that the entire regulatory commission is bent on unchecked institutional power."},{"id":"art-techwire-802","sourceId":"techwire","publisher":"Tech Wire Today","title":"Senate Bill 802 Proposes Technical Audit Requirements for Data Platforms","author":"Elena Rostova","url":"https://example.invalid/demo/sb802-technical-audit-requirements","publishedAt":"2026-07-12T11:15:00Z","extractedAt":"2026-07-12T11:20:00Z","snapshotHash":"b8e401c9f2d502","paragraphs":["The Senate Commerce Committee released the full text of Senate Bill 802 today, establishing technical reporting benchmarks for platforms with over 20 million active monthly users.","The bill mandates annual third-party cybersecurity audits and requires platforms to maintain end-to-end encryption for user messaging, with specific judicial warrant exceptions.","Civil liberties groups noted that while section 4(b) preserves warrant requirements for content inspection, section 9 creates new compliance logging obligations for metadata storage.","Industry representatives expressed concern regarding implementation costs for mid-sized providers, estimating compliance expenses at $1.2M annually per infrastructure cluster."],"content":"The Senate Commerce Committee released the full text of Senate Bill 802 today, establishing technical reporting benchmarks for platforms with over 20 million active monthly users.\nThe bill mandates annual third-party cybersecurity audits and requires platforms to maintain end-to-end encryption for user messaging, with specific judicial warrant exceptions.\nCivil liberties groups noted that while section 4(b) preserves warrant requirements for content inspection, section 9 creates new compliance logging obligations for metadata storage.\nIndustry representatives expressed concern regarding implementation costs for mid-sized providers, estimating compliance expenses at $1.2M annually per infrastructure cluster."},{"id":"art-policy-802","sourceId":"policy_journal","publisher":"National Policy Journal","title":"Evaluating SB-802: Oversight Frameworks and Statutory Safeguards","author":"Dr. Arthur Sterling","url":"https://example.invalid/demo/evaluating-sb802-oversight-frameworks","publishedAt":"2026-07-12T14:00:00Z","extractedAt":"2026-07-12T14:05:00Z","snapshotHash":"c9f502d1a3e603","paragraphs":["Senate Bill 802 attempts to strike a regulatory balance between consumer privacy protections and platform cybersecurity standards.","Section 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate before any individual message content can be inspected.","Analyses from independent legal institutes suggest that claims regarding warrant-free content surveillance misinterpret the statutory language of Section 4(b)."],"content":"Senate Bill 802 attempts to strike a regulatory balance between consumer privacy protections and platform cybersecurity standards.\nSection 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate before any individual message content can be inspected.\nAnalyses from independent legal institutes suggest that claims regarding warrant-free content surveillance misinterpret the statutory language of Section 4(b)."}],"primaryEvidence":[{"id":"ev-sb802-statute","title":"Senate Bill 802 Official Statutory Text (Section 4b & Section 9)","type":"statute","description":"Official legislative text of SB-802 as introduced in the Senate Commerce Committee.","provenanceUrl":"https://example.invalid/demo/sb802_text.pdf","directness":"direct","authenticityState":"verified","publishedAt":"2026-07-10T09:00:00Z","excerptText":"Section 4(b): Nothing in this title shall authorize administrative inspection of user communication content without a warrant issued by a magistrate upon probable cause pursuant to 18 U.S.C. § 2703."},{"id":"ev-committee-hearing","title":"Senate Commerce Committee Public Hearing Transcript","type":"transcript","description":"Verbatim transcript of testimony from FTC Commissioners and Constitutional Law Experts.","provenanceUrl":"https://example.invalid/demo/2026-07-11-commerce.pdf","directness":"direct","authenticityState":"verified","publishedAt":"2026-07-11T16:00:00Z","excerptText":"Chairman Vance: Does Section 4(b) allow regulators to read private DMs?\nProf. Aris: No, Senator. Section 4(b) explicitly mandates a judicial warrant requirement for any message content access."}],"sourceDependencies":[{"sourcePair":["sentinel","techwire"],"relationshipType":"independent_reporting","confidence":"High","notes":"Distinct reporting angles and separate primary source interviews."},{"sourcePair":["techwire","policy_journal"],"relationshipType":"independent_reporting","confidence":"High","notes":"Policy Journal provides academic analysis of statute text cited in TechWire."}],"omissions":[{"id":"om-sentinel-warrant-clause","articleId":"art-sentinel-802","missingClaim":"Section 4(b) of SB-802 explicitly requires a magistrate-issued judicial warrant before regulators can inspect private message content.","dimension":"Responsibility","rationale":"Omitting Section 4(b) misleads readers into believing regulators have unrestricted, warrant-free access to private communications.","supportingSources":["Tech Wire Today","National Policy Journal"],"primaryEvidenceIds":["ev-sb802-statute","ev-committee-hearing"],"knowableAtTimestamp":"2026-07-10T09:00:00Z","confidence":"High"}],"atomicClaims":[{"id":"claim-warrant-requirement","eventId":"event-sb802-privacy","normalizedClaim":"SB-802 preserves judicial warrant requirements for accessing private user message content.","attribution":"Senate Statutory Text / Section 4(b)","firstKnownTimestamp":"2026-07-10T09:00:00Z","state":"supported_by_direct_evidence","confidence":"High","evidenceItemIds":["ev-sb802-statute","ev-committee-hearing"],"sourceWordings":[{"sourceId":"sentinel","sourceName":"The Daily Sentinel","excerpt":"Government regulators will forcibly inspect private digital platforms without judicial warrants...","articleTitle":"Draconian Cyber Scheme Siphons Freedom Under Veil of Security","articleUrl":"https://example.invalid/demo/draconian-cyber-scheme-sb802","publishedAt":"2026-07-12T10:30:00Z","pressure":"P4","mechanismIds":["epistemic_overstatement","presupposition"]},{"sourceId":"techwire","sourceName":"Tech Wire Today","excerpt":"The bill mandates annual cybersecurity audits and requires platforms to maintain end-to-end encryption with specific warrant exceptions...","articleTitle":"Senate Bill 802 Proposes Technical Audit Requirements","articleUrl":"https://example.invalid/demo/sb802-technical-audit-requirements","publishedAt":"2026-07-12T11:15:00Z","pressure":"P1"},{"sourceId":"policy_journal","sourceName":"National Policy Journal","excerpt":"Section 4(b) explicitly restricts regulatory audits to structural security controls, requiring an order from a federal magistrate...","articleTitle":"Evaluating SB-802: Oversight Frameworks and Statutory Safeguards","articleUrl":"https://example.invalid/demo/evaluating-sb802-oversight-frameworks","publishedAt":"2026-07-12T14:00:00Z","pressure":"P1"}]}],"versionHistory":[{"version":1,"timestamp":"2026-07-12T15:00:00Z","summary":"Initial synthetic demo event record compiled across reporting sources and statutory documents."}]},"findings":[{"id":"fnd-sentinel-1a","articleId":"art-sentinel-802","span":{"startChar":21,"endChar":47,"paragraphIndex":0,"text":"draconian, reckless scheme"},"mechanism":"loaded_language","family":"intrinsic_linguistic","pressure":"P3","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Contains strongly evaluative adjectives (\"draconian\", \"reckless\")."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z","nearMissCriteria":["Not an appeal to fear because it lacks explicit existential threat claims."],"alternateInterpretation":"The author may consider \"scheme\" a descriptive synonym for a complex multi-part policy, though standard journalistic usage avoids evaluative modifiers."},{"id":"fnd-sentinel-1b","articleId":"art-sentinel-802","span":{"startChar":21,"endChar":47,"paragraphIndex":0,"text":"draconian, reckless scheme"},"mechanism":"euphemism_dysphemism","family":"intrinsic_linguistic","pressure":"P3","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Replaces neutral legislative terms (\"bill\", \"proposal\") with dysphemistic term \"scheme\"."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-2","articleId":"art-sentinel-802","span":{"startChar":79,"endChar":105,"paragraphIndex":0,"text":"siphon individual freedoms"},"mechanism":"presupposition","family":"framing_epistemic","pressure":"P3","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Presupposes that statutory audit requirements inherently constitute the covert theft (\"siphoning\") of individual freedoms."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-3","articleId":"art-sentinel-802","span":{"startChar":139,"endChar":169,"paragraphIndex":0,"text":"cynical veil of cyber security"},"mechanism":"loaded_language","family":"intrinsic_linguistic","pressure":"P2","confidence":"Medium","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Attributes malicious, duplicitous motive (\"cynical veil\") to legislative sponsors."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-4","articleId":"art-sentinel-802","span":{"startChar":111,"endChar":136,"paragraphIndex":1,"text":"without judicial warrants"},"mechanism":"epistemic_overstatement","family":"framing_epistemic","pressure":"P4","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Asserts as absolute fact that inspections occur without judicial warrants.","Contradicted directly by statutory text Section 4(b) requiring a magistrate order for message content."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z","nearMissCriteria":["Metadata logging in Section 9 does not require content warrants, but target statement generalizes to all inspections."],"alternateInterpretation":"The author may be referring specifically to Section 9 metadata logging, but fails to distinguish metadata from content inspection."},{"id":"fnd-sentinel-5","articleId":"art-sentinel-802","span":{"startChar":29,"endChar":99,"paragraphIndex":2,"text":"why they allowed this unprecedented surveillance apparatus to collapse"},"mechanism":"presupposition","family":"framing_epistemic","pressure":"P3","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Presupposes factively that officials \"allowed\" a collapse before establishing that any collapse occurred."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-6","articleId":"art-sentinel-802","span":{"startChar":28,"endChar":94,"paragraphIndex":3,"text":"private communication will cease to exist in our country overnight"},"mechanism":"appeal_to_fear","family":"framing_epistemic","pressure":"P4","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Invokes catastrophic existential imagery (\"cease to exist... overnight\") without empirical basis."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-7","articleId":"art-sentinel-802","span":{"startChar":133,"endChar":198,"paragraphIndex":3,"text":"inescapable binary between government monitoring or digital exile"},"mechanism":"false_dilemma","family":"framing_epistemic","pressure":"P4","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Forces a complex regulatory policy into an artificial binary choice between total monitoring or total digital exile."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"},{"id":"fnd-sentinel-8","articleId":"art-sentinel-802","span":{"startChar":0,"endChar":77,"paragraphIndex":4,"text":"A single leaked memorandum demonstrates that the entire regulatory commission"},"mechanism":"hasty_generalization","family":"agency_causality","pressure":"P3","confidence":"High","state":"confirmed","voiceClass":"reporter","triggeredCriteria":["Extrapolates a broad conclusion about an entire commission from a single unverified memorandum."],"taxonomyVersion":"1.0.0-alpha0","detectorVersion":"intrinsic-heuristic-v1.0","analysisRunId":"run-synthetic-demo-802","timestamp":"2026-07-12T10:36:00Z"}]}};</script>
+<script>"use strict";
+(() => {
+    'use strict';
+    const DATA = window.RI_BOOTSTRAP;
+    const TAXONOMY = new Map(DATA.taxonomy.mechanisms.map((m) => [m.id, m]));
+    const fixtureEvent = DATA.fixture.event;
+    const fixtureArticle = fixtureEvent.articles[0];
+    const fixtureFindings = DATA.fixture.findings;
+    const state = {
+        view: 'scanner',
+        mode: 'synthetic_fixture',
+        article: fixtureArticle,
+        findings: fixtureFindings,
+        event: fixtureEvent,
+        analysisRun: makeAnalysisRun('synthetic_fixture', fixtureArticle, fixtureFindings, 'fixture-reviewed-v1', 'complete'),
+        selectedFindingId: null,
+        selectedClaimId: fixtureEvent.atomicClaims[0]?.id || null,
+        filters: { family: 'all', confidence: 'all', search: '' },
+        lens: { enabled: true, pinned: false, revealAll: false, x: 390, y: 290, radius: 145, dragging: false, activePointerId: null },
+        reducedMotion: loadBooleanSetting('ri-reduced-motion', false),
+        patternMode: loadBooleanSetting('ri-pattern-mode', false),
+        drawerOpen: false,
+    };
+    const el = (id) => {
+        const node = document.getElementById(id);
+        if (!node)
+            throw new Error(`Missing required element #${id}`);
+        return node;
+    };
+    const scannerView = el('scannerView');
+    const compareView = el('compareView');
+    const eventView = el('eventView');
+    const taxonomyView = el('taxonomyView');
+    const methodologyView = el('methodologyView');
+    const articleSurface = el('articleSurface');
+    const articleBase = el('articleBase');
+    const articleOverlay = el('articleOverlay');
+    const lensReadout = el('lensReadout');
+    const drawer = el('findingDrawer');
+    const scrim = el('scrim');
+    const liveRegion = el('liveRegion');
+    const pastePanel = el('pastePanel');
+    const pasteText = el('pasteText');
+    const touchHandle = el('touchLensHandle');
+    let lastFocus = null;
+    let touchTapStart = null;
+    let topbarObserver = null;
+    function loadBooleanSetting(key, fallback) {
+        try {
+            const value = localStorage.getItem(key);
+            if (value === null)
+                return fallback;
+            return value === 'true';
+        }
+        catch {
+            return fallback;
+        }
+    }
+    function saveSettings() {
+        try {
+            localStorage.setItem('ri-reduced-motion', String(state.reducedMotion));
+            localStorage.setItem('ri-pattern-mode', String(state.patternMode));
+        }
+        catch {
+        }
+    }
+    function esc(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    function fnv1a(text) {
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < text.length; i += 1) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193) >>> 0;
+        }
+        return `fnv1a-${hash.toString(16).padStart(8, '0')}`;
+    }
+    function makeAnalysisRun(mode, article, findings, detectorVersion, stage) {
+        const metrics = calculateMetrics(article, findings);
+        return {
+            runId: `${mode}-${fnv1a(article.content)}-${Date.now()}`,
+            scanMode: mode,
+            articleSnapshotHash: fnv1a(article.content),
+            taxonomyVersion: DATA.taxonomy.version,
+            detectorVersion,
+            timestamp: new Date().toISOString(),
+            stage,
+            findingsCount: findings.length,
+            peakPressure: metrics.peakPressure,
+            confirmedDensity: metrics.confirmedDensity,
+            candidateDensity: metrics.candidateDensity,
+            processedParagraphs: article.paragraphs.map((_, index) => index),
+            unprocessedParagraphs: [],
+        };
+    }
+    function pressureNumber(level) {
+        return Number(level.slice(1));
+    }
+    function confidenceClass(confidence) {
+        return confidence.toLowerCase();
+    }
+    function familyLabel(family) {
+        const labels = {
+            intrinsic_linguistic: 'Intrinsic linguistic',
+            framing_epistemic: 'Framing / epistemic',
+            agency_causality: 'Agency / causality',
+            journalism_cross_doc: 'Journalism / cross-document',
+        };
+        return labels[family];
+    }
+    function visibleFindings() {
+        const q = state.filters.search.trim().toLowerCase();
+        return state.findings.filter((finding) => {
+            if (state.filters.family !== 'all' && finding.family !== state.filters.family)
+                return false;
+            if (state.filters.confidence === 'confirmed' && finding.state !== 'confirmed')
+                return false;
+            if (state.filters.confidence === 'candidate' && finding.state !== 'candidate')
+                return false;
+            if (q) {
+                const mechanism = TAXONOMY.get(finding.mechanism)?.canonicalName || finding.mechanism;
+                if (!mechanism.toLowerCase().includes(q) && !finding.span.text.toLowerCase().includes(q))
+                    return false;
+            }
+            return true;
+        });
+    }
+    function spansForParagraph(paragraphIndex, findings = visibleFindings()) {
+        return findings
+            .filter((finding) => finding.span.paragraphIndex === paragraphIndex)
+            .sort((a, b) => a.span.startChar - b.span.startChar || a.span.endChar - b.span.endChar);
+    }
+    function segmentParagraph(text, findings) {
+        const valid = findings.filter((finding) => finding.span.startChar >= 0 &&
+            finding.span.endChar > finding.span.startChar &&
+            finding.span.endChar <= text.length &&
+            text.slice(finding.span.startChar, finding.span.endChar) === finding.span.text);
+        const points = new Set([0, text.length]);
+        valid.forEach((finding) => {
+            points.add(finding.span.startChar);
+            points.add(finding.span.endChar);
+        });
+        const sorted = [...points].sort((a, b) => a - b);
+        const segments = [];
+        for (let i = 0; i < sorted.length - 1; i += 1) {
+            const start = sorted[i];
+            const end = sorted[i + 1];
+            if (end <= start)
+                continue;
+            const active = valid.filter((finding) => finding.span.startChar <= start && finding.span.endChar >= end);
+            segments.push({ start, end, text: text.slice(start, end), findings: active });
+        }
+        return segments;
+    }
+    function renderParagraphSegments(text, paragraphIndex, overlay) {
+        return segmentParagraph(text, spansForParagraph(paragraphIndex)).map((segment, segmentIndex) => {
+            const safeText = esc(segment.text);
+            if (!segment.findings.length)
+                return overlay ? `<span class="scan-plain">${safeText}</span>` : safeText;
+            const ids = segment.findings.map((finding) => finding.id).join(',');
+            const primary = [...segment.findings].sort((a, b) => pressureNumber(b.pressure) - pressureNumber(a.pressure))[0];
+            const selected = segment.findings.some((finding) => finding.id === state.selectedFindingId);
+            if (overlay) {
+                return `<span class="scan-mark family-${esc(primary.family)} p${pressureNumber(primary.pressure)} ${selected ? 'selected' : ''}" data-finding-ids="${esc(ids)}" data-segment="${paragraphIndex}-${segmentIndex}">${safeText}</span>`;
+            }
+            const aria = segment.findings.map((finding) => TAXONOMY.get(finding.mechanism)?.canonicalName || finding.mechanism).join(' and ');
+            return `<span class="base-mark ${selected ? 'selected' : ''}" tabindex="0" role="button" data-finding-ids="${esc(ids)}" data-segment="${paragraphIndex}-${segmentIndex}" aria-label="Inspect ${esc(aria)} finding">${safeText}</span>`;
+        }).join('');
+    }
+    function articleMarkup(overlay) {
+        const article = state.article;
+        const paragraphs = article.paragraphs.map((paragraph, index) => `<p data-paragraph-index="${index}" ${overlay ? '' : `id="paragraph-${index}"`}>${renderParagraphSegments(paragraph, index, overlay)}</p>`).join('');
+        return `
+      <div class="article-kicker">${state.mode === 'synthetic_fixture' ? 'Synthetic fixture demonstration' : 'User-provided text · local preview'}</div>
+      <h1 class="article-title">${esc(article.title)}</h1>
+      <p class="article-dek">${state.mode === 'synthetic_fixture' ? 'A fictional event used to demonstrate rhetorical inspection without presenting live reporting.' : 'Unbenchmarked local rules produce candidates only. Comparison and Event Record remain unavailable.'}</p>
+      <div class="article-meta">${esc(article.publisher)}${article.author ? ` · ${esc(article.author)}` : ''}</div>
+      <div class="article-copy">${paragraphs}</div>
+    `;
+    }
+    function renderArticle() {
+        articleBase.innerHTML = articleMarkup(false);
+        articleOverlay.innerHTML = articleMarkup(true);
+        bindBaseMarks();
+        requestAnimationFrame(() => {
+            applyLensBounds();
+            renderLens();
+            verifyOverlayGeometry(false);
+        });
+    }
+    function bindBaseMarks() {
+        articleBase.querySelectorAll('.base-mark').forEach((mark) => {
+            const open = () => {
+                const ids = (mark.dataset.findingIds || '').split(',').filter(Boolean);
+                if (ids[0])
+                    openFinding(ids[0], ids);
+            };
+            mark.addEventListener('click', open);
+            mark.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    open();
+                }
+            });
+        });
+    }
+    function verifyOverlayGeometry(announce) {
+        const baseMarks = [...articleBase.querySelectorAll('.base-mark')];
+        const overlayMarks = [...articleOverlay.querySelectorAll('.scan-mark')];
+        if (baseMarks.length !== overlayMarks.length)
+            return false;
+        let maxDelta = 0;
+        for (let i = 0; i < baseMarks.length; i += 1) {
+            const a = baseMarks[i].getBoundingClientRect();
+            const b = overlayMarks[i].getBoundingClientRect();
+            maxDelta = Math.max(maxDelta, Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
+        }
+        const ok = maxDelta <= 0.75;
+        articleSurface.dataset.overlayAligned = String(ok);
+        articleSurface.dataset.overlayMaxDelta = maxDelta.toFixed(2);
+        if (announce && !ok)
+            liveRegion.textContent = 'Annotation overlay alignment needs attention.';
+        return ok;
+    }
+    function calculateCoverage(article, findings, stateFilter) {
+        const total = article.paragraphs.reduce((sum, paragraph) => sum + paragraph.length, 0) || 1;
+        let covered = 0;
+        article.paragraphs.forEach((paragraph, paragraphIndex) => {
+            const intervals = findings
+                .filter((finding) => finding.state === stateFilter && finding.span.paragraphIndex === paragraphIndex)
+                .map((finding) => [finding.span.startChar, finding.span.endChar])
+                .sort((a, b) => a[0] - b[0]);
+            let cursorStart = -1;
+            let cursorEnd = -1;
+            intervals.forEach(([start, end]) => {
+                const s = Math.max(0, Math.min(paragraph.length, start));
+                const e = Math.max(s, Math.min(paragraph.length, end));
+                if (cursorStart < 0) {
+                    cursorStart = s;
+                    cursorEnd = e;
+                }
+                else if (s <= cursorEnd) {
+                    cursorEnd = Math.max(cursorEnd, e);
+                }
+                else {
+                    covered += cursorEnd - cursorStart;
+                    cursorStart = s;
+                    cursorEnd = e;
+                }
+            });
+            if (cursorStart >= 0)
+                covered += cursorEnd - cursorStart;
+        });
+        return Math.round((covered / total) * 1000) / 10;
+    }
+    function calculateMetrics(article, findings) {
+        const peak = findings.reduce((max, finding) => Math.max(max, pressureNumber(finding.pressure)), 1);
+        const distribution = [1, 2, 3, 4].map((level) => findings.filter((finding) => pressureNumber(finding.pressure) === level).length);
+        return {
+            peakPressure: `P${peak}`,
+            confirmedDensity: calculateCoverage(article, findings, 'confirmed'),
+            candidateDensity: calculateCoverage(article, findings, 'candidate'),
+            distribution,
+        };
+    }
+    function renderProfile() {
+        const metrics = calculateMetrics(state.article, state.findings);
+        const confirmed = state.findings.filter((finding) => finding.state === 'confirmed').length;
+        const candidates = state.findings.filter((finding) => finding.state === 'candidate').length;
+        el('profile').innerHTML = `
+      <div class="profile-card"><span>Peak pressure</span><strong>${metrics.peakPressure}</strong><small>Pressure, not factuality</small></div>
+      <div class="profile-card"><span>Confirmed density</span><strong>${metrics.confirmedDensity}%</strong><small>${confirmed} confirmed findings</small></div>
+      <div class="profile-card"><span>Candidate density</span><strong>${metrics.candidateDensity}%</strong><small>${candidates} candidates remain visible</small></div>
+      <div class="profile-card"><span>P1–P4 findings</span><strong>${metrics.distribution.join(' · ')}</strong><small>Counts, not a master score</small></div>
+    `;
+    }
+    function renderSelectionState() {
+        document.querySelectorAll('[data-finding]').forEach((node) => node.classList.toggle('selected', node.dataset.finding === state.selectedFindingId));
+        articleBase.querySelectorAll('.base-mark').forEach((mark) => mark.classList.toggle('selected', !!state.selectedFindingId && (mark.dataset.findingIds || '').split(',').includes(state.selectedFindingId)));
+        articleOverlay.querySelectorAll('.scan-mark').forEach((mark) => mark.classList.toggle('selected', !!state.selectedFindingId && (mark.dataset.findingIds || '').split(',').includes(state.selectedFindingId)));
+    }
+    function renderFindings() {
+        const findings = visibleFindings();
+        el('findingCount').textContent = `${findings.length} / ${state.findings.length}`;
+        el('findingsList').innerHTML = findings.length ? findings.map((finding) => {
+            const mechanism = TAXONOMY.get(finding.mechanism);
+            return `<button class="finding-row ${finding.id === state.selectedFindingId ? 'selected' : ''}" data-finding="${esc(finding.id)}">
+        <span class="finding-row-top"><strong>${esc(mechanism?.canonicalName || finding.mechanism)}</strong><span>${finding.pressure} · ${esc(finding.confidence)}</span></span>
+        <span class="finding-excerpt">“${esc(finding.span.text)}”</span>
+        <span class="finding-origin">${finding.state === 'candidate' ? 'Candidate' : 'Confirmed'} · ${esc(familyLabel(finding.family))}</span>
+      </button>`;
+        }).join('') : `<p class="empty-note">No findings match the current filters.</p>`;
+        el('findingsList').querySelectorAll('[data-finding]').forEach((button) => {
+            button.addEventListener('click', () => openFinding(button.dataset.finding || ''));
+        });
+    }
+    function renderFilters() {
+        const family = el('familyFilter');
+        const confidence = el('confidenceFilter');
+        const search = el('findingSearch');
+        family.value = state.filters.family;
+        confidence.value = state.filters.confidence;
+        search.value = state.filters.search;
+    }
+    function renderControls() {
+        const lensToggle = el('lensToggle');
+        const pinToggle = el('pinToggle');
+        const revealToggle = el('revealToggle');
+        lensToggle.setAttribute('aria-pressed', String(state.lens.enabled));
+        pinToggle.setAttribute('aria-pressed', String(state.lens.pinned));
+        revealToggle.setAttribute('aria-pressed', String(state.lens.revealAll));
+        lensToggle.textContent = state.lens.enabled ? 'Lens on' : 'Lens off';
+        pinToggle.textContent = state.lens.pinned ? 'Lens pinned' : 'Pin lens';
+        revealToggle.textContent = state.lens.revealAll ? 'Hide full overlay' : 'Reveal all';
+        el('radiusControl').value = String(state.lens.radius);
+        el('radiusValue').textContent = `${Math.round(state.lens.radius)} px`;
+        el('reducedMotionToggle').checked = state.reducedMotion;
+        el('patternModeToggle').checked = state.patternMode;
+        document.body.classList.toggle('user-reduced-motion', state.reducedMotion);
+        document.body.classList.toggle('pattern-mode', state.patternMode);
+        touchHandle.hidden = !isCoarsePointer();
+    }
+    function renderModeBanner() {
+        const banner = el('modeBanner');
+        if (state.mode === 'synthetic_fixture') {
+            banner.className = 'mode-banner fixture';
+            banner.innerHTML = `<strong>SYNTHETIC FIXTURE</strong><span>Fictional cross-document material · full Compare and Event Record available.</span>`;
+        }
+        else {
+            banner.className = 'mode-banner preview';
+            banner.innerHTML = `<strong>LOCAL PREVIEW — UNBENCHMARKED</strong><span>Four conservative intrinsic heuristics · candidates only · no live fact checking or cross-document inference.</span>`;
+        }
+    }
+    function renderScanStatus() {
+        const status = el('scanStatus');
+        status.textContent = state.analysisRun.stage === 'partial' ? 'Partial intrinsic scan' : state.analysisRun.stage === 'failed' ? 'Scan failed' : 'Intrinsic analysis available';
+        status.dataset.stage = state.analysisRun.stage;
+    }
+    function renderLens() {
+        const lens = state.lens;
+        articleSurface.style.setProperty('--lens-x', `${lens.x}px`);
+        articleSurface.style.setProperty('--lens-y', `${lens.y}px`);
+        articleSurface.style.setProperty('--lens-r', `${lens.radius}px`);
+        articleSurface.classList.toggle('lens-off', !lens.enabled);
+        articleSurface.classList.toggle('reveal-all', lens.revealAll);
+        articleSurface.classList.toggle('lens-live', lens.enabled && !lens.revealAll);
+        articleSurface.dataset.dragging = String(lens.dragging);
+        articleSurface.dataset.activePointer = lens.activePointerId === null ? '' : String(lens.activePointerId);
+        renderLensReadout();
+    }
+    function renderLensReadout() {
+        if (!state.lens.enabled || state.lens.revealAll) {
+            lensReadout.hidden = true;
+            return;
+        }
+        const surfaceRect = articleSurface.getBoundingClientRect();
+        const centerX = surfaceRect.left + state.lens.x;
+        const centerY = surfaceRect.top + state.lens.y;
+        const hits = visibleFindings().filter((finding) => {
+            const selector = `.base-mark[data-finding-ids~="${CSS.escape(finding.id)}"]`;
+            const candidates = [...articleBase.querySelectorAll('.base-mark')].filter((mark) => (mark.dataset.findingIds || '').split(',').includes(finding.id));
+            return candidates.some((mark) => {
+                const rect = mark.getBoundingClientRect();
+                const closestX = Math.max(rect.left, Math.min(centerX, rect.right));
+                const closestY = Math.max(rect.top, Math.min(centerY, rect.bottom));
+                const dx = centerX - closestX;
+                const dy = centerY - closestY;
+                return dx * dx + dy * dy <= state.lens.radius * state.lens.radius;
+            });
+        });
+        if (!hits.length) {
+            lensReadout.hidden = true;
+            return;
+        }
+        lensReadout.hidden = false;
+        lensReadout.innerHTML = hits.slice(0, 4).map((finding) => {
+            const name = TAXONOMY.get(finding.mechanism)?.canonicalName || finding.mechanism;
+            return `<button type="button" data-lens-finding="${esc(finding.id)}"><strong>${esc(name)}</strong><span>${finding.pressure} · ${esc(finding.confidence)}</span></button>`;
+        }).join('');
+        const left = Math.max(12, Math.min(articleSurface.clientWidth - 236, state.lens.x + state.lens.radius * 0.56));
+        const top = Math.max(12, Math.min(articleSurface.scrollHeight - 110, state.lens.y - state.lens.radius * 0.6));
+        lensReadout.style.left = `${left}px`;
+        lensReadout.style.top = `${top}px`;
+        lensReadout.querySelectorAll('[data-lens-finding]').forEach((button) => {
+            button.addEventListener('click', () => openFinding(button.dataset.lensFinding || ''));
+        });
+    }
+    function getRadiusLimits() {
+        const width = articleSurface.clientWidth || 600;
+        const viewport = window.innerWidth;
+        const cap = viewport <= 520 ? 132 : viewport <= 1100 ? 180 : 210;
+        return { min: 78, max: Math.max(78, Math.min(cap, Math.floor(width / 2) - 16)) };
+    }
+    function clampLensPoint(x, y, radius = state.lens.radius) {
+        const width = articleSurface.clientWidth;
+        const height = articleSurface.scrollHeight;
+        const pad = Math.max(10, radius + 8);
+        const clamp = (value, size) => size > pad * 2 ? Math.max(pad, Math.min(size - pad, value)) : size / 2;
+        return { x: clamp(x, width), y: clamp(y, height) };
+    }
+    function applyLensBounds() {
+        const limits = getRadiusLimits();
+        state.lens.radius = Math.max(limits.min, Math.min(limits.max, state.lens.radius));
+        const point = clampLensPoint(state.lens.x, state.lens.y, state.lens.radius);
+        state.lens.x = point.x;
+        state.lens.y = point.y;
+        el('radiusControl').min = String(limits.min);
+        el('radiusControl').max = String(limits.max);
+        renderControls();
+        renderLens();
+    }
+    function isCoarsePointer() {
+        return matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+    }
+    function touchOffset() {
+        return window.innerWidth <= 520 ? 86 : 108;
+    }
+    function placeLens(clientX, clientY, touch = false) {
+        const rect = articleSurface.getBoundingClientRect();
+        const localX = clientX - rect.left;
+        const localY = clientY - rect.top + articleSurface.scrollTop - (touch ? touchOffset() : 0);
+        const point = clampLensPoint(localX, localY);
+        state.lens.x = point.x;
+        state.lens.y = point.y;
+        renderLens();
+    }
+    function openFinding(id, cluster) {
+        const finding = state.findings.find((candidate) => candidate.id === id);
+        if (!finding)
+            return;
+        state.selectedFindingId = finding.id;
+        lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const taxonomy = TAXONOMY.get(finding.mechanism);
+        const sameSpan = cluster || state.findings.filter((candidate) => candidate.span.paragraphIndex === finding.span.paragraphIndex &&
+            candidate.span.startChar === finding.span.startChar &&
+            candidate.span.endChar === finding.span.endChar).map((candidate) => candidate.id);
+        const neighbors = sameSpan.filter((findingId) => findingId !== finding.id).map((findingId) => state.findings.find((item) => item.id === findingId)).filter(Boolean);
+        el('drawerBody').innerHTML = `
+      <span class="voice-chip">${esc(finding.voiceClass.replace('_', ' '))}</span>
+      <h2 id="drawerTitle">${esc(taxonomy?.canonicalName || finding.mechanism)}</h2>
+      <blockquote>“${esc(finding.span.text)}”</blockquote>
+      <div class="drawer-metrics"><div><span>Interpretive pressure</span><strong>${finding.pressure}</strong></div><div><span>Confidence</span><strong>${esc(finding.confidence)}</strong></div></div>
+      ${neighbors.length ? `<p><strong>Also on this span:</strong> ${neighbors.map((item) => esc(TAXONOMY.get(item.mechanism)?.canonicalName || item.mechanism)).join(', ')}</p>` : ''}
+      <details open><summary>Why this was tagged</summary><ul>${finding.triggeredCriteria.map((criterion) => `<li>${esc(criterion)}</li>`).join('')}</ul></details>
+      <details><summary>Why it could be wrong</summary><p>${esc(finding.alternateInterpretation || finding.nearMissCriteria?.join(' ') || 'No alternate interpretation is recorded for this fixture finding.')}</p></details>
+      <details><summary>Taxonomy definition</summary><p>${esc(taxonomy?.definition || 'Definition unavailable.')}</p></details>
+      <details><summary>Analysis provenance</summary><p>Origin: ${state.mode === 'synthetic_fixture' ? 'synthetic fixture' : 'local preview'} · detector: ${esc(finding.detectorVersion)} · taxonomy ${esc(finding.taxonomyVersion)} · run ${esc(finding.analysisRunId)}</p></details>
+      <div class="drawer-actions"><button class="primary-btn" id="jumpToFinding">Jump to exact passage</button><button class="ghost-btn" id="closeFindingInline">Close</button></div>
+    `;
+        drawer.classList.add('open');
+        drawer.removeAttribute('inert');
+        drawer.setAttribute('aria-hidden', 'false');
+        scrim.classList.add('open');
+        state.drawerOpen = true;
+        el('drawerClose').focus();
+        el('jumpToFinding').addEventListener('click', () => jumpToFinding(finding));
+        el('closeFindingInline').addEventListener('click', closeDrawer);
+        renderSelectionState();
+    }
+    function closeDrawer() {
+        drawer.classList.remove('open');
+        drawer.setAttribute('aria-hidden', 'true');
+        drawer.setAttribute('inert', '');
+        scrim.classList.remove('open');
+        state.drawerOpen = false;
+        if (lastFocus?.isConnected)
+            lastFocus.focus();
+    }
+    function drawerFocusable() {
+        return [...drawer.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+            .filter((node) => !node.hasAttribute('disabled') && node.offsetParent !== null);
+    }
+    function trapDrawerFocus(event) {
+        if (!state.drawerOpen || event.key !== 'Tab')
+            return;
+        const focusable = drawerFocusable();
+        if (!focusable.length)
+            return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        }
+        else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+    function jumpToFinding(finding) {
+        closeDrawer();
+        const marks = [...articleBase.querySelectorAll('.base-mark')];
+        const mark = marks.find((candidate) => (candidate.dataset.findingIds || '').split(',').includes(finding.id));
+        if (!mark)
+            return;
+        mark.scrollIntoView({ block: 'center', behavior: state.reducedMotion ? 'auto' : 'smooth' });
+        mark.focus({ preventScroll: true });
+        const rect = mark.getBoundingClientRect();
+        const surfaceRect = articleSurface.getBoundingClientRect();
+        const point = clampLensPoint(rect.left - surfaceRect.left + rect.width / 2, rect.top - surfaceRect.top + rect.height / 2);
+        state.lens.enabled = true;
+        state.lens.pinned = true;
+        state.lens.x = point.x;
+        state.lens.y = point.y;
+        renderControls();
+        renderLens();
+        liveRegion.textContent = `Jumped to ${TAXONOMY.get(finding.mechanism)?.canonicalName || finding.mechanism}.`;
+    }
+    function renderNavigation() {
+        const views = { scanner: scannerView, compare: compareView, event: eventView, taxonomy: taxonomyView, methodology: methodologyView };
+        Object.entries(views).forEach(([name, node]) => node.classList.toggle('active', name === state.view));
+        document.querySelectorAll('[data-view]').forEach((button) => {
+            const active = button.dataset.view === state.view;
+            button.setAttribute('aria-current', active ? 'page' : 'false');
+        });
+    }
+    function switchView(view) {
+        if ((view === 'compare' || view === 'event') && state.mode !== 'synthetic_fixture') {
+            state.view = view;
+            renderNavigation();
+            renderUnavailable(view);
+            return;
+        }
+        state.view = view;
+        renderNavigation();
+        if (view === 'compare')
+            renderCompare();
+        if (view === 'event')
+            renderEvent();
+        if (view === 'taxonomy')
+            renderTaxonomy();
+    }
+    function renderUnavailable(view) {
+        const target = view === 'compare' ? compareView : eventView;
+        target.innerHTML = `<section class="unavailable-card"><span class="eyebrow">Single-document boundary</span><h1>${view === 'compare' ? 'Comparison unavailable for this scan' : 'Event Record unavailable for this scan'}</h1><p>${view === 'compare' ? 'Peer comparison requires a validated same-event source set. This local preview does not invent one.' : 'A forensic Event Record requires cross-document claims and evidence. This local preview contains only the supplied article.'}</p><button class="primary-btn" id="returnScanner">Return to scanner</button></section>`;
+        el('returnScanner').addEventListener('click', () => switchView('scanner'));
+    }
+    function renderCompare() {
+        if (!state.event)
+            return renderUnavailable('compare');
+        const event = state.event;
+        const claims = event.atomicClaims;
+        if (!state.selectedClaimId || !claims.some((claim) => claim.id === state.selectedClaimId))
+            state.selectedClaimId = claims[0]?.id || null;
+        const claim = claims.find((item) => item.id === state.selectedClaimId) || claims[0];
+        compareView.innerHTML = `
+      <section class="section-shell">
+        <div class="section-heading"><div><span class="eyebrow">Compare · synthetic fixture</span><h1>Same underlying claim. Different rhetoric.</h1><p>${esc(event.description)}</p></div><button class="ghost-btn" id="compareBack">Back to scanner</button></div>
+        <div class="claim-picker">${claims.map((item) => `<button class="claim-chip ${item.id === claim.id ? 'active' : ''}" data-claim="${esc(item.id)}">${esc(item.normalizedClaim)}</button>`).join('')}</div>
+        <article class="claim-card"><span class="eyebrow">Atomic claim</span><h2>${esc(claim.normalizedClaim)}</h2><p>State: <strong>${esc(claim.state.replaceAll('_', ' '))}</strong> · Confidence ${esc(claim.confidence)}</p></article>
+        <div class="framing-grid">${claim.sourceWordings.map((wording) => `<article class="wording-card"><div class="wording-head"><strong>${esc(wording.sourceName)}</strong><span>${wording.pressure || '—'}</span></div><blockquote>“${esc(wording.excerpt)}”</blockquote><small>${esc(wording.articleTitle)}</small></article>`).join('')}</div>
+        <div class="compare-lower">
+          <section class="panel-card"><span class="eyebrow">Material omission candidate</span>${event.omissions.map((omission) => `<h3>${esc(omission.dimension)}</h3><p>${esc(omission.missingClaim)}</p><p>${esc(omission.rationale)}</p><small>Knowable by ${esc(omission.knowableAtTimestamp)} · ${esc(omission.confidence)} confidence</small>`).join('')}</section>
+          <section class="panel-card"><span class="eyebrow">Coverage disclosure</span><p>${event.articles.length} synthetic articles in this fixture. Independence relationships are fixture metadata, not a truth score.</p><button class="primary-btn" id="openEvent">Open Event Record</button></section>
+        </div>
+      </section>`;
+        el('compareBack').addEventListener('click', () => switchView('scanner'));
+        el('openEvent').addEventListener('click', () => switchView('event'));
+        compareView.querySelectorAll('[data-claim]').forEach((button) => button.addEventListener('click', () => {
+            state.selectedClaimId = button.dataset.claim || null;
+            renderCompare();
+        }));
+    }
+    function evidenceLabel(item) {
+        if (item.authenticityState === 'verified')
+            return item.directness === 'direct' ? 'Authenticated primary evidence' : 'Authenticated contextual evidence';
+        if (item.authenticityState === 'disputed')
+            return 'Disputed evidence';
+        return item.directness === 'direct' ? 'Primary evidence — authenticity unverified' : 'Evidence — authenticity unverified';
+    }
+    function renderEvent() {
+        if (!state.event)
+            return renderUnavailable('event');
+        const event = state.event;
+        eventView.innerHTML = `
+      <section class="section-shell">
+        <div class="section-heading"><div><span class="eyebrow">Forensic Event Record · synthetic fixture</span><h1>${esc(event.title)}</h1><p>Versioned ledger separating what the fixture establishes from how its sources frame the event.</p></div><button class="ghost-btn" id="eventBack">Back to scanner</button></div>
+        <div class="ledger-grid">
+          <section class="panel-card"><span class="eyebrow">Atomic claims</span>${event.atomicClaims.map((claim) => `<article class="ledger-row"><h3>${esc(claim.normalizedClaim)}</h3><p>${esc(claim.state.replaceAll('_', ' '))} · ${esc(claim.confidence)} confidence</p></article>`).join('')}</section>
+          <section class="panel-card"><span class="eyebrow">Evidence</span>${event.primaryEvidence.map((item) => `<article class="ledger-row"><span class="evidence-state ${esc(item.authenticityState)}">${esc(evidenceLabel(item))}</span><h3>${esc(item.title)}</h3><p>${esc(item.description)}</p>${item.excerptText ? `<blockquote>“${esc(item.excerptText)}”</blockquote>` : ''}</article>`).join('')}</section>
+        </div>
+      </section>`;
+        el('eventBack').addEventListener('click', () => switchView('scanner'));
+    }
+    function renderTaxonomy() {
+        taxonomyView.innerHTML = `<section class="section-shell"><div class="section-heading"><div><span class="eyebrow">Alpha-0 taxonomy · ${esc(DATA.taxonomy.version)}</span><h1>Definitions govern the instrument.</h1><p>These records are a specification surface, not benchmark results. Human-reviewed performance metrics have not yet been established.</p></div></div><div class="taxonomy-grid">${DATA.taxonomy.mechanisms.map((mechanism) => `<article class="taxonomy-card family-${esc(mechanism.family)}"><div class="taxonomy-title"><span>${esc(familyLabel(mechanism.family))}</span><strong>${esc(mechanism.canonicalName)}</strong></div><p>${esc(mechanism.definition)}</p><details><summary>Positive criteria</summary><ul>${mechanism.positiveCriteria.map((criterion) => `<li>${esc(criterion)}</li>`).join('')}</ul></details><details><summary>Exclusions</summary><ul>${mechanism.exclusionCriteria.map((criterion) => `<li>${esc(criterion)}</li>`).join('')}</ul></details><details><summary>Pressure anchors</summary><ol><li>${esc(mechanism.pressureRubric.p1)}</li><li>${esc(mechanism.pressureRubric.p2)}</li><li>${esc(mechanism.pressureRubric.p3)}</li><li>${esc(mechanism.pressureRubric.p4)}</li></ol></details></article>`).join('')}</div></section>`;
+    }
+    function renderMethodology() {
+        methodologyView.innerHTML = `<section class="section-shell methodology"><div class="section-heading"><div><span class="eyebrow">Methodology</span><h1>An instrument, not a verdict machine.</h1></div></div><div class="method-grid"><article><h2>Interpretive pressure</h2><p>Pressure measures how strongly language steers or narrows interpretation. It is not factuality, political side, moral worth, or harm.</p></article><article><h2>Confidence is separate</h2><p>A strong-pressure finding can be low confidence; a light-pressure finding can be high confidence. Candidates remain visible without inflating confirmed metrics.</p></article><article><h2>Comparison is evidence-bound</h2><p>Material omission requires aligned event context, chronology, supporting coverage or evidence, materiality, and proof the target does not already state the equivalent fact.</p></article><article><h2>No hidden chain-of-thought</h2><p>The system exposes exact spans, criteria, exclusions, alternatives, provenance, and versioned records rather than private reasoning traces.</p></article></div></section>`;
+    }
+    function renderPastePanel(open) {
+        pastePanel.hidden = !open;
+        if (open)
+            pasteText.focus();
+    }
+    function sentenceChunks(paragraph) {
+        const chunks = [];
+        const regex = /[^.!?]+[.!?]?/g;
+        let match;
+        while ((match = regex.exec(paragraph)) !== null) {
+            const raw = match[0];
+            const leading = raw.search(/\S/);
+            if (leading < 0)
+                continue;
+            const trailing = raw.length - raw.trimEnd().length;
+            const start = match.index + leading;
+            const end = match.index + raw.length - trailing;
+            chunks.push({ start, end, text: paragraph.slice(start, end) });
+        }
+        return chunks;
+    }
+    function localPreviewFindings(article) {
+        const findings = [];
+        const runId = `local-${fnv1a(article.content)}-${Date.now()}`;
+        let counter = 0;
+        const add = (paragraphIndex, startChar, endChar, mechanism, pressure, confidence, criterion) => {
+            const paragraph = article.paragraphs[paragraphIndex];
+            const text = paragraph.slice(startChar, endChar);
+            const taxonomy = TAXONOMY.get(mechanism);
+            if (!taxonomy || !text.trim())
+                return;
+            counter += 1;
+            findings.push({
+                id: `local-${counter}`,
+                articleId: article.id,
+                span: { startChar, endChar, paragraphIndex, text },
+                mechanism,
+                family: taxonomy.family,
+                pressure,
+                confidence,
+                state: 'candidate',
+                voiceClass: 'reporter',
+                triggeredCriteria: [criterion],
+                nearMissCriteria: ['Local preview heuristics are intentionally recall-oriented and have not been benchmarked.'],
+                alternateInterpretation: 'This is a candidate requiring contextual verification against the full taxonomy before production use.',
+                taxonomyVersion: DATA.taxonomy.version,
+                detectorVersion: 'local-preview-4mechanism-v1',
+                analysisRunId: runId,
+                timestamp: new Date().toISOString(),
+            });
+        };
+        const loaded = /\b(?:draconian|reckless|outrageous|catastrophic|devastating|disastrous|brutal|shameful|cynical|heroic)\b/gi;
+        const dilemmaPatterns = [/\beither\b[^.!?]{0,120}\bor\b[^.!?]{0,120}/gi, /\b(?:no alternative|only two (?:choices|options)|with us or against us)\b/gi];
+        const presuppPatterns = [/\b(?:refused|failed) to explain why\b[^.!?]*/gi, /\b(?:still|again|finally|continues? to)\b[^.!?]*/gi];
+        const passive = /\b(?:was|were|is|are|been|be)\s+[a-z]+(?:ed|en)\b[^.!?]{0,70}/gi;
+        article.paragraphs.forEach((paragraph, paragraphIndex) => {
+            let match;
+            loaded.lastIndex = 0;
+            while ((match = loaded.exec(paragraph)) !== null) {
+                add(paragraphIndex, match.index, match.index + match[0].length, 'loaded_language', 'P2', 'Medium', `Candidate evaluative term: “${match[0]}”.`);
+            }
+            dilemmaPatterns.forEach((pattern) => {
+                pattern.lastIndex = 0;
+                while ((match = pattern.exec(paragraph)) !== null)
+                    add(paragraphIndex, match.index, match.index + match[0].length, 'false_dilemma', 'P3', 'Medium', 'Candidate binary framing narrows a more complex option space.');
+            });
+            presuppPatterns.forEach((pattern) => {
+                pattern.lastIndex = 0;
+                while ((match = pattern.exec(paragraph)) !== null)
+                    add(paragraphIndex, match.index, match.index + match[0].length, 'presupposition', 'P2', 'Low', 'Candidate construction embeds a premise as background rather than presenting it for evaluation.');
+            });
+            passive.lastIndex = 0;
+            while ((match = passive.exec(paragraph)) !== null) {
+                if (/\bby\b/i.test(match[0]))
+                    continue;
+                add(paragraphIndex, match.index, match.index + match[0].length, 'agent_suppression', 'P2', 'Low', 'Candidate passive construction does not name an actor inside the detected span.');
+            }
+        });
+        return findings;
+    }
+    function loadPasteArticle() {
+        const raw = pasteText.value.trim();
+        if (!raw) {
+            liveRegion.textContent = 'Paste article text before running the local preview.';
+            return;
+        }
+        const paragraphs = raw.split(/\n\s*\n|\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+        const content = paragraphs.join('\n\n');
+        const hash = fnv1a(content);
+        const article = {
+            id: `local-${hash}`,
+            sourceId: 'user-paste',
+            title: 'User-provided article text',
+            publisher: 'Local paste',
+            url: '',
+            publishedAt: '',
+            extractedAt: new Date().toISOString(),
+            content,
+            paragraphs,
+            snapshotHash: hash,
+        };
+        const findings = localPreviewFindings(article);
+        state.mode = 'local_preview';
+        state.article = article;
+        state.findings = findings;
+        state.event = null;
+        state.selectedFindingId = null;
+        state.selectedClaimId = null;
+        state.filters = { family: 'all', confidence: 'all', search: '' };
+        state.analysisRun = makeAnalysisRun('local_preview', article, findings, 'local-preview-4mechanism-v1', 'complete');
+        state.analysisRun.runId = findings[0]?.analysisRunId || state.analysisRun.runId;
+        state.analysisRun.articleSnapshotHash = hash;
+        renderPastePanel(false);
+        state.view = 'scanner';
+        renderAll();
+        liveRegion.textContent = `Local preview complete. ${findings.length} candidate findings. Comparison is unavailable for single-document scans.`;
+    }
+    function loadFixture() {
+        state.mode = 'synthetic_fixture';
+        state.article = fixtureArticle;
+        state.findings = fixtureFindings;
+        state.event = fixtureEvent;
+        state.selectedFindingId = null;
+        state.selectedClaimId = fixtureEvent.atomicClaims[0]?.id || null;
+        state.filters = { family: 'all', confidence: 'all', search: '' };
+        state.analysisRun = makeAnalysisRun('synthetic_fixture', fixtureArticle, fixtureFindings, 'fixture-reviewed-v1', 'complete');
+        state.view = 'scanner';
+        renderAll();
+        liveRegion.textContent = 'Synthetic fixture restored.';
+    }
+    function syncTopbarHeight() {
+        const topbar = document.getElementById('topbar');
+        if (!topbar)
+            return;
+        document.documentElement.style.setProperty('--topbar-h', `${Math.ceil(topbar.getBoundingClientRect().height)}px`);
+    }
+    function renderAll() {
+        renderNavigation();
+        renderModeBanner();
+        renderScanStatus();
+        renderProfile();
+        renderFilters();
+        renderControls();
+        renderArticle();
+        renderFindings();
+        if (state.view === 'compare')
+            state.mode === 'synthetic_fixture' ? renderCompare() : renderUnavailable('compare');
+        if (state.view === 'event')
+            state.mode === 'synthetic_fixture' ? renderEvent() : renderUnavailable('event');
+        if (state.view === 'taxonomy')
+            renderTaxonomy();
+        if (state.view === 'methodology')
+            renderMethodology();
+    }
+    function setupEvents() {
+        document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
+        document.querySelectorAll('[data-action="load-demo"]').forEach((node) => node.addEventListener('click', loadFixture));
+        document.querySelectorAll('[data-action="open-paste"]').forEach((node) => node.addEventListener('click', () => renderPastePanel(true)));
+        el('cancelPaste').addEventListener('click', () => renderPastePanel(false));
+        el('runPaste').addEventListener('click', loadPasteArticle);
+        el('lensToggle').addEventListener('click', () => { state.lens.enabled = !state.lens.enabled; if (!state.lens.enabled)
+            state.lens.pinned = false; renderControls(); renderLens(); });
+        el('pinToggle').addEventListener('click', () => { state.lens.enabled = true; state.lens.pinned = !state.lens.pinned; renderControls(); renderLens(); });
+        el('revealToggle').addEventListener('click', () => { state.lens.revealAll = !state.lens.revealAll; renderControls(); renderLens(); });
+        el('radiusControl').addEventListener('input', (event) => { state.lens.radius = Number(event.target.value); applyLensBounds(); });
+        el('familyFilter').addEventListener('change', (event) => { state.filters.family = event.target.value; renderArticle(); renderFindings(); renderLens(); });
+        el('confidenceFilter').addEventListener('change', (event) => { state.filters.confidence = event.target.value; renderArticle(); renderFindings(); renderLens(); });
+        el('findingSearch').addEventListener('input', (event) => { state.filters.search = event.target.value; renderArticle(); renderFindings(); renderLens(); });
+        el('reducedMotionToggle').addEventListener('change', (event) => { state.reducedMotion = event.target.checked; saveSettings(); renderControls(); });
+        el('patternModeToggle').addEventListener('change', (event) => { state.patternMode = event.target.checked; saveSettings(); renderControls(); });
+        el('drawerClose').addEventListener('click', closeDrawer);
+        scrim.addEventListener('click', closeDrawer);
+        articleSurface.addEventListener('pointermove', (event) => {
+            if (event.pointerType === 'mouse' && state.lens.enabled && !state.lens.pinned && !state.lens.revealAll)
+                placeLens(event.clientX, event.clientY, false);
+        });
+        articleSurface.addEventListener('pointerdown', (event) => {
+            if (event.pointerType === 'mouse')
+                return;
+            touchTapStart = { id: event.pointerId, x: event.clientX, y: event.clientY, t: performance.now() };
+        });
+        articleSurface.addEventListener('pointerup', (event) => {
+            if (!touchTapStart || touchTapStart.id !== event.pointerId)
+                return;
+            const distance = Math.hypot(event.clientX - touchTapStart.x, event.clientY - touchTapStart.y);
+            const duration = performance.now() - touchTapStart.t;
+            if (distance < 12 && duration < 420) {
+                state.lens.enabled = true;
+                state.lens.pinned = true;
+                placeLens(event.clientX, event.clientY, true);
+                renderControls();
+            }
+            touchTapStart = null;
+        });
+        articleSurface.addEventListener('pointercancel', () => { touchTapStart = null; });
+        touchHandle.addEventListener('pointerdown', (event) => {
+            state.lens.enabled = true;
+            state.lens.pinned = true;
+            state.lens.dragging = true;
+            state.lens.activePointerId = event.pointerId;
+            try {
+                touchHandle.setPointerCapture?.(event.pointerId);
+            }
+            catch { }
+            event.preventDefault();
+            placeLens(event.clientX, event.clientY, true);
+            renderControls();
+        });
+        touchHandle.addEventListener('pointermove', (event) => {
+            if (!state.lens.dragging || state.lens.activePointerId !== event.pointerId)
+                return;
+            event.preventDefault();
+            placeLens(event.clientX, event.clientY, true);
+        });
+        const endHandleDrag = (event) => {
+            if (state.lens.activePointerId !== event.pointerId)
+                return;
+            try {
+                if (touchHandle.hasPointerCapture?.(event.pointerId))
+                    touchHandle.releasePointerCapture(event.pointerId);
+            }
+            catch { }
+            state.lens.dragging = false;
+            state.lens.activePointerId = null;
+            renderControls();
+            renderLens();
+        };
+        touchHandle.addEventListener('pointerup', endHandleDrag);
+        touchHandle.addEventListener('pointercancel', endHandleDrag);
+        window.addEventListener('resize', () => requestAnimationFrame(() => { syncTopbarHeight(); applyLensBounds(); verifyOverlayGeometry(false); }));
+        window.addEventListener('orientationchange', () => requestAnimationFrame(() => { syncTopbarHeight(); applyLensBounds(); verifyOverlayGeometry(false); }));
+        window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(() => { syncTopbarHeight(); applyLensBounds(); verifyOverlayGeometry(false); }));
+        const topbar = document.getElementById('topbar');
+        if (topbar && 'ResizeObserver' in window) {
+            topbarObserver?.disconnect();
+            topbarObserver = new ResizeObserver(() => requestAnimationFrame(syncTopbarHeight));
+            topbarObserver.observe(topbar);
+        }
+        document.addEventListener('keydown', (event) => {
+            trapDrawerFocus(event);
+            if (event.key === 'Escape') {
+                if (state.drawerOpen)
+                    closeDrawer();
+                else if (!pastePanel.hidden)
+                    renderPastePanel(false);
+                return;
+            }
+            const target = event.target;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+                return;
+            if (event.key.toLowerCase() === 'l') {
+                state.lens.enabled = !state.lens.enabled;
+                renderControls();
+                renderLens();
+            }
+            if (event.key.toLowerCase() === 'a') {
+                state.lens.revealAll = !state.lens.revealAll;
+                renderControls();
+                renderLens();
+            }
+            if (event.key.toLowerCase() === 'c')
+                switchView('compare');
+            if (event.key.toLowerCase() === 'e')
+                switchView('event');
+            if (event.key === '?')
+                el('shortcutHelp').classList.toggle('open');
+            if (event.key.toLowerCase() === 'j' || event.key.toLowerCase() === 'k') {
+                const findings = visibleFindings();
+                if (!findings.length)
+                    return;
+                const index = Math.max(0, findings.findIndex((finding) => finding.id === state.selectedFindingId));
+                const direction = event.key.toLowerCase() === 'j' ? 1 : -1;
+                const next = findings[(index + direction + findings.length) % findings.length];
+                jumpToFinding(next);
+            }
+        });
+    }
+    setupEvents();
+    syncTopbarHeight();
+    renderMethodology();
+    renderTaxonomy();
+    renderAll();
+})();
+</script>
+</body>
+</html>

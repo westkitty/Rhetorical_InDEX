@@ -1,0 +1,24 @@
+{
+  "verdict": "PASS",
+  "scanned_files": [
+    "index.html"
+  ],
+  "counts": {
+    "MINOR": 1
+  },
+  "allowed_count": 0,
+  "findings": [
+    {
+      "rule_id": "STYLE001-radius",
+      "severity": "MINOR",
+      "category": "style-signal",
+      "file": "index.html",
+      "line": 1,
+      "evidence": "count=23",
+      "message": "High border-radius repetition.",
+      "suggestion": "Check whether containers are being rounded by default rather than by hierarchy.",
+      "allowed": false,
+      "allow_reason": null
+    }
+  ]
+}
