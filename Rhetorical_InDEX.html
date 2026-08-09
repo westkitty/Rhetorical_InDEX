@@ -1,0 +1,2569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Rhetorical InDEX — Prototype Scanner & Implementation Plan</title>
+<style>
+:root{
+  --shell:#101313;
+  --shell-2:#181c1b;
+  --shell-3:#222725;
+  --paper:#f3efe5;
+  --paper-2:#ebe5d8;
+  --ink:#1d201e;
+  --ink-soft:#5f625d;
+  --chrome:#f7f1e7;
+  --muted:#a9afa9;
+  --line:rgba(255,255,255,.12);
+  --paper-line:rgba(29,32,30,.16);
+  --accent:#ff7d5b;
+  --accent-deep:#b94730;
+  --lexical:#d95852;
+  --epistemic:#c48a22;
+  --agency:#3c78a8;
+  --emotional:#b44b86;
+  --logic:#7656b8;
+  --journalism:#2c887b;
+  --evidence:#4f845a;
+  --ok:#6da477;
+  --warn:#c2903a;
+  --danger:#c75c52;
+  --shadow:0 18px 50px rgba(0,0,0,.24);
+  --radius:18px;
+  --ease:cubic-bezier(.2,.75,.25,1);
+  --lens-x:50%;
+  --lens-y:220px;
+  --lens-r:145px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--shell);color:var(--chrome);font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,input,textarea{font:inherit}
+button{color:inherit}
+a{color:inherit}
+::selection{background:rgba(255,125,91,.28)}
+.skip-link{position:absolute;left:12px;top:-80px;z-index:999;background:var(--paper);color:var(--ink);padding:.65rem .9rem;border-radius:10px}
+.skip-link:focus{top:12px}
+.app-shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+.topbar{position:sticky;top:0;z-index:40;display:grid;grid-template-columns:minmax(230px,1fr) auto auto;align-items:center;gap:1rem;padding:.75rem 1rem;background:rgba(16,19,19,.97);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:.75rem;min-width:0}.brand-mark{width:34px;height:34px;border:1px solid rgba(255,125,91,.52);border-radius:9px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px;flex:0 0 auto}.brand-mark span{background:var(--accent);opacity:.75}.brand-mark span:nth-child(2),.brand-mark span:nth-child(6){opacity:.25}.brand-text{min-width:0}.brand-name{font-weight:760;letter-spacing:.01em;white-space:nowrap}.brand-name em{font-style:normal;color:var(--accent)}.brand-sub{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.view-nav{display:flex;gap:.35rem;align-items:center}.nav-btn,.control-btn,.ghost-btn,.primary-btn,.chip-btn{border:1px solid var(--line);background:transparent;border-radius:999px;padding:.48rem .75rem;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease),color .18s var(--ease)}.nav-btn:hover,.control-btn:hover,.ghost-btn:hover,.chip-btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.24)}.nav-btn[aria-current="page"]{background:var(--chrome);color:var(--shell);border-color:var(--chrome)}.primary-btn{background:var(--accent);color:#20110c;border-color:var(--accent);font-weight:700}.primary-btn:hover{transform:translateY(-1px);background:#ff8c70}.primary-btn:active,.nav-btn:active,.control-btn:active{transform:translateY(0)}button:disabled{opacity:.42;cursor:not-allowed;transform:none!important;background:transparent!important;color:var(--muted)!important;border-color:var(--line)!important}button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid rgba(255,125,91,.6);outline-offset:3px}
+.top-actions{display:flex;gap:.5rem;align-items:center}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(109,164,119,.12)}
+.main{position:relative;overflow-x:hidden;overflow-x:clip}.view{display:none;animation:viewIn .28s var(--ease)}.view.active{display:block}@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.wrap{width:min(1220px,calc(100% - 32px));margin:0 auto}.scanner-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1.25rem;align-items:start;padding:1.25rem 0 4rem}.article-panel{min-width:0}.article-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}.toolbar-group{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}.tiny-label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.control-btn[aria-pressed="true"]{background:rgba(255,125,91,.13);border-color:rgba(255,125,91,.5);color:#ffd3c7}.mode-note{font-size:.83rem;color:var(--muted)}
+.profile{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:.8rem 0}.profile-card{border:1px solid var(--line);background:var(--shell-2);border-radius:14px;padding:.75rem .8rem;min-height:88px}.profile-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}.profile-value{font-size:1.35rem;font-weight:740;margin-top:.2rem}.profile-sub{font-size:.78rem;color:var(--muted);margin-top:.15rem}.pressure-strip{display:flex;height:7px;gap:2px;margin-top:.55rem}.pressure-strip span{flex:1;border-radius:999px;background:rgba(255,255,255,.08)}.pressure-strip .p1{background:rgba(255,125,91,.22)}.pressure-strip .p2{background:rgba(255,125,91,.42)}.pressure-strip .p3{background:rgba(255,125,91,.66)}.pressure-strip .p4{background:rgba(255,125,91,.9)}
+.article-surface{position:relative;background:var(--paper);color:var(--ink);border-radius:20px;box-shadow:var(--shadow);overflow:visible;border:1px solid rgba(255,255,255,.1);touch-action:pan-y}.article-inner,.scan-overlay{padding:clamp(1.35rem,4vw,3rem) clamp(1.25rem,6vw,4.4rem) 3.5rem}.article-inner{position:relative;z-index:1}.article-kicker{font:650 .77rem/1.2 system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:1rem}.article-title{font:700 clamp(2rem,5vw,4rem)/.98 Georgia,"Times New Roman",serif;letter-spacing:-.035em;margin:0 0 .8rem}.article-dek{font:400 1.15rem/1.45 Georgia,"Times New Roman",serif;color:#525650;max-width:54rem;margin:0 0 1.2rem}.article-meta{font-size:.82rem;color:var(--ink-soft);border-top:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);padding:.7rem 0;margin-bottom:1.8rem}.article-copy{font:400 clamp(1.04rem,1.5vw,1.18rem)/1.8 Georgia,"Times New Roman",serif;max-width:760px;margin:0 auto}.article-copy p{margin:0 0 1.45em}.base-mark{border-radius:3px;cursor:help}.base-mark:focus-visible{outline:3px solid var(--accent);outline-offset:2px}.scan-overlay{position:absolute;inset:0;z-index:3;pointer-events:none;clip-path:circle(var(--lens-r) at var(--lens-x) var(--lens-y));transition:clip-path .08s linear;color:var(--ink)}.scan-overlay .article-kicker,.scan-overlay .article-title,.scan-overlay .article-dek,.scan-overlay .article-meta{visibility:hidden}.scan-overlay .scan-plain{color:transparent}.scan-mark{position:relative;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}.scan-mark.family-lexical{--family:var(--lexical)}.scan-mark.family-epistemic{--family:var(--epistemic)}.scan-mark.family-agency{--family:var(--agency)}.scan-mark.family-emotional{--family:var(--emotional)}.scan-mark.family-logic{--family:var(--logic)}.scan-mark.family-journalism{--family:var(--journalism)}.scan-mark.p1{background:color-mix(in srgb,var(--family) 18%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--family) 48%,transparent)}.scan-mark.p2{background:color-mix(in srgb,var(--family) 28%,transparent);box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--family) 62%,transparent)}.scan-mark.p3{background:color-mix(in srgb,var(--family) 42%,transparent);box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--family) 82%,transparent)}.scan-mark.p4{background:color-mix(in srgb,var(--family) 58%,transparent);box-shadow:inset 0 -4px 0 var(--family)}.tag-stack{position:absolute;left:0;top:calc(100% + 3px);display:flex;gap:4px;z-index:9;white-space:nowrap;font:650 10px/1.1 system-ui,sans-serif;letter-spacing:.02em}.scan-tag{padding:3px 5px;border-radius:5px;background:var(--shell);color:#fff;border:1px solid var(--family)}.scan-tag.conf-medium{border-style:dashed}.scan-tag.conf-low{border-style:dotted;border-width:2px}.lens-ring{position:absolute;z-index:6;width:calc(var(--lens-r) * 2);height:calc(var(--lens-r) * 2);left:var(--lens-x);top:var(--lens-y);transform:translate(-50%,-50%);border:1px solid rgba(26,29,27,.42);border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 8px 30px rgba(0,0,0,.14);pointer-events:none;opacity:0;transition:opacity .16s var(--ease)}.article-surface.lens-live .lens-ring{opacity:1}.article-surface.reveal-all .scan-overlay{clip-path:inset(0)}.article-surface.reveal-all .lens-ring{opacity:0}.article-surface.lens-off:not(.reveal-all) .scan-overlay{clip-path:circle(0 at -100px -100px)}
+.touch-lens-handle{display:none;position:sticky;bottom:16px;z-index:12;margin:-42px 12px 10px auto;width:54px;height:54px;border-radius:50%;border:1px solid rgba(29,32,30,.25);background:var(--paper);color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.18);cursor:grab;touch-action:none}.touch-lens-handle:active{cursor:grabbing}
+.side-panel{position:sticky;top:82px;display:grid;gap:.85rem}.panel{border:1px solid var(--line);border-radius:16px;background:var(--shell-2);overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.8rem .9rem;border-bottom:1px solid var(--line)}.panel-title{font-size:.86rem;font-weight:700}.panel-body{padding:.85rem}.legend-list{display:grid;gap:.55rem}.legend-row{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:.6rem;font-size:.84rem}.legend-swatch{width:10px;height:10px;border-radius:2px;background:var(--swatch)}.legend-note{color:var(--muted);font-size:.75rem}.findings-list{display:grid;gap:.45rem;max-height:46vh;overflow:auto;padding-right:.15rem}.finding-btn{width:100%;text-align:left;border:1px solid var(--line);background:transparent;border-radius:12px;padding:.65rem .7rem;cursor:pointer}.finding-btn:hover,.finding-btn[aria-current="true"]{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.23)}.finding-top{display:flex;justify-content:space-between;gap:.5rem}.finding-name{font-weight:700;font-size:.82rem}.finding-meta{font-size:.72rem;color:var(--muted)}.finding-excerpt{font:400 .82rem/1.35 Georgia,serif;color:#d8ddd8;margin-top:.25rem}.candidate-note{font-size:.74rem;color:var(--muted);padding:.7rem;border-top:1px solid var(--line)}
+.drawer{position:fixed;right:0;top:0;bottom:0;z-index:80;width:min(470px,94vw);background:var(--paper);color:var(--ink);box-shadow:-24px 0 70px rgba(0,0,0,.36);transform:translateX(105%);transition:transform .28s var(--ease);overflow:auto}.drawer.open{transform:none}.drawer-head{position:sticky;top:0;background:rgba(243,239,229,.96);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.2rem;border-bottom:1px solid var(--paper-line);z-index:2}.drawer-body{padding:1.2rem}.drawer h2{font:700 1.7rem/1.1 Georgia,serif;margin:.35rem 0}.drawer-excerpt{font:600 1.05rem/1.5 Georgia,serif;border-left:4px solid var(--accent);padding:.65rem .8rem;background:rgba(0,0,0,.035);border-radius:0 10px 10px 0}.metric-row{display:grid;grid-template-columns:repeat(2,1fr);gap:.65rem;margin:1rem 0}.metric{border:1px solid var(--paper-line);border-radius:12px;padding:.7rem}.metric b{display:block}.metric span{font-size:.8rem;color:var(--ink-soft)}.drawer details{border-top:1px solid var(--paper-line);padding:.75rem 0}.drawer summary{cursor:pointer;font-weight:720}.drawer ul{padding-left:1.2rem}.drawer p,.drawer li{color:#444944}.voice-chip{display:inline-block;font-size:.72rem;border:1px solid var(--paper-line);border-radius:999px;padding:.22rem .45rem;color:var(--ink-soft)}.scrim{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.38);opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}.scrim.open{opacity:1;pointer-events:auto}
+.section-shell{padding:1.4rem 0 4rem}.section-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:end;padding:1.2rem 0 1.35rem;border-bottom:1px solid var(--line);margin-bottom:1rem}.eyebrow{font-size:.76rem;text-transform:uppercase;letter-spacing:.13em;color:var(--accent)}.section-hero h1{font:720 clamp(2rem,4vw,3.7rem)/1 Georgia,serif;letter-spacing:-.03em;margin:.35rem 0 .15rem}.section-hero p{margin:.35rem 0 0;color:var(--muted);max-width:760px}.compare-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin:1rem 0 1.4rem}.compare-card{border:1px solid var(--line);background:var(--shell-2);border-radius:15px;padding:1rem;min-height:180px;transition:transform .18s var(--ease),border-color .18s var(--ease)}.compare-card:hover{transform:translateY(-2px);border-color:rgba(255,125,91,.45)}.compare-kind{font-size:.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:.1em}.compare-card h3{font:700 1.25rem/1.2 Georgia,serif;margin:.45rem 0}.compare-card p{color:#ccd2cd}.level-chip{display:inline-block;margin-top:.6rem;border:1px solid var(--line);border-radius:999px;padding:.25rem .45rem;font-size:.75rem;color:var(--muted)}
+.claims{display:grid;gap:.8rem}.claim-card{border:1px solid var(--line);border-radius:16px;background:var(--shell-2);overflow:hidden}.claim-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;padding:1rem;border-bottom:1px solid var(--line)}.claim-head h3{font:650 1.05rem/1.35 system-ui,sans-serif;margin:0}.status-chip{font-size:.73rem;border:1px solid var(--line);border-radius:999px;padding:.3rem .5rem;white-space:nowrap}.claim-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}.claim-col{padding:1rem;min-width:0}.claim-col+.claim-col{border-left:1px solid var(--line)}.claim-col h4{margin:0 0 .45rem;font-size:.74rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}.source-quote{border-left:3px solid var(--journalism);padding:.45rem .65rem;margin:.55rem 0;color:#dfe4df;background:rgba(255,255,255,.03);font:400 .91rem/1.45 Georgia,serif}.evidence-row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;padding:1rem;border-top:1px solid var(--line)}.evidence-row strong{display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.25rem}.omission-flag{color:#cbe8df}
+.record-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem}.record-card{border:1px solid var(--line);border-radius:16px;background:var(--shell-2);padding:1rem}.record-card h3{font:700 1.12rem/1.3 Georgia,serif;margin:.2rem 0 .7rem}.record-meta{display:grid;gap:.5rem;font-size:.88rem}.record-meta div{display:grid;grid-template-columns:130px 1fr;gap:.7rem;border-top:1px solid rgba(255,255,255,.07);padding-top:.45rem}.record-meta b{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.07em}.evidence-conflict{border-left:4px solid var(--warn)}
+.tax-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.tax-card{border:1px solid var(--line);border-radius:14px;background:var(--shell-2);padding:.85rem}.tax-card h3{margin:0;font-size:.96rem}.tax-family{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);margin-bottom:.3rem}.tax-card p{font-size:.86rem;color:#c9cfca}.tax-card small{color:var(--muted)}
+.paste-box{border:1px solid var(--line);background:var(--shell-2);border-radius:16px;padding:1rem;margin-bottom:.8rem}.paste-box textarea{width:100%;min-height:180px;border-radius:12px;border:1px solid var(--line);background:#0c0f0e;color:var(--chrome);padding:.8rem;resize:vertical}.paste-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.7rem}.notice{border-left:3px solid var(--warn);background:rgba(194,144,58,.08);padding:.7rem .8rem;border-radius:0 10px 10px 0;color:#ded7c7;font-size:.85rem}
+.plan-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:1.2rem;align-items:start}.plan-nav{position:sticky;top:82px;border:1px solid var(--line);border-radius:16px;background:var(--shell-2);padding:.85rem;max-height:calc(100vh - 100px);overflow:auto}.plan-nav input{width:100%;border:1px solid var(--line);background:#0d100f;color:var(--chrome);border-radius:10px;padding:.55rem .65rem;margin-bottom:.65rem}.toc{display:grid;gap:.2rem}.toc a{text-decoration:none;color:#c7cdc8;font-size:.82rem;padding:.35rem .45rem;border-radius:7px}.toc a:hover{background:rgba(255,255,255,.06)}.toc a.depth-2{padding-left:1rem;color:var(--muted)}.plan-content{background:var(--paper);color:var(--ink);border-radius:18px;padding:clamp(1.2rem,4vw,3.2rem);box-shadow:var(--shadow);min-width:0}.plan-content h1,.plan-content h2,.plan-content h3,.plan-content h4{font-family:Georgia,"Times New Roman",serif;scroll-margin-top:86px;color:var(--ink)}.plan-content h1{font-size:2.2rem;border-bottom:2px solid var(--ink);padding-bottom:.55rem;margin:2.4rem 0 1rem}.plan-content h1:first-child{margin-top:0}.plan-content h2{font-size:1.65rem;margin-top:2rem}.plan-content h3{font-size:1.25rem}.plan-content p,.plan-content li{color:#40453f}.plan-content table{width:100%;border-collapse:collapse;font-size:.86rem;display:block;overflow:auto}.plan-content th,.plan-content td{border:1px solid var(--paper-line);padding:.55rem;vertical-align:top}.plan-content th{background:var(--paper-2);text-align:left}.plan-content pre{overflow:auto;background:#171b19;color:#e8eee8;padding:.85rem;border-radius:10px}.plan-content code{font: .88em/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.plan-content :not(pre)>code{background:rgba(0,0,0,.06);padding:.12rem .25rem;border-radius:4px}.plan-content blockquote{border-left:4px solid var(--accent-deep);margin:1rem 0;padding:.4rem .8rem;color:#4e514d;background:rgba(0,0,0,.03)}
+.prototype-disclosure{font-size:.8rem;color:var(--muted);display:flex;gap:.5rem;align-items:flex-start;margin-top:.6rem}.prototype-disclosure::before{content:"DEMO";font-size:.62rem;font-weight:800;letter-spacing:.1em;border:1px solid var(--line);padding:.16rem .3rem;border-radius:4px;color:#ffd4c8}
+.screen-reader-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+@media(max-width:1100px){.topbar{grid-template-columns:1fr auto}.view-nav{order:3;grid-column:1/-1;overflow:auto;padding-top:.15rem}.top-actions .mode-note{display:none}.scanner-grid{grid-template-columns:1fr}.side-panel{position:static;grid-template-columns:1fr 1fr}.findings-list{max-height:320px}.profile{grid-template-columns:repeat(2,1fr)}.compare-cards{grid-template-columns:1fr}.record-grid,.tax-grid{grid-template-columns:1fr 1fr}.plan-layout{grid-template-columns:1fr}.plan-nav{position:static;max-height:none}.toc{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:680px){:root{--lens-r:108px}.wrap{width:min(100% - 20px,1220px)}.topbar{padding:.65rem .7rem}.brand-sub{display:none}.top-actions{gap:.3rem}.top-actions .control-btn{display:none}.scanner-grid{padding-top:.8rem}.article-toolbar{align-items:flex-start;flex-direction:column}.profile{grid-template-columns:1fr 1fr;gap:.5rem}.profile-card{min-height:78px}.article-inner,.scan-overlay{padding:1.15rem 1rem 3rem}.article-title{font-size:2.25rem}.article-copy{font-size:1.05rem}.touch-lens-handle{display:block}.side-panel{grid-template-columns:1fr}.claim-grid,.evidence-row{grid-template-columns:1fr}.claim-col+.claim-col{border-left:0;border-top:1px solid var(--line)}.record-grid,.tax-grid{grid-template-columns:1fr}.section-hero{grid-template-columns:1fr}.plan-content{padding:1rem}.plan-content h1{font-size:1.8rem}.toc{grid-template-columns:1fr}.drawer{width:100vw}.tag-stack{font-size:9px;max-width:180px;white-space:normal}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.scan-overlay{transition:none!important}}
+
+/* Rhetorical InDEX scanner interaction system */
+.toolbar-stack{display:grid;justify-items:end;gap:.35rem}.lens-state-row{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;min-height:24px}.lens-status{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--line);border-radius:999px;padding:.18rem .5rem;font-size:.72rem;font-weight:750;letter-spacing:.02em}.lens-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}.lens-status[data-state="pinned"]::before{background:var(--warn)}.lens-status[data-state="reveal"]::before{background:var(--accent)}.lens-status[data-state="off"]::before{background:var(--muted)}
+.error-banner{display:flex;align-items:center;justify-content:space-between;gap:1rem;border:1px solid rgba(199,92,82,.55);background:rgba(199,92,82,.1);border-radius:14px;padding:.75rem .85rem;margin-bottom:.8rem}.error-banner[hidden]{display:none}.error-banner span{display:block;color:#dfc9c4;font-size:.82rem;margin-top:.15rem}
+.touch-dock{display:none}.dock-btn{border:1px solid var(--line);background:#171b1a;color:var(--chrome);border-radius:999px;padding:.52rem .65rem;min-width:46px;min-height:44px;font-weight:720}.dock-btn[aria-pressed="true"]{border-color:rgba(255,125,91,.7);background:rgba(255,125,91,.14)}.dock-radius{display:grid;grid-template-columns:auto minmax(88px,128px);align-items:center;gap:.45rem;font-size:.72rem;color:var(--muted)}.dock-radius input{width:100%}
+.lens-touch-hint{display:none;position:absolute;z-index:8;left:1rem;right:1rem;bottom:.7rem;text-align:center;font-size:.72rem;color:var(--ink-soft);pointer-events:none}.touch-lens-handle{align-items:center;justify-content:center;font-weight:850}.article-surface.touch-active .touch-lens-handle{border-color:var(--accent-deep);box-shadow:0 0 0 4px rgba(255,125,91,.15),0 8px 24px rgba(0,0,0,.18)}
+.finding-controls{display:grid;grid-template-columns:minmax(0,1fr) 1fr;gap:.5rem;margin-bottom:.65rem}.finding-controls .filter-field:first-child{grid-column:1/-1}.filter-field{display:grid;gap:.2rem;font-size:.72rem;color:var(--muted)}.filter-field input,.filter-field select{width:100%;border:1px solid var(--line);background:#101413;color:var(--chrome);border-radius:9px;padding:.45rem .5rem;min-height:38px}.finding-empty{padding:.8rem;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:.82rem}.finding-btn[aria-current="true"]{box-shadow:inset 3px 0 0 var(--accent)}
+.base-mark.is-selected{outline:3px solid rgba(255,125,91,.72);outline-offset:2px;background:rgba(255,125,91,.12)}.article-copy p.is-target{animation:paragraphPulse 1.2s var(--ease)}@keyframes paragraphPulse{0%,100%{box-shadow:none}35%{box-shadow:0 0 0 5px rgba(255,125,91,.16)}}
+.pressure-strip{gap:3px}.pressure-segment{appearance:none;border:0;padding:0;min-width:8px;flex:1;border-radius:999px;background:rgba(255,255,255,.08);cursor:pointer;position:relative}.pressure-segment:hover,.pressure-segment:focus-visible{transform:scaleY(1.7);outline:2px solid rgba(255,255,255,.45);outline-offset:2px}.pressure-segment.p1{background:rgba(255,125,91,.22)}.pressure-segment.p2{background:rgba(255,125,91,.42)}.pressure-segment.p3{background:rgba(255,125,91,.66)}.pressure-segment.p4{background:rgba(255,125,91,.9)}
+.compact-btn{padding:.3rem .55rem;font-size:.76rem}.legend-meta{font-size:.72rem;color:var(--muted);padding-bottom:.2rem}.settings-grid{display:grid;gap:.7rem}.range-field{display:grid;grid-template-columns:1fr auto;gap:.25rem .6rem;font-size:.78rem;color:var(--muted)}.range-field input{grid-column:1/-1;width:100%}.range-field output{color:var(--chrome);font-variant-numeric:tabular-nums}.switch-row{display:grid;grid-template-columns:auto 1fr;gap:.55rem;align-items:start;font-size:.82rem}.switch-row input{margin-top:.2rem;width:18px;height:18px}.switch-row b,.switch-row small{display:block}.switch-row small{color:var(--muted);margin-top:.1rem}.shortcut-help{border-top:1px solid var(--line);padding-top:.65rem}.shortcut-help summary{cursor:pointer;font-size:.82rem;font-weight:720}.shortcut-help dl{display:grid;gap:.3rem;margin:.55rem 0 0}.shortcut-help dl div{display:grid;grid-template-columns:38px 1fr;gap:.5rem}.shortcut-help dt{font:700 .75rem/1.4 ui-monospace,monospace;color:var(--accent)}.shortcut-help dd{margin:0;font-size:.78rem;color:var(--muted)}.engine-status{font-size:.72rem;color:var(--muted);border-top:1px solid var(--line);padding-top:.55rem}.engine-status.ok{color:#b9d8bf}.engine-status.warn{color:#e5c98e}
+.drawer-actions{display:flex;gap:.55rem;flex-wrap:wrap;margin:.9rem 0}.drawer-actions .primary-btn,.drawer-actions .ghost-btn{color:var(--ink)}.drawer-actions .primary-btn{color:#20110c}.drawer-grip{display:none;width:42px;height:4px;border-radius:999px;background:rgba(29,32,30,.25);margin:.4rem auto 0}
+.tag-stack{max-width:min(230px,calc(100vw - 56px));flex-wrap:wrap;white-space:normal}.tag-stack.align-right{left:auto;right:0;justify-content:flex-end}.scan-tag{line-height:1.15}
+body.pattern-mode .scan-mark.family-lexical{outline:2px solid color-mix(in srgb,var(--lexical) 74%,#0000);outline-offset:-1px}body.pattern-mode .scan-mark.family-epistemic{border-bottom:3px dashed var(--epistemic)}body.pattern-mode .scan-mark.family-agency{border-bottom:3px dotted var(--agency)}body.pattern-mode .scan-mark.family-emotional{border-bottom:4px double var(--emotional)}body.pattern-mode .scan-mark.family-logic{box-shadow:inset 0 -4px 0 var(--logic),inset 0 4px 0 color-mix(in srgb,var(--logic) 48%,transparent)}body.pattern-mode .scan-mark.family-journalism{outline:2px dotted var(--journalism);outline-offset:1px}
+body.user-reduced-motion *,body.user-reduced-motion *::before,body.user-reduced-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.article-toolbar.scanner-controls-sticky{scroll-margin-top:82px}
+@media (min-width:681px) and (max-width:1100px){.scanner-controls-sticky{position:sticky;top:calc(var(--topbar-h,69px) + 8px);z-index:28;background:rgba(16,19,19,.96);border:1px solid var(--line);border-radius:14px;padding:.65rem .7rem;backdrop-filter:blur(10px)}.scanner-grid{padding-top:.75rem}.side-panel{grid-template-columns:1fr 1fr}.settings-panel{grid-column:1/-1}.article-inner,.scan-overlay{padding-left:clamp(1.5rem,5vw,3.2rem);padding-right:clamp(1.5rem,5vw,3.2rem)}}
+@media (max-width:1100px),(pointer:coarse){.touch-dock{display:flex;position:fixed;z-index:55;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));align-items:center;gap:.4rem;padding:.45rem .5rem;border:1px solid rgba(255,255,255,.18);border-radius:16px;background:rgba(16,19,19,.94);box-shadow:0 12px 36px rgba(0,0,0,.3);backdrop-filter:blur(12px);max-width:calc(100vw - 28px)}.touch-lens-handle{display:grid;position:fixed;right:18px;bottom:86px;left:auto;top:auto;margin:0}.lens-touch-hint{display:block}.drawer{top:auto;bottom:0;right:0;left:0;width:100%;height:min(72vh,680px);border-radius:20px 20px 0 0;transform:translateY(105%);box-shadow:0 -24px 70px rgba(0,0,0,.32)}.drawer.open{transform:translateY(0)}.drawer-grip{display:block}.drawer-head{padding-top:.55rem}.drawer-body{padding-bottom:calc(1.4rem + env(safe-area-inset-bottom,0px))}.tag-stack{font-size:9px}}
+@media (max-width:680px){.toolbar-stack{justify-items:start}.lens-state-row{justify-content:flex-start}.touch-dock{right:50%;transform:translateX(50%);width:calc(100% - 24px);justify-content:center}.dock-radius{grid-template-columns:auto minmax(72px,1fr);flex:1}.article-surface{padding-bottom:1.4rem}.findings-panel,.settings-panel{grid-column:1}.finding-controls{grid-template-columns:1fr}.finding-controls .filter-field:first-child{grid-column:auto}.scanner-controls-sticky{position:static}.drawer{height:min(78vh,720px)}}
+
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="brand-text">
+      <div class="brand-name">Rhetorical In<em>DEX</em></div>
+      <div class="brand-sub">Inspect the pressure inside the language.</div>
+    </div>
+  </div>
+  <nav class="view-nav" aria-label="Primary">
+    <button class="nav-btn" data-view="scanner" aria-current="page">Scanner</button>
+    <button class="nav-btn" data-view="compare">Compare</button>
+    <button class="nav-btn" data-view="event">Event Record</button>
+    <button class="nav-btn" data-view="taxonomy">Taxonomy</button>
+    <button class="nav-btn" data-view="plan">Plan</button>
+  </nav>
+  <div class="top-actions">
+    <span class="status-dot" aria-hidden="true"></span><span class="mode-note">Offline prototype</span>
+    <button id="topCompare" class="primary-btn">Compare coverage</button>
+  </div>
+</header>
+<main class="main" id="main">
+<section class="view active" id="view-scanner" aria-labelledby="scannerTitle">
+  <div class="wrap scanner-grid">
+    <div class="article-panel">
+      <div class="article-toolbar scanner-controls-sticky">
+        <div>
+          <div class="tiny-label" id="scannerTitle">Article scanner</div>
+          <div class="prototype-disclosure">Fictional source fixture. Paste mode is local heuristic-only; there is no live network or fact-check service in this file.</div>
+        </div>
+        <div class="toolbar-stack">
+          <div class="toolbar-group" aria-label="Scanner controls">
+            <button class="control-btn" id="lensToggle" aria-pressed="true" data-action="toggle-lens">Lens on</button>
+            <button class="control-btn" id="pinToggle" aria-pressed="false" data-action="toggle-pin">Pin lens</button>
+            <button class="control-btn" id="revealToggle" aria-pressed="false" data-action="toggle-reveal">Reveal all</button>
+            <button class="control-btn" id="pasteToggle" aria-expanded="false">Paste mode</button>
+          </div>
+          <div class="lens-state-row"><span class="lens-status" id="lensStatus" data-state="live">Live lens</span><span class="mode-note" id="capabilityNote">Pointer tracking</span></div>
+        </div>
+      </div>
+      <div class="error-banner" id="errorBanner" role="alert" hidden>
+        <div><strong>Scanner recovered from an internal error.</strong><span id="errorMessage">The current view could not be rendered safely.</span></div>
+        <button class="ghost-btn" type="button" data-action="restore-demo">Restore demo</button>
+      </div>
+      <div class="paste-box" id="pasteBox" hidden>
+        <div class="tiny-label">Local heuristic scan</div>
+        <p class="mode-note">This demonstrates the interface on your own text. It detects only a few obvious candidate patterns and cannot compare coverage or verify facts.</p>
+        <label for="pasteInput" class="screen-reader-only">Article text</label>
+        <textarea id="pasteInput" placeholder="Paste a few paragraphs here. Try phrases like “the only option,” “obviously,” “chaos,” or passive constructions such as “windows were broken.”"></textarea>
+        <div class="paste-actions">
+          <button class="primary-btn" id="runPaste">Scan locally</button>
+          <button class="ghost-btn" id="restoreDemo" data-action="restore-demo">Restore demo article</button>
+        </div>
+      </div>
+      <div class="profile" aria-label="Article pressure profile">
+        <div class="profile-card" title="Highest local interpretive-pressure level found in any current passage."><div class="profile-label">Peak pressure</div><div class="profile-value" id="profilePeak">P4</div><div class="profile-sub">Local peak, not a trust score</div></div>
+        <div class="profile-card" title="Share of article characters covered by medium/high-confidence findings."><div class="profile-label">Confirmed density</div><div class="profile-value" id="profileConfirmed">18%</div><div class="profile-sub">Medium/high-confidence spans</div></div>
+        <div class="profile-card" title="Share of article characters covered only by low-confidence candidates."><div class="profile-label">Candidate density</div><div class="profile-value" id="profileCandidate">4%</div><div class="profile-sub">Low-confidence spans remain visible</div></div>
+        <div class="profile-card"><div class="profile-label">Pressure map</div><div class="pressure-strip" id="pressureStrip" aria-label="Paragraph pressure map"></div><div class="profile-sub" id="profileDominant">Dominant: lexical + logic</div></div>
+      </div>
+      <div class="touch-dock" id="touchDock" aria-label="Touch scanner controls">
+        <button class="dock-btn" type="button" data-action="toggle-lens" aria-label="Toggle lens">Lens</button>
+        <button class="dock-btn" type="button" data-action="toggle-pin" aria-label="Pin or unpin lens">Pin</button>
+        <button class="dock-btn" type="button" data-action="toggle-reveal" aria-label="Reveal or hide all findings">All</button>
+        <label class="dock-radius" for="lensRadiusDock">Size <input id="lensRadiusDock" type="range" min="78" max="210" step="1" value="145" aria-label="Lens radius"></label>
+      </div>
+      <article class="article-surface lens-off" id="articleSurface" aria-describedby="lensTouchHint">
+        <div class="article-inner" id="articleBase"></div>
+        <div class="scan-overlay" id="articleOverlay" aria-hidden="true"></div>
+        <div class="lens-ring" aria-hidden="true"></div>
+        <button class="touch-lens-handle" id="touchHandle" aria-label="Drag the scanner lens. The lens stays above your finger.">⌖</button>
+        <div class="lens-touch-hint" id="lensTouchHint">On touch screens, tap the article to place the lens or drag ⌖ to scan while preserving page scroll.</div>
+      </article>
+    </div>
+    <aside class="side-panel" aria-label="Scanner support panels">
+      <section class="panel">
+        <div class="panel-head"><div class="panel-title">Mechanism key</div><button class="ghost-btn compact-btn" id="legendToggle" aria-expanded="true" aria-controls="legendBody">Collapse</button></div>
+        <div class="panel-body legend-list" id="legendBody">
+          <div class="legend-meta">Hue = family · fill = pressure · border = confidence</div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--lexical)"></span><span>Lexical framing</span><span class="legend-note">solid confidence</span></div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--epistemic)"></span><span>Epistemic</span><span class="legend-note">dashed = medium</span></div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--agency)"></span><span>Agency</span><span class="legend-note">dotted = low</span></div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--emotional)"></span><span>Emotional pressure</span><span></span></div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--logic)"></span><span>Logic</span><span></span></div>
+          <div class="legend-row"><span class="legend-swatch" style="--swatch:var(--journalism)"></span><span>Journalism</span><span></span></div>
+        </div>
+      </section>
+      <section class="panel findings-panel">
+        <div class="panel-head"><div class="panel-title">Findings</div><span class="legend-note" id="findingCount">9 findings</span></div>
+        <div class="panel-body">
+          <div class="finding-controls">
+            <label class="filter-field"><span>Search</span><input id="findingSearch" type="search" placeholder="Mechanism or excerpt"></label>
+            <label class="filter-field"><span>Confidence</span><select id="confidenceFilter"><option value="all">All</option><option value="confirmed">Medium + high</option><option value="candidate">Low candidates</option></select></label>
+            <label class="filter-field"><span>Family</span><select id="familyFilter"><option value="all">All families</option><option value="lexical">Lexical</option><option value="epistemic">Epistemic</option><option value="agency">Agency</option><option value="emotional">Emotional</option><option value="logic">Logic</option><option value="journalism">Journalism</option></select></label>
+          </div>
+          <div class="findings-list" id="findingsList"></div>
+          <div class="finding-empty" id="findingEmpty" hidden>No findings match these list filters.</div>
+        </div>
+        <div class="candidate-note">Low-confidence findings remain part of the scan by default. List filters do not erase annotations from the article.</div>
+      </section>
+      <section class="panel settings-panel">
+        <div class="panel-head"><div class="panel-title">Scanner settings</div><span class="legend-note" id="settingsSaved">Session settings</span></div>
+        <div class="panel-body settings-grid">
+          <label class="range-field" for="lensRadius"><span>Lens size</span><output id="lensRadiusValue" for="lensRadius">145 px</output><input id="lensRadius" type="range" min="78" max="210" step="1" value="145"></label>
+          <label class="switch-row"><input id="patternMode" type="checkbox"><span><b>Pattern mode</b><small>Add non-color family markings.</small></span></label>
+          <label class="switch-row"><input id="reducedMotion" type="checkbox"><span><b>Reduce motion</b><small>Suppress nonessential transitions in this artifact.</small></span></label>
+          <button class="ghost-btn" id="resetScanner" type="button">Restore scanner defaults</button>
+          <details class="shortcut-help"><summary>Keyboard shortcuts</summary><dl><div><dt>L</dt><dd>Lens on/off</dd></div><div><dt>A</dt><dd>Reveal all</dd></div><div><dt>C</dt><dd>Compare</dd></div><div><dt>E</dt><dd>Event Record</dd></div><div><dt>Esc</dt><dd>Close details / unpin</dd></div></dl></details>
+          <div class="engine-status" id="engineStatus" aria-live="polite">Integrity pending</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<section class="view" id="view-compare" aria-labelledby="compareTitle">
+  <div class="wrap section-shell">
+    <div class="section-hero"><div><div class="eyebrow">First results view</div><h1 id="compareTitle">What this article does differently</h1><p>Comparison exposes rhetoric, omissions, and evidence conflicts without collapsing them into one distortion score.</p></div><button class="ghost-btn" data-view="event">Open forensic Event Record</button></div>
+    <div class="compare-cards" id="compareCards"></div>
+    <div class="notice">Coverage disclosure: this fictional demo uses four synthetic peer sources. Production Rhetorical InDEX must disclose peer-set size, source dependence, time window, and fetch gaps.</div>
+    <div style="height:.8rem"></div>
+    <div class="claims" id="claimsList"></div>
+  </div>
+</section>
+
+<section class="view" id="view-event" aria-labelledby="eventTitle">
+  <div class="wrap section-shell">
+    <div class="section-hero"><div><div class="eyebrow">Forensic event record</div><h1 id="eventTitle">Harbor Vale Order 24-17</h1><p>Atomic claims survive or fail on evidence. Repetition and primary evidence are shown separately.</p></div><button class="ghost-btn" data-view="compare">Back to comparison</button></div>
+    <div class="record-grid" id="recordGrid"></div>
+  </div>
+</section>
+
+<section class="view" id="view-taxonomy" aria-labelledby="taxTitle">
+  <div class="wrap section-shell">
+    <div class="section-hero"><div><div class="eyebrow">Alpha-0 kernel</div><h1 id="taxTitle">Minimum effective taxonomy</h1><p>Canonical terms first. Novel patterns stay out of production until the bounded instrument is calibrated.</p></div></div>
+    <div class="tax-grid" id="taxGrid"></div>
+  </div>
+</section>
+
+<section class="view" id="view-plan" aria-labelledby="planTitle">
+  <div class="wrap section-shell">
+    <div class="section-hero"><div><div class="eyebrow">Source-of-truth build document</div><h1 id="planTitle">Implementation plan</h1><p>The complete source-of-truth implementation plan is embedded here.</p></div></div>
+    <div class="plan-layout">
+      <aside class="plan-nav"><label class="screen-reader-only" for="planSearch">Filter plan headings</label><input id="planSearch" type="search" placeholder="Filter plan headings…"><nav class="toc" id="planToc" aria-label="Implementation plan contents"></nav></aside>
+      <article class="plan-content" id="planContent"><h1>Rhetorical InDEX — Revised Beginning-to-End Implementation Plan</h1>
+<p><strong>Status:</strong> source-of-truth implementation plan<br />
+<strong>Product name:</strong> <strong>Rhetorical InDEX</strong><br />
+<strong>Product class:</strong> open-source, public-interest news rhetoric scanner and comparative evidence instrument<br />
+<strong>Primary audience:</strong> ordinary news readers, with deeper inspection available for researchers, journalists, educators, and maintainers<br />
+<strong>First-run analytical target:</strong> interpretive pressure, not potential harm<br />
+<strong>First-run interaction:</strong> article-first scanner with movable lens</p>
+<hr />
+<h1>Part I — Product contract</h1>
+<h2>1. Purpose</h2>
+<p>Rhetorical InDEX exists to help a reader see what language is doing to their interpretation while they are reading news.</p>
+<p>Every telling of an event makes selections: what is foregrounded, what is omitted, which actor is named, which verb is chosen, how certain a claim sounds, which quote is selected, which context is deferred, and which emotional frame becomes the default. Rhetorical InDEX makes those operations inspectable.</p>
+<p>The MVP does <strong>not</strong> need to decide which political faction is &quot;correct.&quot; It does not need a centrist reference point. It does not need to classify a source as Left, Center, or Right. The scanner should instead expose the mechanics of the telling itself and the evidence structure underneath factual claims.</p>
+<p>The product succeeds when a reader can move from:</p>
+<blockquote>
+<p>&quot;This article feels manipulative.&quot;</p>
+</blockquote>
+<p>or</p>
+<blockquote>
+<p>&quot;This article sounds neutral, so I assume it is neutral.&quot;</p>
+</blockquote>
+<p>into a more precise inspection:</p>
+<blockquote>
+<p>&quot;This sentence presupposes a disputed premise, assigns certainty beyond its source, suppresses the actor, and omits a duration clause that appears in peer coverage and the underlying order.&quot;</p>
+</blockquote>
+<p>The instrument should make disagreement more productive because every finding can be challenged at the level of text, definition, evidence, and method.</p>
+<h2>2. Core definitions</h2>
+<h3>2.1 Interpretive pressure</h3>
+<p><strong>Interpretive pressure</strong> is the degree to which language steers, narrows, preloads, emotionally weights, or structurally constrains a reader's interpretation of a passage.</p>
+<p>Interpretive pressure is not synonymous with:</p>
+<ul>
+<li>falsehood;</li>
+<li>harm;</li>
+<li>ideology;</li>
+<li>bias score;</li>
+<li>malicious intent;</li>
+<li>source reliability;</li>
+<li>moral wrongness.</li>
+</ul>
+<p>A factually accurate passage can apply very strong interpretive pressure. A false or materially misleading passage can be written in calm, low-pressure language.</p>
+<h3>2.2 Finding</h3>
+<p>A <strong>finding</strong> is a claim by Rhetorical InDEX that one or more defined rhetorical, logical, evidentiary, or journalism-specific mechanisms occur in a particular scope of source material.</p>
+<p>A finding always includes:</p>
+<ul>
+<li>the exact affected text or structural relationship;</li>
+<li>one or more taxonomy mechanisms;</li>
+<li>interpretive-pressure level;</li>
+<li>confidence;</li>
+<li>observable criteria that triggered the finding;</li>
+<li>relevant exclusion/near-miss considerations;</li>
+<li>alternative interpretation or limitation;</li>
+<li>provenance and analysis version.</li>
+</ul>
+<h3>2.3 Material omission</h3>
+<p>A <strong>material omission candidate</strong> is a fact or context item absent from the target article whose inclusion could reasonably change how the event is interpreted with respect to agency, cause, scale, timeline, status, responsibility, consequence, denominator, or evidence quality.</p>
+<p>It can only be emitted when the system can show:</p>
+<ol>
+<li>what the missing claim is;</li>
+<li>that it was reasonably knowable at the article's publication/update time;</li>
+<li>what independent coverage and/or primary evidence supports it;</li>
+<li>why its absence is material;</li>
+<li>how confident the system is in the event/claim alignment.</li>
+</ol>
+<p>The label describes effect and evidence, not author intent.</p>
+<h3>2.4 Coverage consensus</h3>
+<p><strong>Coverage consensus</strong> is the degree to which genuinely independent reporting sources assert compatible versions of a claim. It is not a truth score.</p>
+<h3>2.5 Primary evidence</h3>
+<p><strong>Primary evidence</strong> is source material close to the event or claim itself: documents, datasets, recordings, filings, orders, transcripts, original research, or first-party statements when those statements are the object of the claim.</p>
+<p>Primary evidence is not automatically correct, complete, or neutral. It is assessed for authenticity, directness, context, temporal relevance, and independence.</p>
+<hr />
+<h2>3. Non-negotiable product rules</h2>
+<ol>
+<li>Default entry is an article scanner.</li>
+<li>Compare is the first results destination.</li>
+<li>Event Record is secondary to Compare but directly reachable.</li>
+<li>Intrinsic rhetoric analysis is the primary pressure signal.</li>
+<li>Peer comparison modifies/contextualizes intrinsic analysis; it does not define rhetoric by majority vote.</li>
+<li>Multiple mechanisms may apply to the same text.</li>
+<li>Low-confidence findings are visible by default.</li>
+<li>Confidence and pressure are separate visual and data dimensions.</li>
+<li>Color hue indicates mechanism family; strength indicates pressure, never harm or confidence.</li>
+<li>No Left/Center/Right source axis in the core UI.</li>
+<li>No social/community layer in the first release.</li>
+<li>No potential-harm score in the first release.</li>
+<li>No plain-language renaming system is required for the first release; canonical terms come first.</li>
+<li>No novel mechanism can be promoted directly from model improvisation into production taxonomy.</li>
+<li>No single trust, propaganda, distortion, or truth score may summarize an article.</li>
+<li>Every important analytical assertion is inspectable.</li>
+<li>The system must distinguish &quot;not found&quot; from &quot;false&quot; and &quot;widely repeated&quot; from &quot;strongly evidenced.&quot;</li>
+<li>Quoted-speaker rhetoric and outlet/editorial rhetoric must remain distinguishable.</li>
+<li>Incomplete source coverage must be visible.</li>
+<li>The scanner must remain usable without a mouse or the lens effect.</li>
+</ol>
+<hr />
+<h2>4. Release layers</h2>
+<h3>4.1 Layer A — Experience Prototype</h3>
+<p>Purpose: prove the human interaction before building production inference or ingestion.</p>
+<p>Uses:</p>
+<ul>
+<li>one self-contained HTML file;</li>
+<li>fictional event/source fixtures;</li>
+<li>hand-authored findings;</li>
+<li>optional local heuristic scan for pasted text;</li>
+<li>fully working lens, multi-tags, detail drawer, pressure profile, Compare, Event Record, settings, and plan viewer.</li>
+</ul>
+<p>This prototype is not presented as live fact-checking.</p>
+<h3>4.2 Layer B — Instrument Alpha</h3>
+<p>Purpose: prove that a bounded taxonomy can be detected accurately and transparently on real text.</p>
+<p>Includes:</p>
+<ul>
+<li>paste-text scanning;</li>
+<li>bounded Alpha-0 taxonomy;</li>
+<li>real intrinsic detector pipeline;</li>
+<li>reviewed benchmark built <strong>after</strong> the first vertical slice exists;</li>
+<li>fixture-backed comparison/evidence UI;</li>
+<li>versioned finding schema;</li>
+<li>public methodology.</li>
+</ul>
+<p>Live broad news aggregation is not required for Instrument Alpha.</p>
+<h3>4.3 Layer C — News-Scale Beta</h3>
+<p>Purpose: attach the proven instrument to real event discovery, peer coverage, claim alignment, omission detection, and primary-evidence workflows.</p>
+<p>Includes:</p>
+<ul>
+<li>URL ingestion;</li>
+<li>source registry;</li>
+<li>peer event clustering;</li>
+<li>source-dependence graph;</li>
+<li>claim extraction/alignment;</li>
+<li>journalism-specific cross-document mechanisms;</li>
+<li>evidence retrieval;</li>
+<li>evolving Event Record;</li>
+<li>public open-source deployment.</li>
+</ul>
+<p>This separation prevents infrastructure ambition from delaying the core scanner.</p>
+<hr />
+<h1>Part II — Exact MVP feature contract</h1>
+<h2>5. MVP feature inventory</h2>
+<p>For this plan, <strong>MVP</strong> means the first useful Instrument Alpha plus the fixture-backed comparison experience. News-Scale Beta expands the same product rather than redefining it.</p>
+<table>
+<thead>
+<tr>
+  <th>Feature</th>
+  <th>User value</th>
+  <th>MVP behavior</th>
+  <th>Production path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Article reader</td>
+  <td>Keeps news reading primary</td>
+  <td>Clean reading column</td>
+  <td>URL/paste normalized article model</td>
+</tr>
+<tr>
+  <td>Scanner lens</td>
+  <td>Reveals analysis without visual overload</td>
+  <td>Movable local reveal</td>
+  <td>DOM-range annotation overlay</td>
+</tr>
+<tr>
+  <td>Multi-tag spans</td>
+  <td>Shows overlapping mechanisms</td>
+  <td>All applicable tags rendered</td>
+  <td>Multi-label finding schema</td>
+</tr>
+<tr>
+  <td>Technical rhetoric tags</td>
+  <td>Builds precise vocabulary</td>
+  <td>Canonical mechanism names</td>
+  <td>Versioned taxonomy package</td>
+</tr>
+<tr>
+  <td>Pressure intensity</td>
+  <td>Shows rhetorical force</td>
+  <td>1–4 ordinal per finding</td>
+  <td>Mechanism-specific calibrated rubric</td>
+</tr>
+<tr>
+  <td>Confidence</td>
+  <td>Shows uncertainty</td>
+  <td>Low/Medium/High separate from pressure</td>
+  <td>Calibrated detector confidence</td>
+</tr>
+<tr>
+  <td>Pressure profile</td>
+  <td>Shows article pattern</td>
+  <td>density/peaks/dominant families</td>
+  <td>derived profile with candidate/confirmed bands</td>
+</tr>
+<tr>
+  <td>Finding drawer</td>
+  <td>Makes analysis inspectable</td>
+  <td>exact span, criteria, alternative, versions</td>
+  <td>structured decision trace/evidence</td>
+</tr>
+<tr>
+  <td>Compare coverage</td>
+  <td>Shows differences first</td>
+  <td>fixture-backed side-by-side</td>
+  <td>live event peers and aligned claims</td>
+</tr>
+<tr>
+  <td>Omission</td>
+  <td>Shows what changes interpretation by absence</td>
+  <td>fixture-backed candidate</td>
+  <td>event-time-aware comparative detector</td>
+</tr>
+<tr>
+  <td>Fact/evidence states</td>
+  <td>Separates evidence from rhetoric</td>
+  <td>supported/contested/etc. fixture</td>
+  <td>live evidence graph</td>
+</tr>
+<tr>
+  <td>Coverage consensus</td>
+  <td>Shows reporting agreement</td>
+  <td>source count + dependence note</td>
+  <td>source-independence graph</td>
+</tr>
+<tr>
+  <td>Strongest primary evidence</td>
+  <td>Surfaces conflict with dominant account</td>
+  <td>fixture evidence record</td>
+  <td>evidence retrieval/ranking</td>
+</tr>
+<tr>
+  <td>Forensic Event Record</td>
+  <td>Separates event from tellings</td>
+  <td>atomic claim ledger</td>
+  <td>evolving evidence graph</td>
+</tr>
+<tr>
+  <td>Accessibility fallback</td>
+  <td>Makes scanner usable beyond pointer</td>
+  <td>Reveal All + findings list</td>
+  <td>maintained as first-class path</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1>Part III — User experience</h1>
+<h2>6. Entry and scan creation</h2>
+<h3>6.1 Production entry screen</h3>
+<p>Primary content:</p>
+<ul>
+<li>Product name: <strong>Rhetorical InDEX</strong></li>
+<li>Product descriptor: <strong>Inspect the pressure inside the language.</strong></li>
+<li>URL input.</li>
+<li>Paste-text option.</li>
+<li>Demo event.</li>
+</ul>
+<p>The interface should not begin with a manifesto. A short methodology link is sufficient.</p>
+<h3>6.2 Scan request states</h3>
+<p>A scan is a staged job with explicit states:</p>
+<ol>
+<li><code>received</code></li>
+<li><code>extracting</code></li>
+<li><code>intrinsic_analysis</code></li>
+<li><code>article_ready</code></li>
+<li><code>peer_search</code></li>
+<li><code>comparison_analysis</code></li>
+<li><code>evidence_analysis</code></li>
+<li><code>complete</code></li>
+<li><code>partial</code></li>
+<li><code>failed</code></li>
+</ol>
+<p>The user can enter the article when <code>article_ready</code> is reached. Peer/evidence work can continue progressively.</p>
+<p>The system never keeps a reader staring at a fake spinner until every backend stage completes.</p>
+<h2>7. Default Scanner view</h2>
+<h3>7.1 Desktop composition</h3>
+<p><strong>Header rail</strong></p>
+<ul>
+<li>Rhetorical InDEX mark.</li>
+<li>Source/title metadata.</li>
+<li>analysis-version/provenance button.</li>
+<li>Lens toggle.</li>
+<li>Reveal All toggle.</li>
+<li>Filters.</li>
+<li>Primary action: <strong>Compare coverage</strong>.</li>
+</ul>
+<p><strong>Pressure profile</strong></p>
+<ul>
+<li>Peak pressure level.</li>
+<li>Candidate/confirmed flagged density displayed separately.</li>
+<li>Dominant mechanism families.</li>
+<li>Mini-map of pressure clusters by paragraph.</li>
+</ul>
+<p><strong>Article</strong></p>
+<ul>
+<li>Comfortable serif or editorial reading face using local/system fonts.</li>
+<li>approximately 65–75 character line length.</li>
+<li>wide margins around the article so the lens can move without colliding with controls.</li>
+</ul>
+<p><strong>Right detail region on wide screens</strong></p>
+<ul>
+<li>collapsed until a finding is selected.</li>
+<li>no permanent dashboard clutter.</li>
+</ul>
+<h3>7.2 Mobile composition</h3>
+<ul>
+<li>header condenses to product mark, compare action, and scanner menu.</li>
+<li>article remains primary.</li>
+<li>a draggable lens control sits slightly above the bottom safe area.</li>
+<li>selected finding opens a bottom sheet.</li>
+<li>Compare becomes a sticky but non-obscuring action after the article heading.</li>
+<li>horizontal comparison tables become claim cards.</li>
+</ul>
+<h2>8. Lens interaction</h2>
+<h3>8.1 Default visual state</h3>
+<p>Outside the lens:</p>
+<ul>
+<li>article is plain;</li>
+<li>optional faint margin ticks indicate that findings exist in nearby paragraphs;</li>
+<li>no permanent colored blocks cover the reading experience.</li>
+</ul>
+<p>Inside the lens:</p>
+<ul>
+<li>affected span background appears;</li>
+<li>saturation/weight reflects pressure 1–4;</li>
+<li>mechanism tags appear at the end of the relevant span or in a stable attached marker lane;</li>
+<li>confidence is represented by tag border style and accessible label;</li>
+<li>multiple tags are visible together.</li>
+</ul>
+<h3>8.2 Stable activation rule</h3>
+<p>The lens reveals; it does not have to serve as the only click target.</p>
+<p>A finding can be selected by:</p>
+<ul>
+<li>clicking a visible marker while the lens is pinned;</li>
+<li>clicking the corresponding item in the findings rail/list;</li>
+<li>using keyboard next/previous finding controls;</li>
+<li>tapping the marker in mobile Reveal All mode.</li>
+</ul>
+<p>This avoids fragile hit targets inside a moving clip mask.</p>
+<h3>8.3 Lens controls</h3>
+<ul>
+<li>Toggle Lens.</li>
+<li>Pin/unpin lens.</li>
+<li>Lens size Small/Medium/Large.</li>
+<li>Reveal All.</li>
+<li>Hide/show candidate low-confidence findings; default show.</li>
+<li>Filter by mechanism family; default all.</li>
+</ul>
+<h3>8.4 Keyboard model</h3>
+<p>Proposed shortcuts:</p>
+<ul>
+<li><code>L</code> Lens toggle.</li>
+<li><code>A</code> Reveal All.</li>
+<li><code>J</code> Next finding.</li>
+<li><code>K</code> Previous finding.</li>
+<li><code>Enter</code> Inspect selected finding.</li>
+<li><code>C</code> Compare coverage.</li>
+<li><code>E</code> Event Record.</li>
+<li><code>Esc</code> Close drawer/sheet or unpin lens.</li>
+</ul>
+<p>Shortcuts are discoverable in a command/help panel and do not override browser conventions when focus is in an input.</p>
+<h2>9. Tags and visual semantics</h2>
+<h3>9.1 Tag content</h3>
+<p>First-run tags use canonical terms such as:</p>
+<ul>
+<li>Loaded language</li>
+<li>Presupposition</li>
+<li>Epistemic overstatement</li>
+<li>Agent suppression</li>
+<li>Appeal to fear</li>
+<li>False dilemma</li>
+<li>Hasty generalization</li>
+<li>Causal overclaim</li>
+<li>Headline/body mismatch</li>
+<li>Selective quotation</li>
+<li>Material omission</li>
+</ul>
+<p>Plain-language glosses can later appear in definitions, but no additional label-generation system is required for Alpha.</p>
+<h3>9.2 Intensity encoding</h3>
+<p>Pressure uses:</p>
+<ul>
+<li>stronger/lighter fill within one family hue;</li>
+<li>explicit <code>P1</code>, <code>P2</code>, <code>P3</code>, <code>P4</code> in the detailed view;</li>
+<li>accessible text: &quot;Interpretive pressure: strong (3 of 4).&quot;</li>
+</ul>
+<h3>9.3 Confidence encoding</h3>
+<p>Confidence uses:</p>
+<ul>
+<li>high: solid tag border;</li>
+<li>medium: dashed border;</li>
+<li>low: dotted border;</li>
+<li>explicit confidence text in tooltip/drawer.</li>
+</ul>
+<p>Low confidence does not disappear by default.</p>
+<h3>9.4 No color-only meaning</h3>
+<p>Mechanism name, pressure level, confidence text/border, and position all remain usable without color perception.</p>
+<h2>10. Finding detail drawer</h2>
+<p>The drawer uses progressive disclosure.</p>
+<h3>10.1 First layer: immediate answer</h3>
+<ul>
+<li>Mechanism.</li>
+<li>Exact affected text.</li>
+<li>Pressure level.</li>
+<li>Confidence.</li>
+<li>One-sentence basis.</li>
+</ul>
+<h3>10.2 Second layer: Why this was tagged</h3>
+<p>Structured observations only:</p>
+<ul>
+<li>triggered criteria;</li>
+<li>linguistic/structural feature;</li>
+<li>evidence or comparison dependency;</li>
+<li>overlap with other mechanisms.</li>
+</ul>
+<h3>10.3 Third layer: Why it could be wrong</h3>
+<ul>
+<li>near-miss condition;</li>
+<li>detector disagreement;</li>
+<li>missing context;</li>
+<li>alternate grammatical/semantic interpretation;</li>
+<li>evidence limitation.</li>
+</ul>
+<h3>10.4 Fourth layer: Comparison and evidence</h3>
+<p>When available:</p>
+<ul>
+<li>aligned peer wording;</li>
+<li>omission context;</li>
+<li>evidence item;</li>
+<li>coverage consensus;</li>
+<li>source dependence warning.</li>
+</ul>
+<h3>10.5 Fifth layer: Provenance</h3>
+<ul>
+<li>taxonomy version;</li>
+<li>detector versions;</li>
+<li>source snapshot hash/ID;</li>
+<li>analysis run;</li>
+<li>timestamp;</li>
+<li>configuration.</li>
+</ul>
+<p>The UI exposes a <strong>decision trace</strong>, not raw hidden chain-of-thought.</p>
+<h2>11. Pressure profile</h2>
+<p>No single trust/distortion score is shown.</p>
+<p>Profile components:</p>
+<ol>
+<li><strong>Peak pressure:</strong> highest pressure level among displayed findings.</li>
+<li><strong>Confirmed density:</strong> share of relevant text covered by medium/high-confidence findings above the reporting threshold.</li>
+<li><strong>Candidate density:</strong> share covered only by low-confidence findings.</li>
+<li><strong>Pressure distribution:</strong> count by P1–P4.</li>
+<li><strong>Dominant mechanism families:</strong> by span coverage and finding count.</li>
+<li><strong>Pressure map:</strong> paragraph locations of P3/P4 clusters.</li>
+<li><strong>Peer deltas:</strong> only when sufficient comparison coverage exists.</li>
+</ol>
+<p>This structure prevents article-padding from hiding intense local passages inside a harmless average.</p>
+<hr />
+<h1>Part IV — Comparison, evidence, and omission</h1>
+<h2>12. Compare is the first results destination</h2>
+<p>The reader selects <strong>Compare coverage</strong> from the article.</p>
+<p>The view begins with <strong>What this article does differently</strong>.</p>
+<p>Possible cards:</p>
+<ul>
+<li><code>Higher fear framing</code> — &quot;3 aligned claims show stronger fear framing than the available peer set.&quot;</li>
+<li><code>Agency differs</code> — &quot;This article leaves the actor implicit where 4 peers name the agency.&quot;</li>
+<li><code>Material omission candidate</code> — missing fact with time/evidence support.</li>
+<li><code>Evidence conflict</code> — dominant reporting vs primary evidence.</li>
+<li><code>Lower certainty</code> — target uses more qualified wording than peers.</li>
+</ul>
+<p>Each card opens the underlying aligned claims. No card exists without traceable data.</p>
+<h2>13. Claim-level comparison</h2>
+<p>A comparison row contains:</p>
+<pre><code class="language-text">normalized_claim
+alignment_confidence
+target_excerpt
+peer_excerpts[]
+peer_source_independence[]
+mechanism_differences[]
+evidence_state
+material_omission_state
+</code></pre>
+<h3>13.1 Alignment relation types</h3>
+<ul>
+<li>equivalent</li>
+<li>narrower</li>
+<li>broader</li>
+<li>contradicts</li>
+<li>partially overlaps</li>
+<li>contextualizes</li>
+<li>unrelated</li>
+<li>uncertain</li>
+</ul>
+<p>Low-confidence alignment may be displayed as a candidate but may not drive a strong omission/contradiction label until a secondary verifier passes.</p>
+<h2>14. Quoted speech versus outlet voice</h2>
+<p>Every text finding includes voice provenance:</p>
+<ul>
+<li><code>headline</code></li>
+<li><code>reporter</code></li>
+<li><code>quoted_speaker</code></li>
+<li><code>caption</code></li>
+<li><code>editorial_note</code></li>
+<li><code>source_document</code></li>
+</ul>
+<p>The interface should say, for example:</p>
+<blockquote>
+<p><strong>Appeal to fear — quoted speaker</strong>
+The rhetoric is in the quotation. The outlet's analytical responsibility is represented separately through selection, headline framing, surrounding qualification, and prominence.</p>
+</blockquote>
+<p>This prevents the scanner from falsely attributing every quoted mechanism to the journalist.</p>
+<h2>15. Material omission</h2>
+<h3>15.1 Candidate generation</h3>
+<p>An omission candidate requires:</p>
+<ol>
+<li>event membership above threshold;</li>
+<li>claim alignment above threshold;</li>
+<li>evidence that the missing fact existed by the target article's relevant timestamp;</li>
+<li>support from independent coverage and/or evidence;</li>
+<li>a materiality rationale;</li>
+<li>no evidence that the target expressed the same fact in a semantically equivalent form.</li>
+</ol>
+<h3>15.2 Materiality dimensions</h3>
+<p>The finding must name one or more dimensions:</p>
+<ul>
+<li>Agency</li>
+<li>Cause</li>
+<li>Scale</li>
+<li>Timeline</li>
+<li>Status (proposed/enacted, alleged/proven, temporary/permanent)</li>
+<li>Responsibility</li>
+<li>Consequence</li>
+<li>Denominator/baseline</li>
+<li>Evidence quality</li>
+</ul>
+<p>No generic &quot;important context&quot; finding is allowed.</p>
+<h3>15.3 Chronology</h3>
+<p>Every candidate is evaluated against <code>article_known_at</code>.</p>
+<p>If a fact entered the record after publication, the system may show it as a <strong>later development</strong>, not an omission.</p>
+<p>If an article was updated later, the updated timestamp creates a new comparison snapshot.</p>
+<h2>16. Fact/evidence states</h2>
+<h3>16.1 Claim state vocabulary</h3>
+<ul>
+<li>Supported by direct evidence</li>
+<li>Corroborated by independent reporting</li>
+<li>Contested</li>
+<li>Contradicted by identified evidence</li>
+<li>Unverified</li>
+<li>Context-sensitive</li>
+<li>Non-factual/interpretive</li>
+<li>Retrieval incomplete</li>
+</ul>
+<p><code>Retrieval incomplete</code> is deliberately separate so a failed evidence search cannot masquerade as a factual judgment.</p>
+<h3>16.2 Evidence-quality dimensions</h3>
+<p>Every primary evidence item can be inspected against:</p>
+<ul>
+<li>Authenticity: is the item what it claims to be?</li>
+<li>Directness: how directly does it bear on the exact claim?</li>
+<li>Completeness: is the relevant context available?</li>
+<li>Temporal relevance: was it valid at the claim's time?</li>
+<li>Independence: is it simply the claimant restating its own claim?</li>
+<li>Scope fit: does it actually cover the geography/population/period implied?</li>
+</ul>
+<p>The system may surface the strongest item found, but it does not erase its limitations.</p>
+<h2>17. Coverage consensus and source dependence</h2>
+<p>Coverage consensus must be calculated from a source-dependence graph, not raw article count.</p>
+<p>Dependence clues:</p>
+<ul>
+<li>exact/near-exact text overlap;</li>
+<li>explicit syndication credit;</li>
+<li>shared wire-service attribution;</li>
+<li>common linked primary source;</li>
+<li>publication sequence;</li>
+<li>paragraph-order similarity;</li>
+<li>shared uncommon errors/phrases;</li>
+<li>source-to-source citation.</li>
+</ul>
+<p>The graph stores uncertainty. The UI can say:</p>
+<blockquote>
+<p>&quot;6 articles repeat this claim; at least 3 appear independently reported.&quot;</p>
+</blockquote>
+<p>That is more honest than &quot;6 sources confirm.&quot;</p>
+<h2>18. Event Record</h2>
+<p>The Event Record is a versioned forensic ledger, not a neutralized article.</p>
+<p>Each claim row contains:</p>
+<ul>
+<li>claim ID;</li>
+<li>normalized proposition;</li>
+<li>earliest known time;</li>
+<li>current evidence state;</li>
+<li>strongest identified evidence with limitations;</li>
+<li>coverage consensus;</li>
+<li>source-dependence note;</li>
+<li>contradictions;</li>
+<li>source wording variants;</li>
+<li>rhetorical differences;</li>
+<li>omission relationships;</li>
+<li>event-record version.</li>
+</ul>
+<h3>18.1 Evolving events</h3>
+<p>The record is temporal.</p>
+<p>A claim can move:</p>
+<p><code>unverified -&gt; corroborated -&gt; contested -&gt; contradicted</code></p>
+<p>or another path as evidence changes.</p>
+<p>Old article comparisons remain reproducible against the evidence state available at the time of that analysis.</p>
+<hr />
+<h1>Part V — Taxonomy and detector design</h1>
+<h2>19. Alpha-0 taxonomy kernel</h2>
+<p>The revised plan does not attempt the entire rhetoric textbook at once.</p>
+<h3>19.1 Intrinsic kernel</h3>
+<ol>
+<li><strong>Loaded language</strong></li>
+<li><strong>Euphemism / dysphemism</strong></li>
+<li><strong>Presupposition</strong></li>
+<li><strong>Epistemic overstatement</strong></li>
+<li><strong>Agent suppression</strong></li>
+<li><strong>Appeal to fear</strong></li>
+<li><strong>False dilemma</strong></li>
+<li><strong>Hasty generalization</strong></li>
+<li><strong>Causal overclaim</strong></li>
+</ol>
+<h3>19.2 Journalism/cross-document kernel</h3>
+<ol start="10">
+<li><strong>Headline/body mismatch</strong></li>
+<li><strong>Selective quotation / quote-mining</strong></li>
+<li><strong>Material omission</strong></li>
+</ol>
+<p>These twelve are a starting instrument, not a claim that other mechanisms are unimportant.</p>
+<h3>19.3 Batch-2 candidates</h3>
+<p>Add only after per-mechanism gates:</p>
+<ul>
+<li>Straw man</li>
+<li>Ad hominem</li>
+<li>Whataboutism / tu quoque</li>
+<li>Slippery slope</li>
+<li>Scapegoating / collective attribution</li>
+<li>Anecdotal substitution</li>
+<li>Buried qualification</li>
+<li>Source laundering</li>
+<li>Agency inflation</li>
+<li>Appeal to authority with strict contextual rules</li>
+</ul>
+<h2>20. Taxonomy record</h2>
+<p>Every mechanism lives in a versioned record:</p>
+<pre><code class="language-yaml">mechanism_id: epistemic_overstatement
+canonical_name: Epistemic overstatement
+family: epistemic
+scope: [clause, sentence, paragraph]
+definition: ...
+positive_criteria:
+  - ...
+exclusion_criteria:
+  - ...
+nearest_neighbors:
+  - presupposition
+  - causal_overclaim
+cooccurrence_rules:
+  - ...
+required_context:
+  - evidence_support
+pressure_features:
+  - ...
+pressure_anchors:
+  1: ...
+  2: ...
+  3: ...
+  4: ...
+examples:
+  - ...
+counterexamples:
+  - ...
+review_state: alpha
+</code></pre>
+<h2>21. Mechanism confusion matrix</h2>
+<p>Before detector implementation, every mechanism is compared with nearest neighbors.</p>
+<p>Example distinctions:</p>
+<ul>
+<li><strong>Presupposition vs epistemic overstatement:</strong> presupposition embeds a proposition as given; overstatement raises certainty beyond support.</li>
+<li><strong>Loaded language vs appeal to fear:</strong> loaded language is connotative framing; fear appeal specifically uses feared consequence as persuasive leverage.</li>
+<li><strong>Agent suppression vs material omission:</strong> agent suppression occurs in the sentence/grammar; material omission is cross-document absence of a fact.</li>
+<li><strong>Causal overclaim vs hasty generalization:</strong> causal overclaim asserts cause; hasty generalization broadens from insufficient sample.</li>
+</ul>
+<p>Co-occurrence is allowed when criteria independently hold.</p>
+<h2>22. Mechanism detection pipeline</h2>
+<h3>22.1 Candidate generation</h3>
+<p>Use low-cost mechanisms first:</p>
+<ul>
+<li>syntax parser features;</li>
+<li>lexical/phrase signals;</li>
+<li>modality/certainty markers;</li>
+<li>attribution structure;</li>
+<li>sentence relationships;</li>
+<li>specialized classifiers.</li>
+</ul>
+<p>Candidate generation is intentionally recall-heavy.</p>
+<h3>22.2 Contextual verification</h3>
+<p>Context-dependent candidates are passed to a structured contextual judge.</p>
+<p>The judge receives:</p>
+<ul>
+<li>exact span;</li>
+<li>bounded surrounding context;</li>
+<li>mechanism definition;</li>
+<li>positive/exclusion criteria;</li>
+<li>relevant evidence features;</li>
+<li>nearest-neighbor definitions.</li>
+</ul>
+<p>Output is schema-constrained:</p>
+<pre><code class="language-text">applies: yes/no/uncertain
+criteria_triggered[]
+criteria_failed[]
+nearest_neighbor_overlap[]
+pressure_features[]
+confidence_factors[]
+</code></pre>
+<h3>22.3 Reconciliation</h3>
+<p>A deterministic reconciler:</p>
+<ul>
+<li>preserves multiple tags;</li>
+<li>merges duplicate span candidates;</li>
+<li>marks detector disagreement;</li>
+<li>prevents low-confidence claim alignment from generating strong cross-document findings;</li>
+<li>stores detector votes.</li>
+</ul>
+<h3>22.4 No raw reasoning requirement</h3>
+<p>The system stores structured observations and decisions, not hidden/private reasoning traces. This keeps transparency reproducible and bounded.</p>
+<h2>23. Pressure scoring</h2>
+<p>Pressure is an ordinal mechanism-specific judgment.</p>
+<h3>23.1 Universal level meaning</h3>
+<ul>
+<li><code>P1 Light</code>: a mechanism is present but exerts limited steering.</li>
+<li><code>P2 Moderate</code>: materially affects interpretation while alternatives remain salient.</li>
+<li><code>P3 Strong</code>: substantially constrains interpretation, agency, certainty, or emotional frame.</li>
+<li><code>P4 Extreme</code>: the mechanism dominates the interpretive framing of the relevant passage.</li>
+</ul>
+<h3>23.2 Feature-based scoring</h3>
+<p>Each mechanism defines its own features.</p>
+<p>Example: <strong>Agent suppression</strong></p>
+<ul>
+<li>Is an actor grammatically omitted?</li>
+<li>Is the actor central to responsibility?</li>
+<li>Is the actor named nearby?</li>
+<li>Does the omission materially change perceived agency?</li>
+<li>Is passive voice required by ordinary informational structure?</li>
+</ul>
+<p>Example: <strong>Appeal to fear</strong></p>
+<ul>
+<li>Is a feared outcome invoked?</li>
+<li>Is the feared outcome central to the persuasive move?</li>
+<li>Is likelihood/support established?</li>
+<li>Is severity language proportional to evidence?</li>
+<li>Does the passage present alternatives or uncertainty?</li>
+</ul>
+<p>The drawer shows the fired features.</p>
+<h2>24. Confidence model</h2>
+<p>Internal confidence can be continuous, but the initial UI shows Low/Medium/High.</p>
+<p>Inputs:</p>
+<ul>
+<li>detector agreement;</li>
+<li>span-boundary certainty;</li>
+<li>parser confidence;</li>
+<li>contextual judge certainty;</li>
+<li>evidence availability;</li>
+<li>claim alignment confidence;</li>
+<li>taxonomy ambiguity;</li>
+<li>source extraction quality.</li>
+</ul>
+<h3>24.1 Two reporting thresholds</h3>
+<p>To preserve the user's high-recall preference without turning the profile into noise:</p>
+<ul>
+<li><strong>Candidate threshold:</strong> low enough that plausible findings remain visible inside Lens/Findings.</li>
+<li><strong>Profile threshold:</strong> higher threshold for confirmed-density statistics and comparative aggregate statements.</li>
+</ul>
+<p>Candidate findings still appear by default; they simply do not silently inflate headline metrics.</p>
+<hr />
+<h1>Part VI — Data and architecture</h1>
+<h2>25. Core data objects</h2>
+<h3>25.1 Article</h3>
+<pre><code class="language-text">article_id
+source_id
+canonical_url
+headline
+byline
+published_at
+updated_at
+fetched_at
+language
+genre_guess
+extraction_confidence
+content_blocks[]
+content_hash
+rights_status
+</code></pre>
+<h3>25.2 Finding</h3>
+<pre><code class="language-text">finding_id
+article_id
+mechanism_id
+voice
+scope
+span_start
+span_end
+exact_text
+pressure_level
+confidence
+criteria_triggered[]
+criteria_failed[]
+alternate_interpretation
+detector_votes[]
+comparison_refs[]
+evidence_refs[]
+taxonomy_version
+analysis_run_id
+</code></pre>
+<h3>25.3 Claim</h3>
+<pre><code class="language-text">claim_id
+article_id
+mention_span
+normalized_proposition
+claim_type
+entities[]
+attribution
+speaker
+time_reference
+certainty_markers[]
+extraction_confidence
+</code></pre>
+<h3>25.4 Claim relation</h3>
+<pre><code class="language-text">relation_id
+claim_a
+claim_b
+relation_type
+confidence
+verification_stage
+</code></pre>
+<h3>25.5 Evidence item</h3>
+<pre><code class="language-text">evidence_id
+type
+source_uri
+snapshot_id
+observed_at
+effective_from
+authenticity_state
+directness
+completeness
+temporal_relevance
+independence
+scope_fit
+notes
+</code></pre>
+<h3>25.6 Event record</h3>
+<pre><code class="language-text">event_id
+version
+created_at
+knowledge_cutoff
+member_articles[]
+claim_records[]
+coverage_gaps[]
+</code></pre>
+<h2>26. Repository layout</h2>
+<pre><code class="language-text">rhetorical-index/
+  apps/
+    web/
+  services/
+    api/
+    ingest/
+    rhetoric/
+    comparison/
+    evidence/
+  packages/
+    schema/
+    taxonomy/
+    scoring/
+    fixtures/
+    ui/
+  benchmarks/
+    annotation_guides/
+    corpus/
+    adjudication/
+    reports/
+  docs/
+    product/
+    methodology/
+    architecture/
+    governance/
+  infra/
+    local/
+    deploy/
+  tests/
+    end_to_end/
+    regression/
+</code></pre>
+<h2>27. Technology choices</h2>
+<p>Use conservative components and pin exact versions when implementation begins.</p>
+<ul>
+<li>Frontend: TypeScript component application, client-side routing, semantic HTML/CSS.</li>
+<li>Backend/API: Python web service.</li>
+<li>Analysis workers: Python.</li>
+<li>Database: PostgreSQL.</li>
+<li>Vector retrieval: PostgreSQL vector extension initially.</li>
+<li>Background jobs: database-backed queue initially.</li>
+<li>Object storage: evidence/article snapshots where permitted.</li>
+<li>Search: PostgreSQL full-text plus vector retrieval.</li>
+<li>Shared contracts: JSON Schema plus generated Python/TypeScript types.</li>
+<li>Local development: containerized services and seeded fixture database.</li>
+</ul>
+<p>Do not introduce Redis, Elasticsearch, Kafka, a dedicated vector database, or microservice orchestration merely because they are fashionable. Add them only when measured load requires them.</p>
+<h2>28. Service boundaries</h2>
+<h3>28.1 API/orchestrator</h3>
+<p>Responsibilities:</p>
+<ul>
+<li>create scan;</li>
+<li>return stage state;</li>
+<li>serve article/finding/compare/event objects;</li>
+<li>enforce access and retention policies;</li>
+<li>stream incremental results.</li>
+</ul>
+<h3>28.2 Ingest</h3>
+<p>Responsibilities:</p>
+<ul>
+<li>safe URL fetching;</li>
+<li>access/robots policy;</li>
+<li>parsing/extraction;</li>
+<li>canonicalization;</li>
+<li>content hashing;</li>
+<li>duplicate detection;</li>
+<li>rights metadata.</li>
+</ul>
+<h3>28.3 Rhetoric service</h3>
+<p>Responsibilities:</p>
+<ul>
+<li>segmentation;</li>
+<li>voice/quotation attribution;</li>
+<li>candidate generation;</li>
+<li>contextual verification;</li>
+<li>pressure/confidence;</li>
+<li>finding provenance.</li>
+</ul>
+<h3>28.4 Comparison service</h3>
+<p>Responsibilities:</p>
+<ul>
+<li>event candidate retrieval;</li>
+<li>source-dependence graph;</li>
+<li>claim extraction/alignment;</li>
+<li>rhetorical difference calculations;</li>
+<li>omission candidates.</li>
+</ul>
+<h3>28.5 Evidence service</h3>
+<p>Responsibilities:</p>
+<ul>
+<li>identify candidate primary sources;</li>
+<li>snapshot metadata/content where allowed;</li>
+<li>claim/evidence relation;</li>
+<li>evidence-quality dimensions;</li>
+<li>chronology.</li>
+</ul>
+<p>Service boundaries can initially run in one deployable application with separate modules. They are logical ownership boundaries, not a command to create premature distributed systems.</p>
+<hr />
+<h1>Part VII — Ingestion and source coverage</h1>
+<h2>29. URL ingestion safety</h2>
+<p>A production URL fetcher is security-sensitive.</p>
+<p>Required controls:</p>
+<ul>
+<li>allow only <code>http</code>/<code>https</code>;</li>
+<li>resolve DNS and block private/link-local/loopback ranges;</li>
+<li>re-check destination after redirects;</li>
+<li>cap redirects;</li>
+<li>cap response size;</li>
+<li>enforce content types;</li>
+<li>time out aggressively;</li>
+<li>sanitize extracted HTML;</li>
+<li>never execute article scripts;</li>
+<li>do not accept arbitrary file/system schemes;</li>
+<li>log extraction failure without logging sensitive user content unnecessarily.</li>
+</ul>
+<p>This prevents SSRF and hostile-content ingestion from becoming an obvious weak point.</p>
+<h2>30. Source registry</h2>
+<p>Store:</p>
+<ul>
+<li>source domain;</li>
+<li>feed endpoints;</li>
+<li>extraction adapter;</li>
+<li>known syndication relationships;</li>
+<li>geography/language;</li>
+<li>access constraints;</li>
+<li>storage/quotation policy;</li>
+<li>fetch reliability;</li>
+<li>last successful fetch.</li>
+</ul>
+<p>No political-axis label is required.</p>
+<h2>31. Coverage disclosure</h2>
+<p>Every comparison includes a coverage disclosure:</p>
+<ul>
+<li>peer-set time window;</li>
+<li>number of fetched articles;</li>
+<li>estimated independent-source count;</li>
+<li>known fetch failures;</li>
+<li>languages included;</li>
+<li>source categories represented;</li>
+<li>whether the peer set is likely incomplete.</li>
+</ul>
+<p>The product never silently presents a small peer sample as &quot;the media.&quot;</p>
+<hr />
+<h1>Part VIII — Frontend implementation</h1>
+<h2>32. Semantic rendering strategy</h2>
+<p>Use one accessible base article DOM.</p>
+<p>Annotations are derived from character ranges and rendered as:</p>
+<ul>
+<li>inline wrappers when stable;</li>
+<li>non-semantic overlay geometry for Lens visualization;</li>
+<li>synchronized findings list.</li>
+</ul>
+<p>The overlay is <code>aria-hidden</code> and does not duplicate accessible text.</p>
+<p>For long articles:</p>
+<ul>
+<li>track annotations per paragraph;</li>
+<li>mount overlay only near viewport;</li>
+<li>batch geometry updates in <code>requestAnimationFrame</code>;</li>
+<li>recompute on resize/font changes.</li>
+</ul>
+<h2>33. Lens geometry</h2>
+<p>Desktop:</p>
+<ul>
+<li>default radius roughly 140 CSS px;</li>
+<li>CSS custom properties <code>--lens-x</code>, <code>--lens-y</code>, <code>--lens-r</code>;</li>
+<li>overlay clipped with <code>clip-path</code> or mask;</li>
+<li>visible ring separate from overlay;</li>
+<li>pointer events remain on base article or stable marker targets.</li>
+</ul>
+<p>Touch:</p>
+<ul>
+<li>draggable control point offset from lens center;</li>
+<li>lens center displayed above finger;</li>
+<li>tap pin/unpin;</li>
+<li>bottom sheet for finding details.</li>
+</ul>
+<h2>34. State model</h2>
+<p>Frontend scan state:</p>
+<pre><code class="language-text">activeView: scanner | compare | event | plan
+lensEnabled
+lensPinned
+lensPosition
+lensRadius
+revealAll
+activeFilters[]
+showCandidates
+selectedFindingId
+selectedClaimId
+selectedEvidenceId
+scanStage
+</code></pre>
+<p>All state transitions have explicit UI consequences and can be tested without network calls against fixtures.</p>
+<h2>35. Loading, empty, error, success, offline states</h2>
+<h3>Scanner</h3>
+<ul>
+<li>default: article visible.</li>
+<li>loading: staged real progress.</li>
+<li>empty: no article loaded -&gt; URL/paste/demo actions.</li>
+<li>error: extraction error with paste fallback.</li>
+<li>partial: intrinsic findings available, compare unavailable.</li>
+<li>offline: previously loaded snapshot/fixtures available; live URL fetch disabled.</li>
+</ul>
+<h3>Compare</h3>
+<ul>
+<li>loading peer set;</li>
+<li>insufficient coverage;</li>
+<li>available but low independence;</li>
+<li>successful alignment;</li>
+<li>claim-level ambiguity.</li>
+</ul>
+<h3>Event Record</h3>
+<ul>
+<li>no primary evidence found;</li>
+<li>retrieval incomplete;</li>
+<li>conflicting evidence;</li>
+<li>later-development notice.</li>
+</ul>
+<h2>36. Motion system</h2>
+<p>Motion exists only where it explains state.</p>
+<ul>
+<li>lens position follows input directly or with subtle one-frame interpolation;</li>
+<li>detail drawer uses 180–240 ms transition;</li>
+<li>view changes use short fade/translate;</li>
+<li>pressure bars animate only after filter change;</li>
+<li>selected claim comparison crossfades rather than reshuffling unexpectedly;</li>
+<li>no ambient looping animations;</li>
+<li><code>prefers-reduced-motion</code> removes transforms/interpolation and keeps instant state changes.</li>
+</ul>
+<h2>37. Accessibility gates</h2>
+<p>Required before Alpha:</p>
+<ul>
+<li>logical heading structure;</li>
+<li>article landmark;</li>
+<li>nav labels;</li>
+<li>visible focus;</li>
+<li>full keyboard route through scanner, findings, compare, event record;</li>
+<li>dialog/drawer focus management;</li>
+<li>Escape behavior;</li>
+<li>no color-only meaning;</li>
+<li>minimum touch targets;</li>
+<li>text zoom to 200% without loss of controls;</li>
+<li>reduced motion;</li>
+<li>live status announcements for scan stage and errors;</li>
+<li>accessible tables/cards for comparisons;</li>
+<li>screen-reader label for every finding including mechanism, pressure, confidence, and excerpt.</li>
+</ul>
+<hr />
+<h1>Part IX — Performance and cost</h1>
+<h2>38. Interaction budgets</h2>
+<p>Prototype/Frontend targets:</p>
+<ul>
+<li>lens pointer response should feel immediate; target one animation frame under ordinary desktop load;</li>
+<li>no layout shift when tags are revealed;</li>
+<li>finding selection response &lt;100 ms locally;</li>
+<li>article scrolling remains smooth with annotations enabled;</li>
+<li>long-plan view is lazy/sectioned enough to remain navigable.</li>
+</ul>
+<p>Production targets:</p>
+<ul>
+<li>article text should become readable before all analytical stages finish;</li>
+<li>intrinsic findings stream progressively;</li>
+<li>comparison/evidence may arrive later;</li>
+<li>one slow peer source cannot block article scanning.</li>
+</ul>
+<p>These are budgets, not claims until measured.</p>
+<h2>39. Compute budget</h2>
+<p>Analysis tiers:</p>
+<ol>
+<li>local/deterministic preprocessing;</li>
+<li>cheap candidate retrieval/classification;</li>
+<li>contextual verification only on candidates;</li>
+<li>comparison only on aligned claims;</li>
+<li>evidence retrieval only for factual claims that matter to comparison/omission.</li>
+</ol>
+<p>Cache key includes:</p>
+<p><code>content_hash + taxonomy_version + detector_bundle_version + configuration</code></p>
+<p>Re-use stable results rather than re-running the full stack for every reader.</p>
+<hr />
+<h1>Part X — Build and validation sequence</h1>
+<h2>40. Phase 0 — Repository and contracts</h2>
+<h3>Build</h3>
+<ul>
+<li>initialize repository;</li>
+<li>write product constitution/non-goals;</li>
+<li>create schemas for Article, Finding, Claim, Evidence, Event Record;</li>
+<li>create taxonomy package with versioning;</li>
+<li>create fixture format;</li>
+<li>create CI for lint/unit/static checks;</li>
+<li>create operational-state and decision-log conventions.</li>
+</ul>
+<h3>Acceptance</h3>
+<ul>
+<li>pressure/confidence are distinct fields;</li>
+<li>voice provenance exists;</li>
+<li>no ideology axis exists;</li>
+<li>every derived object can point to parent provenance;</li>
+<li>event objects support knowledge cutoff/timestamps.</li>
+</ul>
+<h2>41. Phase 1 — Experience Prototype</h2>
+<h3>Build</h3>
+<ul>
+<li>self-contained article reader;</li>
+<li>movable lens;</li>
+<li>multi-tag spans;</li>
+<li>low-confidence visible candidate;</li>
+<li>finding detail drawer;</li>
+<li>pressure profile;</li>
+<li>Compare-first results;</li>
+<li>fixture omission;</li>
+<li>fixture evidence conflict;</li>
+<li>Event Record;</li>
+<li>settings;</li>
+<li>mobile and keyboard fallback;</li>
+<li>reduced motion.</li>
+</ul>
+<h3>Fixture requirement</h3>
+<p>Use a fictional event so no prototype copy is mistaken for a live political fact check.</p>
+<p>The fixture must contain:</p>
+<ul>
+<li>one factually supported but rhetorically high-pressure passage;</li>
+<li>one calm but context-sensitive claim;</li>
+<li>one multi-tag span;</li>
+<li>one low-confidence candidate;</li>
+<li>one material omission;</li>
+<li>one dominant-coverage/primary-evidence conflict;</li>
+<li>one quoted-speaker finding;</li>
+<li>one peer source with softer rhetoric;</li>
+<li>one peer source with stronger rhetoric.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Article -&gt; Lens -&gt; Finding -&gt; Compare -&gt; Event Record works without network access.</p>
+<h2>42. Phase 2 — Alpha-0 taxonomy specification</h2>
+<p>For each of the 12 kernel mechanisms:</p>
+<ul>
+<li>canonical definition;</li>
+<li>positive criteria;</li>
+<li>exclusion criteria;</li>
+<li>near misses;</li>
+<li>nearest-neighbor distinctions;</li>
+<li>valid co-occurrences;</li>
+<li>context requirements;</li>
+<li>pressure features;</li>
+<li>P1–P4 anchors;</li>
+<li>examples/counterexamples;</li>
+<li>reviewer notes.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>A human reviewer can apply the definition without a model prompt and explain disagreements using the taxonomy record.</p>
+<h2>43. Phase 3 — First real detector vertical slice</h2>
+<p>Implement 4 mechanisms first:</p>
+<ul>
+<li>Loaded language;</li>
+<li>Presupposition;</li>
+<li>Agent suppression;</li>
+<li>False dilemma.</li>
+</ul>
+<p>Why these four:</p>
+<ul>
+<li>lexical, pragmatic, grammatical, and logical categories are all represented;</li>
+<li>they test multi-label overlap and different detector strategies;</li>
+<li>they create enough output to build the first real benchmark.</li>
+</ul>
+<h3>Build</h3>
+<ul>
+<li>article segmentation;</li>
+<li>quotation/voice classification;</li>
+<li>candidate generation;</li>
+<li>structured contextual verification;</li>
+<li>finding reconciliation;</li>
+<li>pressure/confidence;</li>
+<li>transparent drawer output;</li>
+<li>local API endpoint.</li>
+</ul>
+<h3>Acceptance</h3>
+<ul>
+<li>real pasted articles produce structured findings;</li>
+<li>exact span is stable;</li>
+<li>detector votes are stored;</li>
+<li>multi-tag output works;</li>
+<li>no cross-document assertions are invented.</li>
+</ul>
+<h2>44. Phase 4 — First reviewed benchmark</h2>
+<p>Only now create the first benchmark for the actual instrument.</p>
+<h3>Pilot corpus starting target</h3>
+<p>A practical first reviewed set can begin around:</p>
+<ul>
+<li>40–60 articles across straight news, analysis, opinion, and press-release-like material;</li>
+<li>at least 400 candidate/negative passages;</li>
+<li>at least 30 positive reviewed examples per implemented mechanism where prevalence allows;</li>
+<li>deliberate near-miss negatives;</li>
+<li>multi-label examples;</li>
+<li>quoted-speaker examples.</li>
+</ul>
+<p>These are starting targets, not sacred sample sizes. Expand where uncertainty intervals are too wide.</p>
+<h3>Annotation fields</h3>
+<ul>
+<li>exact span;</li>
+<li>mechanism(s);</li>
+<li>pressure level;</li>
+<li>reviewer confidence;</li>
+<li>alternative acceptable mechanism;</li>
+<li>near-miss/exclusion rationale;</li>
+<li>voice provenance;</li>
+<li>taxonomy version;</li>
+<li>adjudication status.</li>
+</ul>
+<h3>Metrics</h3>
+<ul>
+<li>recall per mechanism;</li>
+<li>precision per mechanism;</li>
+<li>recall-weighted F2;</li>
+<li>span overlap;</li>
+<li>multi-label recall;</li>
+<li>pressure agreement;</li>
+<li>calibration by confidence band;</li>
+<li>false positive types;</li>
+<li>false negative types.</li>
+</ul>
+<p>No aggregate hides a failing mechanism.</p>
+<h2>45. Phase 5 — Calibrate and expand intrinsic kernel</h2>
+<h3>Gate for adding a mechanism</h3>
+<p>A new mechanism needs:</p>
+<ol>
+<li>taxonomy record complete;</li>
+<li>detector implemented;</li>
+<li>reviewed fixture set;</li>
+<li>error analysis;</li>
+<li>per-mechanism benchmark report;</li>
+<li>no unresolved confusion that makes its tag meaningless.</li>
+</ol>
+<p>Add remaining intrinsic kernel in batches, not all at once.</p>
+<h2>46. Phase 6 — Instrument Alpha release</h2>
+<p>Includes:</p>
+<ul>
+<li>paste-text analysis;</li>
+<li>stable Alpha-0 intrinsic set;</li>
+<li>Lens and accessible fallbacks;</li>
+<li>pressure profile;</li>
+<li>fixture comparison/event record;</li>
+<li>public taxonomy/methodology;</li>
+<li>benchmark results;</li>
+<li>correction packet export/submission mechanism;</li>
+<li>no live broad aggregation requirement.</li>
+</ul>
+<h3>Alpha release gate</h3>
+<ul>
+<li>every production tag has a reviewed definition;</li>
+<li>every production detector has per-mechanism metrics;</li>
+<li>candidate/confirmed threshold behavior is documented;</li>
+<li>no claims of comprehensive fact-checking;</li>
+<li>UI can expose uncertainty without collapsing usability.</li>
+</ul>
+<h2>47. Phase 7 — Source registry and safe URL ingestion</h2>
+<p>Build after Instrument Alpha is credible.</p>
+<ul>
+<li>URL fetcher security;</li>
+<li>extraction adapters;</li>
+<li>source registry;</li>
+<li>metadata and rights handling;</li>
+<li>duplicate/syndication fingerprints;</li>
+<li>coverage disclosure.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>URL scanning adds convenience without changing intrinsic finding semantics.</p>
+<h2>48. Phase 8 — Event discovery</h2>
+<ul>
+<li>event candidate retrieval;</li>
+<li>entity/time/semantic clustering;</li>
+<li>confidence;</li>
+<li>event merge/split internal tooling;</li>
+<li>coverage-gap tracking.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Reviewed event fixtures cluster correctly and obvious unrelated stories stay separate.</p>
+<h2>49. Phase 9 — Source-dependence graph</h2>
+<ul>
+<li>wire/syndication markers;</li>
+<li>text similarity;</li>
+<li>shared citations;</li>
+<li>chronology;</li>
+<li>uncertainty.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Copied or common-origin articles do not count as independent confirmations without qualification.</p>
+<h2>50. Phase 10 — Claim extraction and alignment</h2>
+<ul>
+<li>atomic claim extraction;</li>
+<li>attribution/speaker;</li>
+<li>semantic candidate retrieval;</li>
+<li>relation verification;</li>
+<li>alignment confidence;</li>
+<li>downstream-use threshold.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>Low-confidence alignments cannot produce strong omission or contradiction claims.</p>
+<h2>51. Phase 11 — Journalism cross-document kernel</h2>
+<p>Implement:</p>
+<ul>
+<li>Headline/body mismatch;</li>
+<li>Selective quotation;</li>
+<li>Material omission.</li>
+</ul>
+<p>Each gets its own reviewed event-bundle benchmark.</p>
+<h3>Acceptance</h3>
+<p>No omission is emitted without chronology, evidence, materiality dimension, and alignment trace.</p>
+<h2>52. Phase 12 — Evidence graph</h2>
+<ul>
+<li>primary evidence retrieval;</li>
+<li>evidence-quality rubric;</li>
+<li>claim/evidence relations;</li>
+<li>strongest-evidence surfacing;</li>
+<li>contradiction state;</li>
+<li>retrieval-incomplete state;</li>
+<li>versioned Event Record.</li>
+</ul>
+<h3>Acceptance</h3>
+<p>A dominant reporting account can visibly conflict with primary evidence without the system pretending the conflict is automatically resolved.</p>
+<h2>53. Phase 13 — News-Scale Beta</h2>
+<p>Full live journey:</p>
+<p>URL -&gt; readable article -&gt; intrinsic findings -&gt; Lens -&gt; Compare -&gt; peer excerpts -&gt; omission -&gt; claim evidence -&gt; evolving Event Record.</p>
+<h3>Beta release gate</h3>
+<ul>
+<li>coverage disclosure works;</li>
+<li>source dependence is visible;</li>
+<li>omission chronology is enforced;</li>
+<li>claim alignment uncertainty is contained;</li>
+<li>evidence retrieval failures are explicit;</li>
+<li>benchmark includes cross-document mechanisms;</li>
+<li>privacy/rights/security policies reflect real behavior.</li>
+</ul>
+<h2>54. Phase 14 — Taxonomy expansion and novel-pattern research</h2>
+<p>Only after the bounded instrument is stable:</p>
+<ul>
+<li>add Batch-2 mechanisms through normal gates;</li>
+<li>collect uncategorized repeated patterns;</li>
+<li>cluster candidate novel patterns internally;</li>
+<li>require human taxonomy proposal before user-facing promotion.</li>
+</ul>
+<p>Potential-harm analysis belongs in a separately governed later project phase so it cannot quietly redefine pressure.</p>
+<hr />
+<h1>Part XI — Benchmark governance</h1>
+<h2>55. Human review model</h2>
+<p>Each benchmark item carries independent annotations rather than forcing instant consensus.</p>
+<p>Recommended states:</p>
+<ul>
+<li>agreed;</li>
+<li>majority with dissent;</li>
+<li>adjudicated;</li>
+<li>inherently contestable;</li>
+<li>taxonomy insufficient;</li>
+<li>invalid sample.</li>
+</ul>
+<h3>55.1 Annotator training</h3>
+<p>Annotators receive:</p>
+<ul>
+<li>mechanism definitions;</li>
+<li>near-miss examples;</li>
+<li>overlap rules;</li>
+<li>pressure anchors;</li>
+<li>voice-provenance rules;</li>
+<li>confidence guidance.</li>
+</ul>
+<p>Training samples are separate from benchmark samples.</p>
+<h3>55.2 Taxonomy version migration</h3>
+<p>When a definition changes:</p>
+<ul>
+<li>old labels keep their taxonomy version;</li>
+<li>affected benchmark items are flagged for re-review;</li>
+<li>metrics are not compared across incompatible definition versions without migration notes.</li>
+</ul>
+<h2>56. Failure priority</h2>
+<p>Because the product is recall-biased:</p>
+<ol>
+<li>track false negatives aggressively;</li>
+<li>keep low-confidence candidates visible;</li>
+<li>still report false positives by mechanism;</li>
+<li>do not permit candidate noise to dominate profile summary;</li>
+<li>optimize thresholds based on the real cost of each failure type, not one global number.</li>
+</ol>
+<hr />
+<h1>Part XII — Corrections and criticism</h1>
+<h2>57. Finding dispute packet</h2>
+<p>A user can dispute one finding without entering a social system.</p>
+<p>Packet:</p>
+<pre><code class="language-text">analysis_run_id
+finding_id
+exact_span
+current_mechanism
+user_expected_mechanism_or_none
+user_rationale
+optional_evidence_refs
+client_version
+</code></pre>
+<p>The user can copy/download this packet or submit it to maintainers when hosted submission exists.</p>
+<p>No public voting determines whether a rhetorical mechanism is real.</p>
+<h2>58. Maintainer correction workflow</h2>
+<ol>
+<li>Triage: detector bug, taxonomy ambiguity, evidence error, alignment error, UI error, or disagreement.</li>
+<li>Reproduce against source snapshot.</li>
+<li>Add regression fixture when valid.</li>
+<li>Repair smallest affected layer.</li>
+<li>Re-run per-mechanism benchmark.</li>
+<li>Publish change note when taxonomy or behavior changes materially.</li>
+</ol>
+<p>Criticism improves the instrument by leaving evidence in the regression corpus.</p>
+<hr />
+<h1>Part XIII — Security, privacy, rights</h1>
+<h2>59. Privacy</h2>
+<ul>
+<li>no account required for basic use where feasible;</li>
+<li>no ideological reader profile;</li>
+<li>minimize pasted-text retention;</li>
+<li>self-hosting supported;</li>
+<li>clearly disclose remote model processing if used;</li>
+<li>analytics disabled by default in self-hosted builds;</li>
+<li>no targeted advertising model.</li>
+</ul>
+<h2>60. Prompt/content injection defense</h2>
+<p>Article text is data, never instruction.</p>
+<ul>
+<li>strict model system/rubric boundaries;</li>
+<li>structured outputs;</li>
+<li>sanitization;</li>
+<li>no execution of article HTML/scripts;</li>
+<li>bounded context;</li>
+<li>detector prompts versioned and application-owned;</li>
+<li>hostile text cannot alter tool/network permissions.</li>
+</ul>
+<h2>61. Rights and quotation</h2>
+<ul>
+<li>respect access controls;</li>
+<li>do not bypass paywalls;</li>
+<li>store full text only where user-supplied or rights permit;</li>
+<li>comparison excerpts are minimal and provenance-linked;</li>
+<li>source snapshot rights status is explicit;</li>
+<li>primary evidence has separate rights metadata;</li>
+<li>code/data/taxonomy licenses are independently documented.</li>
+</ul>
+<p>A network-copyleft code license may be considered later if it matches governance goals, but it is not an implementation dependency.</p>
+<hr />
+<h1>Part XIV — Open-source governance and documentation</h1>
+<h2>62. Public methodology</h2>
+<p>Publish from the same versioned taxonomy data used by the application:</p>
+<ul>
+<li>mechanism definitions;</li>
+<li>criteria and exclusions;</li>
+<li>pressure rubrics;</li>
+<li>known confusion pairs;</li>
+<li>benchmark methodology;</li>
+<li>per-mechanism results;</li>
+<li>known failure modes;</li>
+<li>detector/version manifest;</li>
+<li>correction process.</li>
+</ul>
+<p>Documentation should be generated or checked against taxonomy source so the website cannot drift into marketing claims unsupported by the implementation.</p>
+<h2>63. Change control</h2>
+<p>Taxonomy changes require:</p>
+<ul>
+<li>problem statement;</li>
+<li>examples;</li>
+<li>counterexamples;</li>
+<li>nearest-neighbor analysis;</li>
+<li>regression impact;</li>
+<li>benchmark migration plan;</li>
+<li>version bump.</li>
+</ul>
+<p>Detector changes require benchmark diffs.</p>
+<p>No political group or publication receives an exemption from analysis rules.</p>
+<hr />
+<h1>Part XV — Observability</h1>
+<h2>64. Technical metrics</h2>
+<ul>
+<li>scan stage latency;</li>
+<li>article extraction failures;</li>
+<li>detector errors;</li>
+<li>candidate volume;</li>
+<li>detector disagreement;</li>
+<li>event cluster confidence;</li>
+<li>claim alignment confidence;</li>
+<li>evidence retrieval completion;</li>
+<li>UI runtime errors;</li>
+<li>lens frame performance;</li>
+<li>memory footprint for long articles.</li>
+</ul>
+<h2>65. Epistemic metrics</h2>
+<ul>
+<li>false negative reports;</li>
+<li>false positive reports;</li>
+<li>mechanism confusion pairs;</li>
+<li>pressure disagreement;</li>
+<li>source-dependence corrections;</li>
+<li>omission disputes;</li>
+<li>claim-evidence contradiction errors;</li>
+<li>benchmark drift.</li>
+</ul>
+<p>These should not be collapsed into a vanity &quot;accuracy&quot; metric.</p>
+<hr />
+<h1>Part XVI — Exact Experience Prototype specification</h1>
+<h2>66. Prototype goals</h2>
+<p>The standalone prototype distributed with this plan must prove:</p>
+<ol>
+<li>article-first reading;</li>
+<li>lens reveal;</li>
+<li>multiple tags on one span;</li>
+<li>pressure intensity vs confidence separation;</li>
+<li>low-confidence visibility;</li>
+<li>inspectable finding details;</li>
+<li>pressure profile;</li>
+<li>Compare-first result flow;</li>
+<li>material omission demonstration;</li>
+<li>coverage consensus vs primary evidence separation;</li>
+<li>Event Record;</li>
+<li>mobile/keyboard/reduced-motion design intent;</li>
+<li>full implementation plan in the same file.</li>
+</ol>
+<h2>67. Prototype fixture</h2>
+<p>Use a fictional local-news event with fictional sources.</p>
+<p>The fixture should include:</p>
+<ul>
+<li>a temporary public policy described as permanent by implication;</li>
+<li>a headline stronger than the body;</li>
+<li>a quoted speaker using fear rhetoric;</li>
+<li>an agentless sentence;</li>
+<li>a claim with overstated certainty;</li>
+<li>a missing expiration clause found in peer coverage and the fictional primary order;</li>
+<li>peer wording variations;</li>
+<li>one primary-evidence note that conflicts with dominant coverage;</li>
+<li>one low-confidence finding;</li>
+<li>one multi-tag phrase.</li>
+</ul>
+<p>The prototype must label all source material as fictional demonstration content.</p>
+<h2>68. Prototype paste mode</h2>
+<p>The offline file may include a local heuristic scanner for user-pasted text.</p>
+<p>It must clearly state:</p>
+<ul>
+<li>no network access;</li>
+<li>no real fact-checking;</li>
+<li>no peer search unless using the built-in fixture;</li>
+<li>heuristics are only to demonstrate interaction and finding structure.</li>
+</ul>
+<p>The local heuristic scanner can identify a few obvious candidate patterns such as absolute certainty terms, false-dilemma markers, loaded terms, or agentless constructions. It should prefer honesty over pretending to be a production classifier.</p>
+<h2>69. Prototype views</h2>
+<h3>Scanner</h3>
+<ul>
+<li>default active view;</li>
+<li>demo article;</li>
+<li>lens;</li>
+<li>finding markers;</li>
+<li>profile;</li>
+<li>paste mode.</li>
+</ul>
+<h3>Compare</h3>
+<ul>
+<li>&quot;What this article does differently&quot; cards;</li>
+<li>aligned claim/source excerpts;</li>
+<li>omission candidate;</li>
+<li>evidence conflict.</li>
+</ul>
+<h3>Event Record</h3>
+<ul>
+<li>atomic claims;</li>
+<li>support states;</li>
+<li>coverage consensus;</li>
+<li>primary evidence;</li>
+<li>rhetoric variants.</li>
+</ul>
+<h3>Taxonomy</h3>
+<ul>
+<li>Alpha-0 mechanism list and definitions.</li>
+</ul>
+<h3>Plan</h3>
+<ul>
+<li>full revised implementation plan;</li>
+<li>adversarial review;</li>
+<li>navigation/search/section collapse for usability.</li>
+</ul>
+<hr />
+<h1>Part XVII — Quality gates</h1>
+<h2>70. Engineering tests before benchmark</h2>
+<p>These tests validate software behavior, not rhetorical truth:</p>
+<ul>
+<li>schema validation;</li>
+<li>exact span mapping;</li>
+<li>no overlapping DOM corruption;</li>
+<li>multi-tag rendering;</li>
+<li>confidence/pressure independence;</li>
+<li>lens toggle/pin/reveal all;</li>
+<li>keyboard navigation;</li>
+<li>responsive layout;</li>
+<li>reduced motion;</li>
+<li>error states;</li>
+<li>comparison state transitions;</li>
+<li>event-record version display;</li>
+<li>source/evidence provenance links;</li>
+<li>security tests for URL fetcher when that phase exists.</li>
+</ul>
+<h2>71. Scientific/analytical tests after detector exists</h2>
+<ul>
+<li>per-mechanism benchmark;</li>
+<li>multi-label recall;</li>
+<li>pressure agreement;</li>
+<li>calibration;</li>
+<li>cross-style robustness;</li>
+<li>quoted-speaker attribution;</li>
+<li>adversarial near misses;</li>
+<li>calm-false vs intense-true separation;</li>
+<li>event-bundle omission evaluation;</li>
+<li>claim alignment errors;</li>
+<li>source dependence.</li>
+</ul>
+<h2>72. Accessibility test matrix</h2>
+<p>Desktop keyboard, touch/mobile, screen reader semantics, reduced motion, zoom, high contrast/color perception, long article, dense findings, and empty/error states are separate test cases.</p>
+<h2>73. Release proof packet</h2>
+<p>Every release should generate:</p>
+<ul>
+<li>version manifest;</li>
+<li>benchmark report;</li>
+<li>known issues;</li>
+<li>taxonomy version;</li>
+<li>detector bundle version;</li>
+<li>UI regression results;</li>
+<li>source coverage limitations;</li>
+<li>rights/privacy changes;</li>
+<li>migration notes.</li>
+</ul>
+<hr />
+<h1>Part XVIII — Final end-to-end build order</h1>
+<h2>74. Beginning-to-end checklist</h2>
+<ol>
+<li>Create repository and operational-state file.</li>
+<li>Commit product purpose and non-goals.</li>
+<li>Define Article/Finding/Claim/Evidence/Event schemas.</li>
+<li>Define taxonomy schema and mechanism IDs.</li>
+<li>Build fictional event fixture.</li>
+<li>Build article reading UI.</li>
+<li>Build Lens interaction and Reveal All fallback.</li>
+<li>Build multi-tag rendering.</li>
+<li>Build finding detail drawer with structured transparency.</li>
+<li>Build pressure profile.</li>
+<li>Build Compare-first fixture UI.</li>
+<li>Build omission/evidence conflict fixture.</li>
+<li>Build Event Record fixture.</li>
+<li>Run UX/accessibility/bug review on experience prototype.</li>
+<li>Freeze Alpha-0 definitions for first four intrinsic mechanisms.</li>
+<li>Build segmentation and voice provenance.</li>
+<li>Build candidate generation.</li>
+<li>Build structured contextual verifier.</li>
+<li>Build reconciliation and pressure/confidence output.</li>
+<li>Connect real findings to existing scanner UI.</li>
+<li>Create first human-reviewed benchmark for implemented mechanisms.</li>
+<li>Calibrate candidate/profile thresholds.</li>
+<li>Repair errors and add regression fixtures.</li>
+<li>Expand intrinsic taxonomy in gated batches.</li>
+<li>Release Instrument Alpha with paste-text analysis and fixture comparison.</li>
+<li>Build secure URL ingestion.</li>
+<li>Build source registry and coverage disclosure.</li>
+<li>Build event clustering.</li>
+<li>Build source-dependence graph.</li>
+<li>Build claim extraction/alignment.</li>
+<li>Benchmark claim alignment independently.</li>
+<li>Build journalism cross-document mechanisms.</li>
+<li>Build material omission with chronology/materiality trace.</li>
+<li>Build evidence retrieval and quality rubric.</li>
+<li>Build evolving Event Record.</li>
+<li>Run cross-document benchmark and adversarial event fixtures.</li>
+<li>Run security/privacy/rights review.</li>
+<li>Run full accessibility and runtime performance gate.</li>
+<li>Release News-Scale Beta with explicit known limits.</li>
+<li>Only then open novel-mechanism research and separate potential-harm design work.</li>
+</ol>
+<hr />
+<h1>Part XIX — Definition of done</h1>
+<h2>75. Experience Prototype done</h2>
+<p>The prototype is done when the entire article -&gt; Lens -&gt; Finding -&gt; Compare -&gt; Event Record -&gt; Plan journey works offline, the interface exposes the approved semantics, and no control falsely claims live analysis capability.</p>
+<h2>76. Instrument Alpha done</h2>
+<p>Instrument Alpha is done when the bounded taxonomy actually produces real findings on real pasted article text, every production mechanism has a reviewed definition and per-mechanism benchmark, uncertainty is visible, multi-label behavior works, and the fixture-backed comparison experience remains intact.</p>
+<h2>77. News-Scale Beta done</h2>
+<p>News-Scale Beta is done when live URL ingestion and same-event comparison can support claim-level rhetorical comparison, event-time-aware omission, source-dependence-aware coverage consensus, evidence conflict, and a versioned Event Record without silently converting missing retrieval or uncertain alignment into factual certainty.</p>
+<h2>78. Project success criterion</h2>
+<p>Rhetorical InDEX is not successful because it produces more labels than a human can. It is successful when a reader can see language differently after using it: the scanner exposes pressure clearly enough that the user can recognize the same mechanics later without depending on the scanner.</p>
+<p>The product remains an instrument, not a political authority. Its authority is limited to what it can show.</p>
+<hr />
+<h1 id="part-xx-tablet-safe-scanner-and-internal-engine-contract">Part
+XX — Tablet-safe scanner and internal engine contract</h1>
+<h2 id="tablet-and-coarse-pointer-interaction-contract">79. Tablet and
+coarse-pointer interaction contract</h2>
+<p>The scanner must not infer “touch device” from phone width. A tablet
+can be 768–1366 CSS pixels wide and still have a coarse primary pointer.
+The lens interaction therefore uses capability detection and responsive
+geometry together.</p>
+<p>On a coarse-pointer device:</p>
+<ul>
+<li>the lens remains available at phone and tablet widths;</li>
+<li>a short tap on ordinary article text places the lens above the
+finger without preventing normal vertical scrolling;</li>
+<li>a dedicated scanner handle remains reachable while reading and can
+be dragged with pointer capture;</li>
+<li>the lens center is offset above the touch point so the finger does
+not conceal the inspected text;</li>
+<li>the lens radius is clamped to the available article geometry;</li>
+<li>portrait/landscape changes, <code>visualViewport</code> changes, and
+resize events recompute the lens safely;</li>
+<li>Lens, Pin, Reveal All, and size controls remain reachable from a
+compact touch control dock;</li>
+<li>the finding inspector becomes a bottom sheet at
+tablet/mobile/coarse-pointer layouts;</li>
+<li>tag stacks wrap and re-align instead of creating horizontal page
+overflow.</li>
+</ul>
+<p>The touch path must coexist with scrolling. The article itself does
+not capture touch movement. Tap-to-place is recognized only when pointer
+travel stays below the tap threshold; continuous scanning is owned by
+the dedicated handle.</p>
+<h2 id="current-uiux-capability-set-20-required-behaviors">80. Current
+UI/UX capability set — 20 required behaviors</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Required behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>UI-01</td>
+<td>Tablet/coarse-pointer lens operation independent of phone
+breakpoint.</td>
+</tr>
+<tr class="even">
+<td>UI-02</td>
+<td>Tap-to-place lens on coarse pointers without hijacking vertical
+scroll.</td>
+</tr>
+<tr class="odd">
+<td>UI-03</td>
+<td>Drag handle with above-finger offset and radius-aware bounds.</td>
+</tr>
+<tr class="even">
+<td>UI-04</td>
+<td>User-adjustable lens radius with device-appropriate limits.</td>
+</tr>
+<tr class="odd">
+<td>UI-05</td>
+<td>Compact tablet/mobile scanner control dock.</td>
+</tr>
+<tr class="even">
+<td>UI-06</td>
+<td>Live scanner-state badge for Live, Pinned, Reveal All, and Off.</td>
+</tr>
+<tr class="odd">
+<td>UI-07</td>
+<td>Sticky medium-width scanner controls.</td>
+</tr>
+<tr class="even">
+<td>UI-08</td>
+<td>Confidence filtering in the Findings list.</td>
+</tr>
+<tr class="odd">
+<td>UI-09</td>
+<td>Mechanism-family filtering in the Findings list.</td>
+</tr>
+<tr class="even">
+<td>UI-10</td>
+<td>Findings search by mechanism or excerpt.</td>
+</tr>
+<tr class="odd">
+<td>UI-11</td>
+<td>Synchronized selected state across list, passage, and
+inspector.</td>
+</tr>
+<tr class="even">
+<td>UI-12</td>
+<td>Jump-to-passage action from the finding inspector.</td>
+</tr>
+<tr class="odd">
+<td>UI-13</td>
+<td>Tablet/mobile finding inspector presented as a bottom sheet.</td>
+</tr>
+<tr class="even">
+<td>UI-14</td>
+<td>Wrapped and edge-aligned overlapping tag stacks.</td>
+</tr>
+<tr class="odd">
+<td>UI-15</td>
+<td>Collapsible mechanism legend.</td>
+</tr>
+<tr class="even">
+<td>UI-16</td>
+<td>Interactive paragraph pressure-map navigation.</td>
+</tr>
+<tr class="odd">
+<td>UI-17</td>
+<td>In-scanner keyboard shortcut help.</td>
+</tr>
+<tr class="even">
+<td>UI-18</td>
+<td>In-product Reduced Motion preference.</td>
+</tr>
+<tr class="odd">
+<td>UI-19</td>
+<td>Pattern/high-contrast annotation mode so family meaning is not
+color-only.</td>
+</tr>
+<tr class="even">
+<td>UI-20</td>
+<td>Restore-defaults control plus local/session settings-state
+feedback.</td>
+</tr>
+</tbody>
+</table>
+<p>These controls are interface support for the existing product
+contract. They do not add ideology scoring, potential-harm scoring,
+social features, or a generalized trust score.</p>
+<h2
+id="current-prototype-engine-capability-set-20-required-behaviors">81.
+Current prototype-engine capability set — 20 required behaviors</h2>
+<p>The standalone HTML has no remote server. Its “backend” for the
+Experience Prototype is therefore the internal analysis/data/state
+engine. Production services remain a later implementation layer.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Required engine behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ENG-01</td>
+<td>One versioned authoritative application-state object.</td>
+</tr>
+<tr class="even">
+<td>ENG-02</td>
+<td>Reducer-style <code>dispatch(action)</code> state transitions.</td>
+</tr>
+<tr class="odd">
+<td>ENG-03</td>
+<td><code>requestAnimationFrame</code> batching for derived UI
+updates.</td>
+</tr>
+<tr class="even">
+<td>ENG-04</td>
+<td>Runtime capability detection for pointer, hover, viewport class, and
+motion preference.</td>
+</tr>
+<tr class="odd">
+<td>ENG-05</td>
+<td>Lens geometry engine with safe padding, radius-aware clamping, and
+touch offset.</td>
+</tr>
+<tr class="even">
+<td>ENG-06</td>
+<td>Geometry recomputation on visual viewport, resize, and orientation
+changes.</td>
+</tr>
+<tr class="odd">
+<td>ENG-07</td>
+<td>Versioned validated settings persistence with malformed-storage
+fallback.</td>
+</tr>
+<tr class="even">
+<td>ENG-08</td>
+<td>Finding-schema normalization and validation.</td>
+</tr>
+<tr class="odd">
+<td>ENG-09</td>
+<td>Article-schema normalization and finding-reference validation.</td>
+</tr>
+<tr class="even">
+<td>ENG-10</td>
+<td>Reusable indexes by ID, family, confidence, mechanism, and
+passage.</td>
+</tr>
+<tr class="odd">
+<td>ENG-11</td>
+<td>Central derived metrics for peak pressure, confirmed/candidate
+density, and dominant families.</td>
+</tr>
+<tr class="even">
+<td>ENG-12</td>
+<td>Stable paragraph and segment IDs with paragraph-pressure
+records.</td>
+</tr>
+<tr class="odd">
+<td>ENG-13</td>
+<td>Deterministic multi-mechanism local heuristic detection.</td>
+</tr>
+<tr class="even">
+<td>ENG-14</td>
+<td>Duplicate candidate suppression without collapsing repeated
+occurrences at different passages.</td>
+</tr>
+<tr class="odd">
+<td>ENG-15</td>
+<td>Finding-to-passage location metadata for exact navigation.</td>
+</tr>
+<tr class="even">
+<td>ENG-16</td>
+<td>Central escaping/render-fragment rules for untrusted pasted
+text.</td>
+</tr>
+<tr class="odd">
+<td>ENG-17</td>
+<td>Recoverable render/runtime error boundary.</td>
+</tr>
+<tr class="even">
+<td>ENG-18</td>
+<td>Active pointer ownership, <code>pointercancel</code>, and
+pointer-capture cleanup.</td>
+</tr>
+<tr class="odd">
+<td>ENG-19</td>
+<td>Per-finding origin/detector/engine provenance metadata.</td>
+</tr>
+<tr class="even">
+<td>ENG-20</td>
+<td>Pre-render integrity audit for article/finding references and state
+invariants.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="validation-gate-for-this-capability-set">82. Validation gate for
+this capability set</h2>
+<p>The capability set is not accepted from source presence alone. The
+release gate must include:</p>
+<ol type="1">
+<li>desktop pointer journey;</li>
+<li>tablet portrait coarse-pointer journey;</li>
+<li>tablet landscape coarse-pointer journey;</li>
+<li>phone coarse-pointer journey;</li>
+<li>lens tap placement, handle drag, pin/unpin, Lens Off, Reveal All,
+radius change, rotation/resize, and scroll coexistence;</li>
+<li>finding search, family/confidence filtering, multi-tag inspection,
+jump-to-passage, pressure-map navigation, legend toggle, Pattern Mode,
+Reduced Motion, reset, and settings persistence;</li>
+<li>local-paste multi-mechanism detection, safe escaping, comparison
+lockout, schema/integrity checks, and provenance display;</li>
+<li>keyboard focus containment and shortcut behavior;</li>
+<li>responsive overflow checks for Scanner, Compare, Event Record,
+Taxonomy, and Plan;</li>
+<li>deterministic static checks, JavaScript syntax/heuristic inspection,
+accessibility/contrast review, offline-dependency check, bug resweep,
+and archive integrity.</li>
+</ol>
+<p>A failed tablet lens path blocks release because the lens is the
+primary interaction metaphor, not optional decoration.</p>
+<h2 id="medium-width-layout-and-scanner-measurement-semantics">83.
+Medium-width layout and scanner measurement semantics</h2>
+<p>The responsive implementation treats medium-width touch layouts as a
+reading surface, not a compressed desktop dashboard. From 681 through
+1100 CSS pixels, the scanner uses a full-width article column and moves
+support panels below it. The sticky scanner toolbar derives its top
+offset from the rendered primary navigation height so a two-row tablet
+header cannot cover the controls.</p>
+<p>Lens-radius controls use one-pixel increments within device-specific
+bounds so the displayed value, persisted value, slider thumb, and clip
+geometry remain identical. Density metrics are allowed to reach 100%
+when every character-bearing segment is covered by the relevant
+confidence class; the profile must not artificially stop at 99%.</p>
+<p>On coarse-pointer screens wider than the nominal tablet breakpoint,
+touch capability remains authoritative for interaction: the touch dock
+and drag handle stay available even when the visual layout has enough
+room for desktop-style columns.</p>
+
+</article>
+    </div>
+  </div>
+</section>
+</main>
+</div>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+  <div class="drawer-grip" aria-hidden="true"></div><div class="drawer-head"><div class="tiny-label">Inspect finding</div><button class="ghost-btn" id="drawerClose" aria-label="Close finding details">Close</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="screen-reader-only" aria-live="polite" id="liveRegion"></div>
+<script>
+const DEMO_ARTICLE = {"title": "City locks down Central Station after a wave of violent unrest", "source": "Harbor Vale Daily", "dek": "Officials call the overnight closure necessary after three nights of downtown disorder.", "meta": "Fictional demonstration article · Harbor Vale · 8:10 AM", "paragraphs": [[{"text": "After ", "findings": []}, {"text": "three nights of chaos", "findings": ["f1"]}, {"text": ", Harbor Vale officials ", "findings": []}, {"text": "finally moved to protect residents", "findings": ["f2", "f3"]}, {"text": ", ordering Central Station closed from midnight to 5 a.m. beginning Friday.", "findings": []}], [{"text": "The emergency order, officials said, is ", "findings": []}, {"text": "the only realistic option left", "findings": ["f4", "f5"]}, {"text": " after protesters ", "findings": []}, {"text": "repeatedly proved they could not control themselves", "findings": ["f6"]}, {"text": ".", "findings": []}], [{"text": "Windows were broken and trash bins were burned", "findings": ["f7"]}, {"text": " during the demonstrations. Two officers were treated for minor injuries. No arrests had been announced at publication.", "findings": []}], [{"text": "Mayor Celia Rowan warned, “", "findings": []}, {"text": "If we fail to act tonight, families will wake up tomorrow to a city surrendered to lawlessness", "findings": ["f8", "f9"]}, {"text": ".”", "findings": []}], [{"text": "The closure is limited to Central Station and does not extend into the neighboring East Plaza.", "findings": []}], [{"text": "The order takes effect immediately. City attorneys described it as an emergency safety measure.", "findings": []}], [{"text": "Officials acknowledged that bus service through the surrounding district would continue, although riders may be rerouted to temporary stops.", "findings": []}]]};
+const DEMO_FINDINGS_RAW = {"f1": {"mechanism": "Loaded language", "family": "lexical", "pressure": 3, "confidence": "high", "voice": "reporter", "span": "three nights of chaos", "basis": "The noun “chaos” intensifies the event beyond the concrete incidents later described and primes a disorder frame before evidence is presented.", "criteria": ["High-valence evaluative noun", "Appears before concrete incident description", "Alternative literal wording is available"], "alternative": "If the event included broader disruption not included in this excerpt, “chaos” may be proportionate.", "comparison": "Two peer accounts use “vandalism” or “disorder” for the same period."}, "f2": {"mechanism": "Loaded language", "family": "lexical", "pressure": 2, "confidence": "high", "voice": "reporter", "span": "finally moved to protect residents", "basis": "“Finally” and “protect” evaluate the timing and moral function of the policy instead of merely describing the action.", "criteria": ["Evaluative temporal adverb", "Protective framing attached to policy action"], "alternative": "The wording may reflect a directly quoted official rationale if attribution was lost during extraction.", "comparison": "Peer coverage describes the order without the word “finally.”"}, "f3": {"mechanism": "Presupposition", "family": "epistemic", "pressure": 2, "confidence": "medium", "voice": "reporter", "span": "finally moved to protect residents", "basis": "The sentence treats the order as protective rather than presenting protection as the officials’ stated objective.", "criteria": ["Evaluative proposition embedded as given", "Attribution not attached to the protective claim"], "alternative": "Readers may interpret “protect” as ordinary shorthand for the stated purpose rather than an accepted outcome.", "comparison": "One peer writes “officials said the order was intended to protect residents.”"}, "f4": {"mechanism": "False dilemma", "family": "logic", "pressure": 4, "confidence": "high", "voice": "reporter", "span": "the only realistic option left", "basis": "The wording closes the option space without identifying or excluding other possible measures.", "criteria": ["Exclusive-option construction", "No alternatives evaluated in surrounding context"], "alternative": "If the article had documented a formal alternatives analysis elsewhere, the exclusion could be evidentially supported.", "comparison": "No peer account describes the closure as the only available option."}, "f5": {"mechanism": "Epistemic overstatement", "family": "epistemic", "pressure": 3, "confidence": "medium", "voice": "reporter", "span": "the only realistic option left", "basis": "Certainty about the exclusivity and realism of one policy exceeds the evidence shown in the article.", "criteria": ["Absolute option claim", "Missing evidentiary basis for exclusion"], "alternative": "The wording could be an unattributed paraphrase of an official assessment rather than the outlet’s own conclusion.", "comparison": "Peer accounts attribute necessity claims directly to city officials."}, "f6": {"mechanism": "Hasty generalization", "family": "logic", "pressure": 3, "confidence": "medium", "voice": "reporter", "span": "repeatedly proved they could not control themselves", "basis": "The sentence generalizes from incidents to a broad group-level incapacity without showing how representative the incidents were.", "criteria": ["Broad collective subject", "Global behavioral conclusion", "Insufficient sample details"], "alternative": "The source may possess incident data not reproduced in this short article.", "comparison": "Peers distinguish named incidents from the wider protest crowd."}, "f7": {"mechanism": "Agent suppression", "family": "agency", "pressure": 2, "confidence": "low", "voice": "reporter", "span": "Windows were broken and trash bins were burned", "basis": "Passive constructions omit the actors. The effect matters because responsibility is central to the surrounding argument.", "criteria": ["Passive event construction", "Actor omitted", "Responsibility is rhetorically salient"], "alternative": "The actors may genuinely have been unknown at publication, making agentless wording appropriate.", "comparison": "Peer sources also report uncertainty about who caused the damage."}, "f8": {"mechanism": "Appeal to fear", "family": "emotional", "pressure": 4, "confidence": "high", "voice": "quoted_speaker", "span": "If we fail to act tonight, families will wake up tomorrow to a city surrendered to lawlessness", "basis": "The quotation uses a vivid feared future as the central case for immediate action.", "criteria": ["Predicted severe consequence", "Fear-laden civic/family imagery", "Immediate action linked to avoided catastrophe"], "alternative": "A feared consequence can be legitimate if supported; the rhetoric tag describes the persuasive mechanism, not factual falsity.", "comparison": "Peer sources quote the mayor but place the statement beside the order’s limited duration."}, "f9": {"mechanism": "Loaded language", "family": "lexical", "pressure": 4, "confidence": "high", "voice": "quoted_speaker", "span": "city surrendered to lawlessness", "basis": "“Surrendered” and “lawlessness” frame the event as civic defeat rather than a bounded public-order problem.", "criteria": ["Militarized metaphor", "High-valence abstract threat term"], "alternative": "This is accurately attributed rhetoric from the mayor; the finding should not be misread as outlet-authored language.", "comparison": "The target article foregrounds the quote more prominently than peers."}};
+const compareData = [{"kind": "Higher rhetorical pressure", "title": "Fear framing peaks harder here", "body": "The target foregrounds the mayor’s catastrophic prediction. Peer coverage quotes it only after describing the 72-hour limit.", "level": "P4"}, {"kind": "Material omission candidate", "title": "The 72-hour expiration is absent", "body": "Three independently reported accounts and Order 24-17 state that the restriction expires automatically after 72 hours unless extended. The target article never states the duration.", "level": "Timeline"}, {"kind": "Evidence conflict", "title": "The “station-only” claim conflicts with the order", "body": "Most coverage describes Central Station as the focus, but the text of Order 24-17 also names East Plaza. Coverage consensus and primary evidence disagree.", "level": "Scope"}];
+const claimData = [{"claim": "The overnight restriction is temporary.", "target": "Not stated.", "peers": ["Harbor Public Radio: “The order expires after 72 hours unless extended.”", "Beacon Ledger: “The temporary closure runs through Monday morning.”", "Civic Wire: “The emergency order automatically sunsets after three days.”"], "status": "Supported by direct evidence", "consensus": "3 independent reports + primary order", "evidence": "Order 24-17, §6: automatic expiration 72 hours after effective time.", "rhetoric": "Omitting the sunset changes the perceived permanence of the policy.", "omission": true}, {"claim": "The restriction applies to Central Station and East Plaza.", "target": "“The closure is limited to Central Station and does not extend into the neighboring East Plaza.”", "peers": ["MetroWatch: “Central Station will close overnight.”", "Harbor Public Radio: “Central Station and East Plaza are covered by the order.”", "Civic Wire: “The transit hub and adjoining east plaza close from midnight to 5 a.m.”"], "status": "Contradicted by identified evidence", "consensus": "Coverage is split; two station-only accounts share city-release wording", "evidence": "Order 24-17, §2 names “Central Station and the adjoining East Plaza.”", "rhetoric": "This is a calm factual conflict rather than a high-pressure rhetorical passage.", "omission": false}, {"claim": "The city had no realistic alternative to closure.", "target": "“the only realistic option left”", "peers": ["Beacon Ledger lists added patrols and temporary platform limits discussed at the meeting.", "Harbor Public Radio reports officials rejected two narrower proposals."], "status": "Context-sensitive", "consensus": "No independent peer repeats the exclusivity claim as fact", "evidence": "Council minutes list several alternatives but do not establish whether they were viable.", "rhetoric": "False-dilemma and epistemic-overstatement findings are stronger than a factual falsity verdict here.", "omission": false}];
+const taxonomyData = [
+  ["Loaded language","Lexical framing","Evaluative wording that materially changes connotation beyond descriptive necessity."],
+  ["Euphemism / dysphemism","Lexical framing","Softens or intensifies a referent relative to a more literal description."],
+  ["Presupposition","Epistemic","Embeds a proposition as already accepted within the construction."],
+  ["Epistemic overstatement","Epistemic","Presents certainty, universality, or exclusivity beyond shown support."],
+  ["Agent suppression","Agency","Grammar obscures or omits an actor when agency is materially relevant."],
+  ["Appeal to fear","Emotional pressure","Uses a feared consequence as persuasive force."],
+  ["False dilemma","Logic","Presents a materially broader option space as only two or one viable option."],
+  ["Hasty generalization","Logic","Generalizes beyond the representativeness of the evidence shown."],
+  ["Causal overclaim","Evidence use","Represents sequence or association as causal beyond support."],
+  ["Headline/body mismatch","Journalism","Headline asserts or implies a materially stronger claim than the body supports."],
+  ["Selective quotation","Journalism","Quotation selection materially changes meaning by excluding relevant nearby context."],
+  ["Material omission","Journalism","A supported, time-available missing fact could reasonably change interpretation."]
+];
+
+const ENGINE_VERSION='0.2.0-alpha';
+const STATE_VERSION=2;
+const SETTINGS_KEY='rhetorical-index.settings.v2';
+const ALLOWED_FAMILIES=new Set(['lexical','epistemic','agency','emotional','logic','journalism','evidence']);
+const ALLOWED_CONFIDENCE=new Set(['high','medium','low']);
+const clone=v=>JSON.parse(JSON.stringify(v));
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const pressureClass=n=>'p'+Math.max(1,Math.min(4,Number(n)||1));
+
+const views=[...document.querySelectorAll('.view')];
+const navButtons=[...document.querySelectorAll('.nav-btn')];
+const articleSurface=document.getElementById('articleSurface');
+const base=document.getElementById('articleBase');
+const overlay=document.getElementById('articleOverlay');
+const drawer=document.getElementById('drawer');
+const drawerBody=document.getElementById('drawerBody');
+const scrim=document.getElementById('scrim');
+const live=document.getElementById('liveRegion');
+const touchHandle=document.getElementById('touchHandle');
+const errorBanner=document.getElementById('errorBanner');
+const errorMessage=document.getElementById('errorMessage');
+const lifecycle=new AbortController();
+const signal=lifecycle.signal;
+let lastFocus=null;
+let renderQueued=false;
+let renderScopes=new Set();
+let pointerTap=null;
+let storageAvailable=true;
+let normalizeIssues=[];
+
+function syncTopbarOffset(){const h=Math.ceil(document.querySelector('.topbar')?.getBoundingClientRect().height||69);document.documentElement.style.setProperty('--topbar-h',`${h}px`);}
+function detectCapabilities(){
+  const width=window.innerWidth||document.documentElement.clientWidth||1024;
+  const coarse=matchMedia('(pointer:coarse)').matches||matchMedia('(any-pointer:coarse)').matches;
+  const hover=matchMedia('(hover:hover)').matches||matchMedia('(any-hover:hover)').matches;
+  return {coarse,hover,width,viewport:width<=680?'phone':width<=1100?'tablet':'desktop',osReducedMotion:matchMedia('(prefers-reduced-motion:reduce)').matches};
+}
+function defaultSettings(){return {lensRadius:145,patternMode:false,reducedMotion:false,legendOpen:true};}
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem(SETTINGS_KEY); if(!raw)return defaultSettings();
+    const parsed=JSON.parse(raw); if(parsed?.version!==STATE_VERSION||typeof parsed.settings!=='object')return defaultSettings();
+    const d=defaultSettings(),s=parsed.settings;
+    return {lensRadius:Number.isFinite(+s.lensRadius)?Math.max(78,Math.min(210,+s.lensRadius)):d.lensRadius,patternMode:!!s.patternMode,reducedMotion:!!s.reducedMotion,legendOpen:s.legendOpen!==false};
+  }catch(err){storageAvailable=false;return defaultSettings();}
+}
+function saveSettings(){
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({version:STATE_VERSION,settings:appState.settings}));storageAvailable=true;return true;}catch(err){storageAvailable=false;return false;}
+}
+function normalizeFindingMap(raw,origin='fixture'){
+  const out={}; normalizeIssues=[];
+  Object.entries(raw||{}).forEach(([id,f])=>{
+    if(!f||typeof f!=='object'){normalizeIssues.push(`Finding ${id} is not an object.`);return;}
+    const family=ALLOWED_FAMILIES.has(f.family)?f.family:'journalism';
+    if(family!==f.family)normalizeIssues.push(`Finding ${id} had invalid family ${f.family}.`);
+    const confidence=ALLOWED_CONFIDENCE.has(f.confidence)?f.confidence:'low';
+    if(confidence!==f.confidence)normalizeIssues.push(`Finding ${id} had invalid confidence ${f.confidence}.`);
+    const pressure=Math.max(1,Math.min(4,Math.round(Number(f.pressure)||1)));
+    out[id]={...f,mechanism:String(f.mechanism||'Unclassified finding'),family,confidence,pressure,span:String(f.span||''),basis:String(f.basis||''),criteria:Array.isArray(f.criteria)?f.criteria.map(String):[],alternative:String(f.alternative||'No alternative interpretation recorded.'),comparison:String(f.comparison||'No comparison basis recorded.'),provenance:{origin,engineVersion:ENGINE_VERSION,detector:origin==='fixture'?'hand-authored fixture':'local heuristic',...(f.provenance||{})}};
+  });
+  return out;
+}
+function normalizeArticle(raw,findings){
+  const article={title:String(raw?.title||'Untitled article'),source:String(raw?.source||'Unknown source'),dek:String(raw?.dek||''),meta:String(raw?.meta||''),paragraphs:[]};
+  (Array.isArray(raw?.paragraphs)?raw.paragraphs:[]).forEach((p,pi)=>{
+    const segs=[];
+    (Array.isArray(p)?p:[]).forEach((seg,si)=>{
+      const id=String(seg?.id||`p${pi+1}-s${si+1}`);
+      const refs=(Array.isArray(seg?.findings)?seg.findings:[]).map(String);
+      const valid=refs.filter(fid=>findings[fid]);
+      refs.filter(fid=>!findings[fid]).forEach(fid=>normalizeIssues.push(`Passage ${id} references missing finding ${fid}.`));
+      segs.push({id,text:String(seg?.text||''),findings:valid,paragraphIndex:pi,segmentIndex:si});
+    });
+    article.paragraphs.push(segs);
+  });
+  return article;
+}
+function buildIndexes(article,findings){
+  const idx={byFamily:new Map(),byConfidence:new Map(),byMechanism:new Map(),passageByFinding:new Map(),passageById:new Map(),allIds:Object.keys(findings)};
+  Object.entries(findings).forEach(([id,f])=>{
+    for(const [map,key] of [[idx.byFamily,f.family],[idx.byConfidence,f.confidence],[idx.byMechanism,f.mechanism.toLowerCase()]]){if(!map.has(key))map.set(key,new Set());map.get(key).add(id);}
+  });
+  article.paragraphs.flat().forEach(seg=>{
+    idx.passageById.set(seg.id,seg);
+    seg.findings.forEach(fid=>{if(!idx.passageByFinding.has(fid))idx.passageByFinding.set(fid,[]);idx.passageByFinding.get(fid).push(seg.id);if(findings[fid]&&!findings[fid].location)findings[fid].location={passageId:seg.id,paragraphIndex:seg.paragraphIndex,segmentIndex:seg.segmentIndex};});
+  });
+  return idx;
+}
+function auditIntegrity(article,findings,indexes){
+  const issues=[...normalizeIssues];
+  if(!article.paragraphs.length)issues.push('Article contains no paragraphs.');
+  const seenPassages=new Set();
+  article.paragraphs.flat().forEach(seg=>{if(seenPassages.has(seg.id))issues.push(`Duplicate passage id ${seg.id}.`);seenPassages.add(seg.id);seg.findings.forEach(id=>{if(!findings[id])issues.push(`Orphan finding reference ${id} in ${seg.id}.`);});});
+  Object.entries(findings).forEach(([id,f])=>{if(!indexes.passageByFinding.has(id))issues.push(`Finding ${id} is not attached to a passage.`);if(f.pressure<1||f.pressure>4)issues.push(`Finding ${id} pressure is out of range.`);});
+  return [...new Set(issues)];
+}
+function deriveMetrics(article,findings){
+  const entries=Object.values(findings); const paraPeaks=article.paragraphs.map(p=>Math.max(0,...p.flatMap(seg=>seg.findings.map(id=>findings[id]?.pressure||0))));
+  if(!entries.length)return {peak:0,confirmed:0,candidate:0,dominant:'No candidates',paraPeaks};
+  const peak=Math.max(...entries.map(f=>f.pressure));
+  const totalChars=article.paragraphs.flat().reduce((n,s)=>n+s.text.length,0)||1;
+  let confirmedChars=0,candidateChars=0;
+  article.paragraphs.flat().forEach(seg=>{const fs=seg.findings.map(id=>findings[id]).filter(Boolean);if(!fs.length)return;if(fs.some(f=>f.confidence!=='low'))confirmedChars+=seg.text.length;else candidateChars+=seg.text.length;});
+  const fam={};entries.forEach(f=>fam[f.family]=(fam[f.family]||0)+1);
+  const dominant=Object.entries(fam).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k])=>k).join(' + ')||'none';
+  return {peak,confirmed:Math.min(100,Math.round(confirmedChars/totalChars*100)),candidate:Math.min(100,Math.round(candidateChars/totalChars*100)),dominant,paraPeaks};
+}
+
+const appState={
+  version:STATE_VERSION,view:'scanner',mode:'demo',capabilities:detectCapabilities(),settings:loadSettings(),
+  lens:{enabled:true,pinned:false,revealAll:false,x:420,y:260,radius:145,activePointerId:null,dragging:false},
+  filters:{search:'',confidence:'all',family:'all'},selectedFindingId:null,drawerOpen:false,
+  data:{article:null,findings:{},indexes:null,metrics:null,integrity:[]}
+};
+appState.lens.radius=appState.settings.lensRadius;
+
+function scheduleRender(...scopes){scopes.forEach(s=>renderScopes.add(s));if(renderQueued)return;renderQueued=true;requestAnimationFrame(()=>{renderQueued=false;const scopesNow=new Set(renderScopes);renderScopes.clear();try{if(scopesNow.has('all')||scopesNow.has('controls'))renderControls();if(scopesNow.has('all')||scopesNow.has('lens'))renderLens();if(scopesNow.has('all')||scopesNow.has('findings'))renderFindingsList();if(scopesNow.has('all')||scopesNow.has('profile'))renderProfile();if(scopesNow.has('all')||scopesNow.has('selection'))renderSelection();if(scopesNow.has('all')||scopesNow.has('settings'))renderSettings();}catch(err){showError('render cycle',err);}});}
+function dispatch(action){
+  try{
+    switch(action.type){
+      case 'SET_VIEW':appState.view=action.value;break;
+      case 'TOGGLE_LENS':appState.lens.enabled=!appState.lens.enabled;if(!appState.lens.enabled)appState.lens.pinned=false;break;
+      case 'SET_LENS_ENABLED':appState.lens.enabled=!!action.value;if(!appState.lens.enabled)appState.lens.pinned=false;break;
+      case 'TOGGLE_PIN':if(!appState.lens.enabled)appState.lens.enabled=true;appState.lens.pinned=!appState.lens.pinned;break;
+      case 'SET_PINNED':if(action.value&&!appState.lens.enabled)appState.lens.enabled=true;appState.lens.pinned=!!action.value;break;
+      case 'TOGGLE_REVEAL':appState.lens.revealAll=!appState.lens.revealAll;break;
+      case 'SET_LENS_POSITION':appState.lens.x=action.x;appState.lens.y=action.y;break;
+      case 'SET_RADIUS':appState.settings.lensRadius=Number(action.value);appState.lens.radius=Number(action.value);saveSettings();break;
+      case 'SET_FILTER':appState.filters[action.key]=String(action.value??'');break;
+      case 'SET_SETTING':appState.settings[action.key]=action.value;saveSettings();break;
+      case 'RESET_DEFAULTS':appState.settings=defaultSettings();appState.lens={...appState.lens,enabled:true,pinned:false,revealAll:false,radius:145};appState.filters={search:'',confidence:'all',family:'all'};saveSettings();break;
+      case 'SELECT_FINDING':appState.selectedFindingId=action.id||null;break;
+      case 'SET_CAPABILITIES':appState.capabilities=detectCapabilities();break;
+      case 'SET_POINTER':appState.lens.activePointerId=action.id;appState.lens.dragging=!!action.dragging;break;
+    }
+    const scopeMap={SET_VIEW:['controls'],TOGGLE_LENS:['controls','lens'],SET_LENS_ENABLED:['controls','lens'],TOGGLE_PIN:['controls','lens'],SET_PINNED:['controls','lens'],TOGGLE_REVEAL:['controls','lens'],SET_LENS_POSITION:['lens'],SET_RADIUS:['controls','lens','settings'],SET_FILTER:['findings'],SET_SETTING:['settings','controls'],RESET_DEFAULTS:['all'],SELECT_FINDING:['selection'],SET_CAPABILITIES:['controls','lens','settings'],SET_POINTER:['controls']};
+    scheduleRender(...(scopeMap[action.type]||['controls']));
+  }catch(err){showError(`state transition ${action.type}`,err);}
+}
+function showError(context,err){console.error('[Rhetorical InDEX]',context,err);errorMessage.textContent=`${context}: ${err?.message||String(err)}`;errorBanner.hidden=false;live.textContent='Scanner recovered from an internal error. Restore the demo if the current view looks incomplete.';}
+function clearError(){errorBanner.hidden=true;errorMessage.textContent='';}
+
+function setData(articleRaw,findingsRaw,mode){
+  const findings=normalizeFindingMap(findingsRaw,mode==='demo'?'fixture':'local-heuristic');
+  const article=normalizeArticle(articleRaw,findings);
+  const indexes=buildIndexes(article,findings);
+  const integrity=auditIntegrity(article,findings,indexes);
+  appState.mode=mode;appState.data={article,findings,indexes,metrics:deriveMetrics(article,findings),integrity};appState.selectedFindingId=null;appState.filters={search:'',confidence:'all',family:'all'};
+  clearError();renderArticle();renderCompareAvailability();scheduleRender('all');
+}
+function segmentMarkup(seg,scan){
+  const text=esc(seg.text); if(!seg.findings.length)return scan?`<span class="scan-plain">${text}</span>`:text;
+  const fs=seg.findings.map(id=>appState.data.findings[id]).filter(Boolean);const primary=fs[0]||{family:'journalism',pressure:1};
+  if(!scan)return `<span class="base-mark" id="mark-${esc(seg.id)}" tabindex="0" role="button" data-passage-id="${esc(seg.id)}" data-finding-ids="${seg.findings.join(',')}" aria-label="Inspect ${fs.map(f=>esc(f.mechanism)).join(' and ')}">${text}</span>`;
+  const tags=fs.map(f=>`<span class="scan-tag conf-${f.confidence}">${esc(f.mechanism)}</span>`).join('');
+  return `<span class="scan-mark family-${primary.family} ${pressureClass(Math.max(...fs.map(f=>f.pressure)))}" data-passage-id="${esc(seg.id)}">${text}<span class="tag-stack">${tags}</span></span>`;
+}
+function articleMarkup(article,scan=false){
+  const paras=article.paragraphs.map((p,pi)=>`<p${scan?'':` id="paragraph-${pi+1}"`} data-paragraph-index="${pi}">${p.map(seg=>segmentMarkup(seg,scan)).join('')}</p>`).join('');
+  return `<div class="article-kicker">${appState.mode==='demo'?'Fictional demonstration':'Local paste demonstration'}</div><h1 class="article-title">${esc(article.title)}</h1><p class="article-dek">${esc(article.dek)}</p><div class="article-meta">${esc(article.source)} · ${esc(article.meta)}</div><div class="article-copy">${paras}</div>`;
+}
+function renderArticle(){
+  const article=appState.data.article;if(!article)return;
+  base.innerHTML=articleMarkup(article,false);overlay.innerHTML=articleMarkup(article,true);bindBaseMarks();requestAnimationFrame(()=>{adjustTagStacks();applyLensBounds();});
+}
+function bindBaseMarks(){base.querySelectorAll('.base-mark').forEach(el=>{const open=()=>{const ids=el.dataset.findingIds.split(',').filter(Boolean);openFinding(ids[0],ids);};el.addEventListener('click',open,{signal});el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}},{signal});});}
+function adjustTagStacks(){const ar=articleSurface.getBoundingClientRect();overlay.querySelectorAll('.scan-mark').forEach(mark=>{const tags=mark.querySelector('.tag-stack');if(!tags)return;tags.classList.remove('align-right');const r=tags.getBoundingClientRect();if(r.right>ar.right-8)tags.classList.add('align-right');});}
+function renderSelection(){const selected=appState.selectedFindingId;document.querySelectorAll('.finding-btn').forEach(b=>b.setAttribute('aria-current',String(b.dataset.finding===selected)));base.querySelectorAll('.base-mark').forEach(m=>m.classList.toggle('is-selected',selected&&m.dataset.findingIds.split(',').includes(selected)));}
+function visibleFindingIds(){
+  const {indexes,findings}=appState.data;if(!indexes)return[];let ids=new Set(indexes.allIds);
+  if(appState.filters.family!=='all')ids=new Set([...(indexes.byFamily.get(appState.filters.family)||[])].filter(id=>ids.has(id)));
+  if(appState.filters.confidence==='confirmed')ids=new Set([...ids].filter(id=>findings[id]?.confidence!=='low'));
+  if(appState.filters.confidence==='candidate')ids=new Set([...ids].filter(id=>findings[id]?.confidence==='low'));
+  const q=appState.filters.search.trim().toLowerCase();if(q)ids=new Set([...ids].filter(id=>{const f=findings[id];return f.mechanism.toLowerCase().includes(q)||f.span.toLowerCase().includes(q);}));
+  return [...ids];
+}
+function renderFindingsList(){
+  const list=document.getElementById('findingsList'),empty=document.getElementById('findingEmpty');if(!list)return;
+  const ids=visibleFindingIds(),findings=appState.data.findings;document.getElementById('findingCount').textContent=`${ids.length} / ${Object.keys(findings).length}`;
+  list.innerHTML=ids.map(id=>{const f=findings[id];return `<button class="finding-btn" data-finding="${esc(id)}"><div class="finding-top"><span class="finding-name">${esc(f.mechanism)}</span><span class="finding-meta">P${f.pressure} · ${esc(f.confidence)}</span></div><div class="finding-excerpt">“${esc(f.span)}”</div></button>`;}).join('');
+  empty.hidden=ids.length>0;list.querySelectorAll('[data-finding]').forEach(btn=>btn.addEventListener('click',()=>openFinding(btn.dataset.finding,[btn.dataset.finding]),{signal}));renderSelection();
+}
+function openFinding(id,cluster=[id]){
+  const f=appState.data.findings[id];if(!f)return;dispatch({type:'SELECT_FINDING',id});lastFocus=document.activeElement;
+  const overlap=cluster.length>1?`<p><strong>Also tagged:</strong> ${cluster.filter(x=>x!==id).map(x=>esc(appState.data.findings[x]?.mechanism||x)).join(', ')}</p>`:'';
+  const prov=f.provenance||{};
+  drawerBody.innerHTML=`<span class="voice-chip">${esc(String(f.voice||'reporter').replace('_',' '))}</span><h2 id="drawerTitle">${esc(f.mechanism)}</h2><div class="drawer-excerpt">“${esc(f.span)}”</div><div class="metric-row"><div class="metric"><span>Interpretive pressure</span><b>P${f.pressure} / 4</b></div><div class="metric"><span>Confidence</span><b>${esc(f.confidence)}</b></div></div><div class="drawer-actions"><button class="primary-btn" type="button" id="jumpToPassage">Jump to passage</button><button class="ghost-btn" type="button" id="drawerCloseInline">Close</button></div><p>${esc(f.basis)}</p>${overlap}<details open><summary>Why this was tagged</summary><ul>${f.criteria.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details><details><summary>Why it could be wrong</summary><p>${esc(f.alternative)}</p></details><details><summary>Comparison basis</summary><p>${esc(f.comparison)}</p></details><details><summary>Provenance</summary><p>Origin: ${esc(prov.origin||'unknown')} · detector: ${esc(prov.detector||'unknown')} · engine ${esc(prov.engineVersion||ENGINE_VERSION)}.</p></details>`;
+  drawer.removeAttribute('inert');drawer.classList.add('open');scrim.classList.add('open');drawer.setAttribute('aria-hidden','false');appState.drawerOpen=true;document.getElementById('drawerClose').focus();
+  document.getElementById('jumpToPassage').addEventListener('click',()=>jumpToFinding(id),{once:true});document.getElementById('drawerCloseInline').addEventListener('click',closeDrawer,{once:true});live.textContent=`Opened ${f.mechanism} finding details.`;
+}
+function closeDrawer(){drawer.classList.remove('open');scrim.classList.remove('open');drawer.setAttribute('aria-hidden','true');drawer.setAttribute('inert','');appState.drawerOpen=false;if(lastFocus&&lastFocus.focus)lastFocus.focus();}
+function jumpToFinding(id){const passage=(appState.data.indexes?.passageByFinding.get(id)||[])[0];if(!passage)return;closeDrawer();const el=document.getElementById(`mark-${passage}`);if(el){el.scrollIntoView({block:'center',behavior:appState.settings.reducedMotion?'auto':'smooth'});el.focus({preventScroll:true});const p=el.closest('p');p?.classList.add('is-target');setTimeout(()=>p?.classList.remove('is-target'),1250);live.textContent='Jumped to the tagged passage.';}}
+function jumpToParagraph(index){const el=document.getElementById(`paragraph-${index+1}`);if(!el)return;el.scrollIntoView({block:'center',behavior:appState.settings.reducedMotion?'auto':'smooth'});el.classList.add('is-target');setTimeout(()=>el.classList.remove('is-target'),1250);}
+
+function getRadiusLimits(){const rect=articleSurface.getBoundingClientRect();const cap=appState.capabilities.viewport==='phone'?138:appState.capabilities.viewport==='tablet'?184:210;const max=Math.max(78,Math.min(cap,Math.floor(rect.width/2)-14));return {min:78,max};}
+function clampLensPoint(x,y,radius=appState.lens.radius){const rect=articleSurface.getBoundingClientRect(),pad=Math.max(10,radius+8);const clamp=(v,size)=>size>pad*2?Math.max(pad,Math.min(size-pad,v)):size/2;return {x:clamp(x,rect.width),y:clamp(y,rect.height)};}
+function applyLensBounds(){const limits=getRadiusLimits();if(appState.lens.radius>limits.max){appState.settings.lensRadius=limits.max;appState.lens.radius=limits.max;saveSettings();}const p=clampLensPoint(appState.lens.x,appState.lens.y,appState.lens.radius);appState.lens.x=p.x;appState.lens.y=p.y;scheduleRender('lens','settings');}
+function touchOffset(){return appState.capabilities.viewport==='phone'?86:appState.capabilities.viewport==='tablet'?108:96;}
+function placeLensFromClient(clientX,clientY,{touch=false}={}){const r=articleSurface.getBoundingClientRect();const p=clampLensPoint(clientX-r.left,clientY-r.top-(touch?touchOffset():0));dispatch({type:'SET_LENS_POSITION',x:p.x,y:p.y});}
+function renderLens(){
+  if(!articleSurface)return;const s=appState.lens;articleSurface.style.setProperty('--lens-r',`${s.radius}px`);articleSurface.style.setProperty('--lens-x',`${s.x}px`);articleSurface.style.setProperty('--lens-y',`${s.y}px`);articleSurface.classList.toggle('lens-off',!s.enabled);articleSurface.classList.toggle('reveal-all',s.revealAll);articleSurface.classList.toggle('lens-live',s.enabled&&!s.revealAll&&(s.pinned||s.dragging||appState.capabilities.coarse||appState.capabilities.hover));articleSurface.classList.toggle('touch-active',s.dragging);
+}
+function renderControls(){
+  const s=appState.lens;const state=s.revealAll?'reveal':!s.enabled?'off':s.pinned?'pinned':'live';const label={reveal:'Reveal all',off:'Lens off',pinned:'Lens pinned',live:'Live lens'}[state];
+  const status=document.getElementById('lensStatus');status.dataset.state=state;status.textContent=label;
+  document.getElementById('lensToggle').setAttribute('aria-pressed',String(s.enabled));document.getElementById('lensToggle').textContent=s.enabled?'Lens on':'Lens off';document.getElementById('pinToggle').setAttribute('aria-pressed',String(s.pinned));document.getElementById('pinToggle').textContent=s.pinned?'Lens pinned':'Pin lens';document.getElementById('revealToggle').setAttribute('aria-pressed',String(s.revealAll));document.getElementById('revealToggle').textContent=s.revealAll?'Hide full overlay':'Reveal all';
+  document.querySelectorAll('[data-action="toggle-lens"]').forEach(b=>b.setAttribute('aria-pressed',String(s.enabled)));document.querySelectorAll('[data-action="toggle-pin"]').forEach(b=>b.setAttribute('aria-pressed',String(s.pinned)));document.querySelectorAll('[data-action="toggle-reveal"]').forEach(b=>b.setAttribute('aria-pressed',String(s.revealAll)));
+  const note=document.getElementById('capabilityNote');note.textContent=appState.capabilities.coarse?`${appState.capabilities.viewport} · tap or drag lens`:`${appState.capabilities.viewport} · pointer tracking`;
+}
+function renderSettings(){
+  const limits=getRadiusLimits();for(const id of ['lensRadius','lensRadiusDock']){const el=document.getElementById(id);if(!el)continue;el.min=String(limits.min);el.max=String(limits.max);el.value=String(Math.min(appState.lens.radius,limits.max));}
+  document.getElementById('lensRadiusValue').textContent=`${Math.round(appState.lens.radius)} px`;document.getElementById('patternMode').checked=appState.settings.patternMode;document.getElementById('reducedMotion').checked=appState.settings.reducedMotion;document.body.classList.toggle('pattern-mode',appState.settings.patternMode);document.body.classList.toggle('user-reduced-motion',appState.settings.reducedMotion);
+  const legend=document.getElementById('legendBody'),toggle=document.getElementById('legendToggle');legend.hidden=!appState.settings.legendOpen;toggle.setAttribute('aria-expanded',String(appState.settings.legendOpen));toggle.textContent=appState.settings.legendOpen?'Collapse':'Expand';
+  const saved=document.getElementById('settingsSaved');saved.textContent=storageAvailable?'Saved locally':'Session only';
+  const engine=document.getElementById('engineStatus');const issues=appState.data.integrity||[];engine.className=`engine-status ${issues.length?'warn':'ok'}`;engine.textContent=issues.length?`${issues.length} integrity note${issues.length===1?'':'s'}`:`Integrity clean · ${ENGINE_VERSION}`;
+  document.getElementById('findingSearch').value=appState.filters.search;document.getElementById('confidenceFilter').value=appState.filters.confidence;document.getElementById('familyFilter').value=appState.filters.family;
+}
+function renderProfile(){
+  const m=appState.data.metrics;if(!m)return;document.getElementById('profilePeak').textContent=m.peak?`P${m.peak}`:'—';document.getElementById('profileConfirmed').textContent=`${m.confirmed}%`;document.getElementById('profileCandidate').textContent=`${m.candidate}%`;document.getElementById('profileDominant').textContent=`Dominant: ${m.dominant}`;
+  const strip=document.getElementById('pressureStrip');strip.innerHTML=m.paraPeaks.map((n,i)=>`<button type="button" class="pressure-segment ${n?'p'+n:''}" data-paragraph-jump="${i}" aria-label="Jump to paragraph ${i+1}, peak pressure ${n?'P'+n:'none'}"></button>`).join('')||'<span></span>';strip.querySelectorAll('[data-paragraph-jump]').forEach(b=>b.addEventListener('click',()=>jumpToParagraph(Number(b.dataset.paragraphJump)),{signal}));
+}
+function renderCompareAvailability(){const unavailable=appState.mode==='paste';document.getElementById('topCompare').disabled=unavailable;document.querySelectorAll('[data-view="compare"],[data-view="event"]').forEach(b=>{b.disabled=unavailable;b.title=unavailable?'Unavailable in local paste mode':'';});}
+function setView(name){if(appState.mode==='paste'&&(name==='compare'||name==='event')){live.textContent='Comparison and Event Record are unavailable in local paste mode. Restore the demo fixture to inspect those views.';return;}dispatch({type:'SET_VIEW',value:name});views.forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));navButtons.forEach(b=>b.setAttribute('aria-current',b.dataset.view===name?'page':'false'));window.scrollTo({top:0,behavior:'auto'});live.textContent=`${name==='event'?'Event Record':name[0].toUpperCase()+name.slice(1)} view opened.`;}
+
+function renderCompare(){document.getElementById('compareCards').innerHTML=compareData.map(c=>`<article class="compare-card"><div class="compare-kind">${esc(c.kind)}</div><h3>${esc(c.title)}</h3><p>${esc(c.body)}</p><span class="level-chip">${esc(c.level)}</span></article>`).join('');document.getElementById('claimsList').innerHTML=claimData.map(c=>`<article class="claim-card"><div class="claim-head"><h3>${esc(c.claim)}</h3><span class="status-chip">${esc(c.status)}</span></div><div class="claim-grid"><div class="claim-col"><h4>Target article</h4><div class="source-quote">${esc(c.target)}</div><h4>Rhetorical/evidentiary note</h4><p>${esc(c.rhetoric)}</p></div><div class="claim-col"><h4>Peer coverage</h4>${c.peers.map(p=>`<div class="source-quote">${esc(p)}</div>`).join('')}</div></div><div class="evidence-row"><div><strong>Coverage consensus</strong>${esc(c.consensus)}</div><div class="${c.omission?'omission-flag':''}"><strong>${c.omission?'Material omission basis':'Strongest primary evidence'}</strong>${esc(c.evidence)}</div></div></article>`).join('');}
+function renderEvent(){const cards=claimData.map((c,i)=>`<article class="record-card ${i===1?'evidence-conflict':''}"><div class="eyebrow">Claim ${String(i+1).padStart(2,'0')}</div><h3>${esc(c.claim)}</h3><div class="record-meta"><div><b>Evidence state</b><span>${esc(c.status)}</span></div><div><b>Coverage</b><span>${esc(c.consensus)}</span></div><div><b>Primary evidence</b><span>${esc(c.evidence)}</span></div><div><b>Rhetoric across sources</b><span>${esc(c.rhetoric)}</span></div><div><b>Knowledge cutoff</b><span>Fictional demo snapshot · 8:10 AM</span></div></div></article>`);cards.push(`<article class="record-card evidence-conflict"><div class="eyebrow">Evidence conflict</div><h3>Dominant account vs Order 24-17</h3><p>Several reports repeat “Central Station” as though it is the entire closure. The primary order also names East Plaza. Rhetorical InDEX surfaces the conflict; it does not hide the primary record because the dominant account is more common.</p><div class="record-meta"><div><b>Coverage consensus</b><span>Station-only phrasing appears frequently, but at least two articles share city-release wording.</span></div><div><b>Evidence</b><span>The fictional order explicitly includes East Plaza.</span></div></div></article>`);document.getElementById('recordGrid').innerHTML=cards.join('');}
+function renderTaxonomy(){document.getElementById('taxGrid').innerHTML=taxonomyData.map(([name,family,desc])=>`<article class="tax-card"><div class="tax-family">${esc(family)}</div><h3>${esc(name)}</h3><p>${esc(desc)}</p><small>Canonical term · Alpha-0 candidate</small></article>`).join('');}
+function buildPlanToc(){const content=document.getElementById('planContent'),toc=document.getElementById('planToc');const headings=[...content.querySelectorAll('h1,h2')],used=new Set();headings.forEach((h,i)=>{let slug=h.id||h.textContent.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||`section-${i}`;let b=slug,n=2;while(used.has(slug))slug=`${b}-${n++}`;used.add(slug);h.id=slug;h.dataset.tocText=h.textContent.toLowerCase();});toc.innerHTML=headings.map(h=>`<a class="depth-${h.tagName==='H2'?2:1}" href="#${h.id}">${esc(h.textContent)}</a>`).join('');}
+function filterPlan(q){const query=q.trim().toLowerCase();document.querySelectorAll('#planToc a').forEach(a=>{const h=document.getElementById(a.getAttribute('href').slice(1));a.hidden=!!query&&!h.dataset.tocText.includes(query);});}
+
+function splitSentences(text){return String(text).match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(s=>s.trim()).filter(Boolean)||[];}
+function localHeuristicArticle(text){
+  let counter=1;const localFindings={};const paras=text.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);const patterns=[
+    {name:'False dilemma',family:'logic',pressure:3,confidence:'medium',re:/\b(?:the only (?:realistic |viable )?(?:option|choice)|no (?:realistic )?alternative|either\b[^.]{0,80}\bor)\b/i,basis:'Exclusive-option wording may narrow the option space.',criteria:['Exclusive-option marker']},
+    {name:'Epistemic overstatement',family:'epistemic',pressure:2,confidence:'low',re:/\b(?:obviously|undeniably|certainly|everyone knows|always|never|proves? that)\b/i,basis:'Certainty marker may exceed the support visible in the sentence.',criteria:['Strong certainty or universality marker']},
+    {name:'Loaded language',family:'lexical',pressure:2,confidence:'low',re:/\b(?:chaos|lawless(?:ness)?|mob(?:s)?|outrageous|disaster|traitor(?:ous)?|heroic|corrupt)\b/i,basis:'High-valence vocabulary may add evaluative framing.',criteria:['High-valence lexical marker']},
+    {name:'Appeal to fear',family:'emotional',pressure:3,confidence:'low',re:/\b(?:if we (?:fail|do not|don't)[^.]{0,100}(?:danger|collapse|destroy|surrender|threat)|families? will[^.]{0,100}(?:danger|suffer|wake|lose))\b/i,basis:'A feared outcome may be functioning as persuasive leverage.',criteria:['Predicted feared consequence']},
+    {name:'Agent suppression',family:'agency',pressure:1,confidence:'low',re:/\b(?:was|were|is|are|been|being)\s+[a-z]+(?:ed|en)\b/i,basis:'Passive construction may suppress the actor; this heuristic cannot determine whether the actor is known.',criteria:['Possible passive construction']}
+  ];
+  const paragraphs=paras.map((p,pi)=>splitSentences(p).map((sentence,si)=>{const passageId=`p${pi+1}-s${si+1}`,ids=[],dedupe=new Set();for(const pt of patterns){if(!pt.re.test(sentence))continue;const key=`${pt.name}|${passageId}`;if(dedupe.has(key))continue;dedupe.add(key);const id=`h${counter++}`;ids.push(id);localFindings[id]={mechanism:pt.name,family:pt.family,pressure:pt.pressure,confidence:pt.confidence,voice:'reporter',span:sentence,basis:pt.basis,criteria:pt.criteria,alternative:'This is a local heuristic candidate, not a calibrated production finding.',comparison:'Unavailable in local paste mode.',location:{passageId,paragraphIndex:pi,segmentIndex:si},provenance:{origin:'local-heuristic',engineVersion:ENGINE_VERSION,detector:'regex-candidate',passageId}};}return {id:passageId,text:sentence+(si<splitSentences(p).length-1?' ':''),findings:ids};}));
+  return [{title:'Local pasted article',source:'Local text',dek:'Offline heuristic demonstration. No peer comparison or fact verification.',meta:'Processed entirely inside this HTML file',paragraphs},localFindings];
+}
+
+function handleAction(action){if(action==='toggle-lens')dispatch({type:'TOGGLE_LENS'});else if(action==='toggle-pin')dispatch({type:'TOGGLE_PIN'});else if(action==='toggle-reveal')dispatch({type:'TOGGLE_REVEAL'});else if(action==='restore-demo')restoreDemo();}
+function restoreDemo(){setData(DEMO_ARTICLE,DEMO_FINDINGS_RAW,'demo');document.getElementById('pasteBox').hidden=true;document.getElementById('pasteToggle').setAttribute('aria-expanded','false');live.textContent='Demo article restored.';}
+
+function bootstrap(){
+  syncTopbarOffset();
+  setData(DEMO_ARTICLE,DEMO_FINDINGS_RAW,'demo');renderCompare();renderEvent();renderTaxonomy();buildPlanToc();renderSettings();
+  const initial=clampLensPoint(Math.min(420,articleSurface.clientWidth*.55),260);appState.lens.x=initial.x;appState.lens.y=initial.y;articleSurface.classList.remove('lens-off');scheduleRender('all');
+}
+
+// Page-lifetime event ownership is centralized under one AbortController.
+document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>setView(btn.dataset.view),{signal}));
+document.getElementById('topCompare').addEventListener('click',()=>setView('compare'),{signal});
+document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action)handleAction(action);},{signal});
+document.getElementById('drawerClose').addEventListener('click',closeDrawer,{signal});scrim.addEventListener('click',closeDrawer,{signal});
+document.getElementById('pasteToggle').addEventListener('click',e=>{const box=document.getElementById('pasteBox'),open=box.hidden;box.hidden=!open;e.currentTarget.setAttribute('aria-expanded',String(open));if(open)document.getElementById('pasteInput').focus();},{signal});
+document.getElementById('runPaste').addEventListener('click',()=>{const text=document.getElementById('pasteInput').value.trim();if(!text){live.textContent='Paste article text before scanning.';return;}const [article,fs]=localHeuristicArticle(text);setData(article,fs,'paste');document.getElementById('pasteBox').hidden=true;document.getElementById('pasteToggle').setAttribute('aria-expanded','false');live.textContent=`Local heuristic scan found ${Object.keys(fs).length} candidate findings.`;},{signal});
+document.getElementById('findingSearch').addEventListener('input',e=>dispatch({type:'SET_FILTER',key:'search',value:e.target.value}),{signal});document.getElementById('confidenceFilter').addEventListener('change',e=>dispatch({type:'SET_FILTER',key:'confidence',value:e.target.value}),{signal});document.getElementById('familyFilter').addEventListener('change',e=>dispatch({type:'SET_FILTER',key:'family',value:e.target.value}),{signal});
+document.getElementById('legendToggle').addEventListener('click',()=>dispatch({type:'SET_SETTING',key:'legendOpen',value:!appState.settings.legendOpen}),{signal});document.getElementById('patternMode').addEventListener('change',e=>dispatch({type:'SET_SETTING',key:'patternMode',value:e.target.checked}),{signal});document.getElementById('reducedMotion').addEventListener('change',e=>dispatch({type:'SET_SETTING',key:'reducedMotion',value:e.target.checked}),{signal});document.getElementById('resetScanner').addEventListener('click',()=>{dispatch({type:'RESET_DEFAULTS'});applyLensBounds();live.textContent='Scanner defaults restored.';},{signal});
+for(const id of ['lensRadius','lensRadiusDock'])document.getElementById(id).addEventListener('input',e=>{const limits=getRadiusLimits();dispatch({type:'SET_RADIUS',value:Math.max(limits.min,Math.min(limits.max,Number(e.target.value)))});applyLensBounds();},{signal});
+document.getElementById('planSearch').addEventListener('input',e=>filterPlan(e.target.value),{signal});
+
+articleSurface.addEventListener('pointermove',e=>{if(!appState.lens.enabled||appState.lens.revealAll||appState.lens.pinned||appState.capabilities.coarse||e.pointerType==='touch')return;placeLensFromClient(e.clientX,e.clientY);},{signal});articleSurface.addEventListener('pointerenter',()=>{if(appState.lens.enabled&&!appState.lens.revealAll&&!appState.capabilities.coarse)articleSurface.classList.add('lens-live');},{signal});articleSurface.addEventListener('pointerleave',()=>{if(!appState.lens.pinned&&!appState.capabilities.coarse)articleSurface.classList.remove('lens-live');},{signal});
+articleSurface.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'&&!appState.capabilities.coarse)return;if(e.target.closest('button,.base-mark,a,input,textarea,select,summary'))return;pointerTap={id:e.pointerId,x:e.clientX,y:e.clientY,t:performance.now()};},{signal});articleSurface.addEventListener('pointerup',e=>{if(!pointerTap||pointerTap.id!==e.pointerId)return;const dist=Math.hypot(e.clientX-pointerTap.x,e.clientY-pointerTap.y),dt=performance.now()-pointerTap.t;if(dist<14&&dt<420){dispatch({type:'SET_LENS_ENABLED',value:true});placeLensFromClient(e.clientX,e.clientY,{touch:true});}pointerTap=null;},{signal});articleSurface.addEventListener('pointercancel',()=>{pointerTap=null;},{signal});
+touchHandle.addEventListener('pointerdown',e=>{e.preventDefault();touchHandle.setPointerCapture(e.pointerId);dispatch({type:'SET_LENS_ENABLED',value:true});dispatch({type:'SET_PINNED',value:true});dispatch({type:'SET_POINTER',id:e.pointerId,dragging:true});placeLensFromClient(e.clientX,e.clientY,{touch:true});},{signal});touchHandle.addEventListener('pointermove',e=>{if(appState.lens.activePointerId!==e.pointerId||!touchHandle.hasPointerCapture(e.pointerId))return;placeLensFromClient(e.clientX,e.clientY,{touch:true});},{signal});
+function endPointer(e){if(appState.lens.activePointerId!==e.pointerId)return;try{if(touchHandle.hasPointerCapture(e.pointerId))touchHandle.releasePointerCapture(e.pointerId);}catch{}dispatch({type:'SET_POINTER',id:null,dragging:false});}
+touchHandle.addEventListener('pointerup',endPointer,{signal});touchHandle.addEventListener('pointercancel',endPointer,{signal});
+
+const capabilityRefresh=()=>{syncTopbarOffset();dispatch({type:'SET_CAPABILITIES'});applyLensBounds();adjustTagStacks();};window.addEventListener('resize',capabilityRefresh,{signal});window.addEventListener('orientationchange',capabilityRefresh,{signal});window.visualViewport?.addEventListener('resize',capabilityRefresh,{signal});for(const q of ['(pointer:coarse)','(hover:hover)','(prefers-reduced-motion:reduce)'])matchMedia(q).addEventListener?.('change',capabilityRefresh,{signal});
+window.addEventListener('error',e=>showError('runtime error',e.error||new Error(e.message)),{signal});window.addEventListener('unhandledrejection',e=>showError('unhandled promise rejection',e.reason instanceof Error?e.reason:new Error(String(e.reason))),{signal});window.addEventListener('beforeunload',()=>lifecycle.abort(),{once:true});
+
+document.addEventListener('keydown',e=>{if(drawer.classList.contains('open')&&e.key==='Tab'){const focusables=[...drawer.querySelectorAll('button,summary,a[href],[tabindex]:not([tabindex="-1"])')].filter(el=>!el.disabled);if(focusables.length){const first=focusables[0],last=focusables[focusables.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}return;}if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(e.key==='Escape'){if(drawer.classList.contains('open'))closeDrawer();else if(appState.lens.pinned)dispatch({type:'SET_PINNED',value:false});}else if(e.key.toLowerCase()==='l')dispatch({type:'TOGGLE_LENS'});else if(e.key.toLowerCase()==='a')dispatch({type:'TOGGLE_REVEAL'});else if(e.key.toLowerCase()==='c')setView('compare');else if(e.key.toLowerCase()==='e')setView('event');},{signal});
+
+bootstrap();
+</script>
+</body>
+</html>
