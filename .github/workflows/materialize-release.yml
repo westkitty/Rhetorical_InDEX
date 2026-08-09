@@ -18,39 +18,62 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check payload
-        id: payload
-        shell: bash
-        run: |
-          if [ -f payload/part00.b64 ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Reconstruct release
-        if: steps.payload.outputs.present == 'true'
+      - name: Reconstruct and verify release
         shell: bash
         run: |
           set -euo pipefail
-          cat payload/part*.b64 > /tmp/rhetorical-index.b64
-          test "$(wc -c < /tmp/rhetorical-index.b64)" -eq 131228
+          cat \
+            payload/part00.b64 \
+            payload/part01.b64 \
+            payload/part02.b64 \
+            payload/part03.b64 \
+            payload/p040 payload/p041 payload/p042 payload/p043 \
+            payload/p050 payload/p051 payload/p052 payload/p053 \
+            payload/part06.b64 \
+            payload/part07.b64 \
+            payload/part08.b64 \
+            payload/p090 payload/p091 payload/p092 payload/p093 \
+            payload/part10.b64 \
+            > /tmp/rhetorical-index.b64
+
+          test "$(wc -c < /tmp/rhetorical-index.b64)" -eq 126808
+          echo "ab1a0931562a301532949158a4e38d0a862f74fbf9d0ebf22dfddf1fae5b8102  /tmp/rhetorical-index.b64" | sha256sum -c -
+
           base64 --decode /tmp/rhetorical-index.b64 > /tmp/rhetorical-index.tar.gz
+          echo "382cd86a3feb7b02ab012e348095a16aa7d8fa0ddd8d3c9f71a8e4001d0f5dc1  /tmp/rhetorical-index.tar.gz" | sha256sum -c -
+
           mkdir -p /tmp/rhetorical-index-release
           tar -xzf /tmp/rhetorical-index.tar.gz -C /tmp/rhetorical-index-release
           cp -a /tmp/rhetorical-index-release/. .
-          rm -rf payload
 
-      - name: Commit release tree
-        if: steps.payload.outputs.present == 'true'
+          cat > /tmp/release.sha256 <<'EOF'
+          606a4561efbc10462c1db10bf0b9ad833e4b6e45cd1fe29193462352d8849329  README.md
+          bfe0020facf08cad391caa4dcca9a0428e765d8f0f4b5afeaac11f883c10dd18  Rhetorical_InDEX.html
+          40dce003d1ba8525d2be8b1b24e8e72077bcedf77adc8599bfa6064042a75c57  Rhetorical_InDEX_Implementation_Plan.md
+          0be6fac096c6075ace8e8d7cbd7973150c746d9f48d721af2c9891137f101202  IMPROVEMENT_LEDGER.md
+          97b65db655d546bb1c772b2efb0b2a7af69775297e7e423227b5c6536f21dee9  IMPROVEMENT_TRACEABILITY.md
+          dd475e26e464df1935ed7c7693da3ff2a246c369998f70bdb7694795b165f265  OPERATIONAL_STATE.md
+          a39809add1ce80973bc011a198f2eb16c64703c958d5eaa47d9eb8850bde1fcd  QA_REPORT.md
+          d6665a8cf97cac8584e5ad4e9c5a6af2cd5ce28cc5093d0d43bbe4121091480d  RELEASE_NOTES.md
+          3df95cfb6916c4de528d7142620e2a273a0a5e04a0c9b1d627815c84a947f3ac  REQUIREMENT_TRACEABILITY.md
+          EOF
+          sha256sum -c /tmp/release.sha256
+
+          rm -rf payload
+          rm -f .github/workflows/materialize-release.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+
+      - name: Commit verified release tree
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "westkitty"
+          git config user.email "andrew.dolby@westcat.ca"
           git add -A
           if git diff --cached --quiet; then
+            echo "No release-tree changes to commit."
             exit 0
           fi
-          git commit -m "Import Rhetorical InDEX release"
-          git push
+          git commit -m "Import verified Rhetorical InDEX release"
+          git push origin HEAD:main
