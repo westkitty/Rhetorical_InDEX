@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rhetorical-index.example/schema/benchmark-document.json",
+  "title": "Rhetorical InDEX benchmark annotation document",
+  "description": "One annotated article. Only documents with adjudicationStatus='adjudicated' are scored by benchmarks/scripts/evaluate.py. Files whose name begins with '_' are never loaded.",
+  "type": "object",
+  "required": ["articleId", "genre", "taxonomyVersion", "adjudicationStatus", "passages", "annotations"],
+  "properties": {
+    "articleId": { "type": "string" },
+    "genre": { "enum": ["straight_news", "analysis", "opinion", "press_release", "other"] },
+    "sourceNote": { "type": "string", "description": "Provenance and rights note for the excerpt." },
+    "taxonomyVersion": { "type": "string" },
+    "adjudicationStatus": {
+      "enum": ["draft", "annotated", "disputed", "adjudicated"],
+      "description": "Only 'adjudicated' contributes to metrics."
+    },
+    "annotatorIds": { "type": "array", "items": { "type": "string" } },
+    "passages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["ordinal", "passageType", "text"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 0 },
+          "passageType": { "enum": ["heading", "paragraph", "blockquote", "list_item", "caption", "other"] },
+          "text": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "description": "Gold spans. An empty array is meaningful: it asserts this article contains no instances of the implemented mechanisms, which is exactly what a hard-negative document should say.",
+      "items": {
+        "type": "object",
+        "required": ["annotationId", "passageOrdinal", "startChar", "endChar", "excerpt", "mechanismId", "pressure", "reviewerConfidence"],
+        "properties": {
+          "annotationId": { "type": "string" },
+          "passageOrdinal": { "type": "integer", "minimum": 0 },
+          "startChar": { "type": "integer", "minimum": 0 },
+          "endChar": { "type": "integer", "minimum": 1 },
+          "excerpt": { "type": "string", "description": "MUST equal passages[passageOrdinal].text[startChar:endChar]." },
+          "mechanismId": { "type": "string" },
+          "pressure": { "enum": ["P1", "P2", "P3", "P4"] },
+          "reviewerConfidence": { "enum": ["Low", "Medium", "High"] },
+          "voiceClass": { "enum": ["headline", "reporter", "editorial", "quoted_speaker", "paraphrased_source", "document_material", "uncertain"] },
+          "alternativeAcceptableMechanism": { "type": "string" },
+          "nearMissRationale": { "type": "string" },
+          "isHardNegativeFor": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Mechanisms a naive detector is expected to wrongly fire here."
+          },
+          "adjudicationNote": { "type": "string" }
+        }
+      }
+    },
+    "disagreements": {
+      "type": "array",
+      "description": "Retained after adjudication. Erasing disagreement destroys the calibration signal.",
+      "items": {
+        "type": "object",
+        "required": ["annotationId", "annotatorId", "position"],
+        "properties": {
+          "annotationId": { "type": "string" },
+          "annotatorId": { "type": "string" },
+          "position": { "type": "string" },
+          "resolvedAs": { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

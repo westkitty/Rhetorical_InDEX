@@ -1,5 +1,11 @@
 # Rhetorical InDEX — Hybrid Instrument Alpha QA Report
 
+> **Superseded for current status.** This report records the hybrid foundation build and its
+> cleanup pass. Artifact hashes and Chromium figures below are historical. For the current
+> artifact, current per-behavior verification status, and the Level 3 detector, see
+> `INSTRUMENT_ALPHA_TRACEABILITY.md`, `tests/prototype-parity/PARITY_MATRIX.md` and
+> `KNOWN_LIMITATIONS.md`. No Chromium run was executed in the Instrument Alpha completion pass.
+
 ## Verdict
 
 **Verified foundation in the inspected scope; cross-browser and real assistive-technology coverage remain unverified.**

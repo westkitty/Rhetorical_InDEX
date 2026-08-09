@@ -17,8 +17,17 @@ This directory set is designed to be overlaid onto the current `westkitty/Rhetor
 This foundation is deliberately explicit about which detector is which:
 
 1. **Level 1 — Experience Prototype detector.** Deterministic/synthetic demonstration belonging to the trusted root `Rhetorical_InDEX.html`. Not a calibrated analytical instrument.
-2. **Level 2 — Local Preview detector.** Runs on real pasted text in the browser today (`apps/web/src/app.ts`). Heuristic, unbenchmarked, bounded to the same four-mechanism slice (Loaded language, Presupposition, Agent suppression, False dilemma), explicitly non-authoritative, intended for interaction and contract validation rather than production analysis. Its output is validated against `packages/schema/src/localPreviewContract.ts` before entering application state, and `tests/local-preview-contract.test.mjs` proves that output also satisfies `services/api/detector_contract.py`'s invariants.
-3. **Level 3 — Instrument Alpha detector.** The future calibrated detector, governed by the canonical taxonomy and the strict `services/api/detector_contract.py` boundary, to be benchmarked against a human-reviewed corpus. **Not yet implemented.**
+2. **Level 2 — Local Preview detector.** Runs on real pasted text in the browser today (`apps/web/src/app.ts`). Heuristic, unbenchmarked, bounded to the four-mechanism slice (Loaded language, Presupposition, Agent suppression, False dilemma), explicitly non-authoritative. Its output is validated against `packages/schema/src/localPreviewContract.ts` before entering application state, and `tests/local-preview-contract.test.mjs` proves that output also satisfies `services/api/detector_contract.py`'s invariants.
+3. **Level 3 — Instrument Alpha detector.** **Implemented** in `services/rhetoric/` — a 14-stage taxonomy-governed pipeline with a provider abstraction, strict reject-never-repair validation, exact-span localization with occurrence disambiguation, mechanism-specific pressure rubrics, epistemic confidence, voice provenance, coverage accounting and long-document batching. It is **UNCALIBRATED**: no human-reviewed benchmark has been run, so no accuracy figure exists for it.
+
+Level 3 is **not reachable from the browser build**. Wiring it in requires a service boundary, and network exposure remains deliberately deferred. Run it directly instead:
+
+```bash
+python3 -m services.api.analyze --file article.txt
+python3 -m services.api.analyze --text "..." --json
+```
+
+See `services/rhetoric/README.md` for the stage map and `KNOWN_LIMITATIONS.md` for what this does and does not establish.
 
 ## What this intentionally does not add
 

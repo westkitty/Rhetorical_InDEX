@@ -1,0 +1,143 @@
+{
+  "articleId": "bench-example-0001",
+  "genre": "straight_news",
+  "sourceNote": "Synthetic text authored for this example. Not a real article. Excluded from scoring by the leading underscore in the filename.",
+  "taxonomyVersion": "1.0.0-alpha0",
+  "adjudicationStatus": "adjudicated",
+  "annotatorIds": [
+    "annotator-example-a",
+    "annotator-example-b"
+  ],
+  "passages": [
+    {
+      "ordinal": 0,
+      "passageType": "heading",
+      "text": "Council Approves Draconian Housing Scheme"
+    },
+    {
+      "ordinal": 1,
+      "passageType": "paragraph",
+      "text": "The council approved a draconian, reckless scheme on Tuesday that critics say will siphon funds from repairs."
+    },
+    {
+      "ordinal": 2,
+      "passageType": "paragraph",
+      "text": "Officials refused to explain why they allowed the backlog to grow. Residents were told nothing for months."
+    },
+    {
+      "ordinal": 3,
+      "passageType": "paragraph",
+      "text": "Members must either approve the levy or watch the district collapse entirely."
+    },
+    {
+      "ordinal": 4,
+      "passageType": "paragraph",
+      "text": "The audit was published by the finance office, which recorded a 12 percent shortfall against a Category 4 storm repair budget."
+    },
+    {
+      "ordinal": 5,
+      "passageType": "blockquote",
+      "text": "\"This is an outrageous betrayal of tenants,\" said tenant representative Dana Whitfield."
+    }
+  ],
+  "annotations": [
+    {
+      "annotationId": "ann-0-load-17",
+      "passageOrdinal": 0,
+      "startChar": 17,
+      "endChar": 41,
+      "excerpt": "Draconian Housing Scheme",
+      "mechanismId": "loaded_language",
+      "pressure": "P4",
+      "reviewerConfidence": "High",
+      "voiceClass": "headline"
+    },
+    {
+      "annotationId": "ann-1-load-23",
+      "passageOrdinal": 1,
+      "startChar": 23,
+      "endChar": 49,
+      "excerpt": "draconian, reckless scheme",
+      "mechanismId": "loaded_language",
+      "pressure": "P3",
+      "reviewerConfidence": "High",
+      "voiceClass": "reporter"
+    },
+    {
+      "annotationId": "ann-1-load-83",
+      "passageOrdinal": 1,
+      "startChar": 83,
+      "endChar": 89,
+      "excerpt": "siphon",
+      "mechanismId": "loaded_language",
+      "pressure": "P2",
+      "reviewerConfidence": "Medium",
+      "voiceClass": "reporter",
+      "alternativeAcceptableMechanism": "euphemism_dysphemism"
+    },
+    {
+      "annotationId": "ann-2-pres-10",
+      "passageOrdinal": 2,
+      "startChar": 10,
+      "endChar": 65,
+      "excerpt": "refused to explain why they allowed the backlog to grow",
+      "mechanismId": "presupposition",
+      "pressure": "P3",
+      "reviewerConfidence": "High",
+      "voiceClass": "reporter"
+    },
+    {
+      "annotationId": "ann-2-agen-77",
+      "passageOrdinal": 2,
+      "startChar": 77,
+      "endChar": 105,
+      "excerpt": "were told nothing for months",
+      "mechanismId": "agent_suppression",
+      "pressure": "P3",
+      "reviewerConfidence": "Medium",
+      "voiceClass": "reporter",
+      "nearMissRationale": "No actor named for who withheld information; responsibility is grammatically removed."
+    },
+    {
+      "annotationId": "ann-3-fals-13",
+      "passageOrdinal": 3,
+      "startChar": 13,
+      "endChar": 67,
+      "excerpt": "either approve the levy or watch the district collapse",
+      "mechanismId": "false_dilemma",
+      "pressure": "P3",
+      "reviewerConfidence": "High",
+      "voiceClass": "reporter"
+    },
+    {
+      "annotationId": "ann-5-load-12",
+      "passageOrdinal": 5,
+      "startChar": 12,
+      "endChar": 31,
+      "excerpt": "outrageous betrayal",
+      "mechanismId": "loaded_language",
+      "pressure": "P3",
+      "reviewerConfidence": "High",
+      "voiceClass": "quoted_speaker",
+      "nearMissRationale": "Loading belongs to the quoted tenant representative, not the outlet."
+    }
+  ],
+  "hardNegatives": [
+    {
+      "passageOrdinal": 4,
+      "note": "'was published by the finance office' names its agent -> NOT agent suppression. 'Category 4 storm' is a technical scale term -> NOT loaded language.",
+      "isHardNegativeFor": [
+        "agent_suppression",
+        "loaded_language"
+      ]
+    }
+  ],
+  "disagreements": [
+    {
+      "annotationId": "ann-1-load-83",
+      "annotatorId": "annotator-example-b",
+      "position": "Marked as euphemism_dysphemism rather than loaded_language.",
+      "resolvedAs": "uphold_a: 'siphon' imports evaluation without substituting a softened term; recorded as alternativeAcceptableMechanism."
+    }
+  ]
+}

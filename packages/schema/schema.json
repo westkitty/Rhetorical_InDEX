@@ -3,16 +3,135 @@
   "$id": "https://rhetorical-index.example/schema/instrument-alpha.json",
   "title": "Rhetorical InDEX Instrument Alpha Contracts",
   "type": "object",
-  "description": "Shared contract summary. TypeScript contracts in packages/schema/src/contracts.ts are the executable source for the current dependency-light web build. The enum lists below are the single canonical vocabulary shared by TypeScript (packages/schema/src/contracts.ts, packages/schema/src/localPreviewContract.ts) and Python (services/api/detector_contract.py); tests/vocabulary-parity.test.mjs and tests/python/test_vocabulary_parity.py fail if either language drifts from this file. The full 12-mechanism id list is canonical in packages/taxonomy/taxonomy.json, not duplicated here.",
+  "description": "Single canonical cross-language contract source. The `properties` enum lists are the canonical controlled vocabulary shared by TypeScript (packages/schema/src/contracts.ts, packages/schema/src/localPreviewContract.ts) and Python (services/rhetoric/vocabulary.py, services/api/detector_contract.py). The `$defs` object contracts declare required fields per core domain object. tests/vocabulary-parity.test.mjs, tests/python/test_vocabulary_parity.py and tests/python/unit/test_schema_contracts.py fail if any language drifts from this file. The full 12-mechanism id list is canonical in packages/taxonomy/taxonomy.json and is deliberately NOT duplicated here.",
+  "schemaVersion": "1.1.0",
   "properties": {
-    "pressureLevel": { "enum": ["P1", "P2", "P3", "P4"] },
-    "confidenceLevel": { "enum": ["Low", "Medium", "High"] },
-    "voiceClass": { "enum": ["headline", "reporter", "editorial", "quoted_speaker", "paraphrased_source", "document_material"] },
+    "pressureLevel": {
+      "description": "Ordinal, mechanism-specific interpretive pressure. NOT factuality, NOT confidence, NOT harm.",
+      "enum": ["P1", "P2", "P3", "P4"]
+    },
+    "confidenceLevel": {
+      "description": "Detector certainty that the mechanism is present. Epistemic only; independent of pressure.",
+      "enum": ["Low", "Medium", "High"]
+    },
+    "voiceClass": {
+      "description": "Whose rhetoric this is. quoted_speaker must not be silently attributed to the outlet.",
+      "enum": ["headline", "reporter", "editorial", "quoted_speaker", "paraphrased_source", "document_material", "uncertain"]
+    },
     "intrinsicAlphaSlice": {
-      "description": "The bounded four-mechanism subset the Local Preview (Level 2) and future Instrument Alpha (Level 3) detectors are scoped to. Every id must also exist in packages/taxonomy/taxonomy.json.",
+      "description": "The bounded four-mechanism subset the Level 2 Local Preview and Level 3 Instrument Alpha detectors are scoped to. Every id must also exist in packages/taxonomy/taxonomy.json.",
       "enum": ["loaded_language", "presupposition", "agent_suppression", "false_dilemma"]
     },
-    "findingRule": { "const": "one finding = one mechanism on one exact span" }
+    "mechanismFamily": {
+      "enum": ["intrinsic_linguistic", "framing_epistemic", "agency_causality", "journalism_cross_doc"]
+    },
+    "findingState": {
+      "enum": ["candidate", "confirmed"]
+    },
+    "passageType": {
+      "description": "Document structure is preserved, not flattened into one whitespace-collapsed blob.",
+      "enum": ["heading", "paragraph", "blockquote", "list_item", "caption", "other"]
+    },
+    "analysisRunStatus": {
+      "description": "processing/complete/partial/failed. UI must derive scan state from this and never independently invent a completion label.",
+      "enum": ["processing", "complete", "partial", "failed"]
+    },
+    "detectorProviderKind": {
+      "description": "mock = deterministic test double; heuristic = rule-based, unbenchmarked; model = external model provider (requires credentials, not exercised without them).",
+      "enum": ["mock", "heuristic", "model"]
+    },
+    "claimState": {
+      "enum": ["supported_by_direct_evidence", "corroborated", "contested", "contradicted_by_evidence", "unverified", "non_factual", "retrieval_incomplete"]
+    },
+    "alignmentRelation": {
+      "description": "Claim-to-claim relation. `uncertain` and `unrelated` must survive; nothing may be silently forced into `same_proposition`.",
+      "enum": ["same_proposition", "compatible", "more_specific", "less_specific", "contradictory", "unrelated", "uncertain"]
+    },
+    "authenticityState": {
+      "description": "Primary evidence is NOT automatically true. Default for unretrieved/unchecked material is `unverified`.",
+      "enum": ["verified", "unverified", "disputed"]
+    },
+    "evidenceDirectness": {
+      "enum": ["direct", "contextual", "derivative"]
+    },
+    "sourceDependenceType": {
+      "description": "`unknown` is the honest default. Ten articles repeating one wire story are not ten independent reports.",
+      "enum": ["independent_reporting", "syndication", "quotation", "citation", "shared_source", "unknown"]
+    },
+    "omissionDimension": {
+      "enum": ["Responsibility", "Scale", "Cause", "Timeline", "Counterevidence", "Baseline"]
+    },
+    "findingRule": {
+      "const": "one finding = one mechanism on one exact span"
+    }
+  },
+  "$defs": {
+    "Passage": {
+      "type": "object",
+      "required": ["passageId", "articleId", "ordinal", "passageType", "text"],
+      "description": "Canonical addressable unit of an article. Span coordinates in Findings are passage-local."
+    },
+    "Article": {
+      "type": "object",
+      "required": ["articleId", "contentHash", "passages", "provenance"],
+      "description": "contentHash is SHA-256 over canonical normalized text; identical canonical input yields an identical hash."
+    },
+    "Finding": {
+      "type": "object",
+      "required": [
+        "findingId", "analysisRunId", "articleId", "passageId", "mechanismId",
+        "excerpt", "startChar", "endChar", "pressure", "confidence", "voiceClass",
+        "triggeredCriteria", "taxonomyVersion", "detectorVersion"
+      ],
+      "description": "One Finding = one mechanism on one exact span. `mechanisms` (plural) is a prohibited legacy field."
+    },
+    "AnalysisRun": {
+      "type": "object",
+      "required": [
+        "runId", "articleId", "contentHash", "taxonomyVersion", "detectorVersion",
+        "provider", "status", "allPassageIds", "processedPassageIds",
+        "failedPassageIds", "unprocessedPassageIds", "findingCount"
+      ],
+      "description": "Created before analysis begins. Every Finding references exactly one run. Coverage is explicit, never inferred."
+    },
+    "DetectorFailure": {
+      "type": "object",
+      "required": ["passageId", "stage", "reason"],
+      "description": "Rejection record. Malformed detector output produces a DetectorFailure, never a cosmetically repaired Finding."
+    },
+    "Claim": {
+      "type": "object",
+      "required": ["claimId", "normalizedProposition", "sourceAssertions"],
+      "description": "Atomic proposition used as the unit of cross-source comparison."
+    },
+    "ClaimAlignment": {
+      "type": "object",
+      "required": ["alignmentId", "claimA", "claimB", "relation", "confidence"],
+      "description": "Alignment confidence must propagate downstream; a weak match may not become a strong omission."
+    },
+    "EvidenceItem": {
+      "type": "object",
+      "required": ["evidenceId", "evidenceType", "authenticityState", "directness"],
+      "description": "authenticityState is never globally set to `verified` without a stated basis."
+    },
+    "MaterialOmission": {
+      "type": "object",
+      "required": [
+        "omissionId", "targetArticleId", "comparisonSetId", "missingProposition",
+        "supportingSourceIds", "dimension", "rationale", "confidence", "knowableAtTimestamp"
+      ],
+      "description": "Cross-document only. May never be emitted by an intrinsic single-article scan."
+    },
+    "ComparisonSet": {
+      "type": "object",
+      "required": ["comparisonSetId", "targetArticleId", "memberArticleIds", "provenanceKind"],
+      "description": "provenanceKind distinguishes synthetic fixture material from real retrieved coverage."
+    },
+    "SourceDependency": {
+      "type": "object",
+      "required": ["sourcePair", "relationshipType", "confidence"],
+      "description": "Independence must not be assumed; `unknown` is the default."
+    }
   },
   "additionalProperties": true
 }

@@ -1,7 +1,7 @@
 type PressureLevel = 'P1' | 'P2' | 'P3' | 'P4';
 type ConfidenceLevel = 'Low' | 'Medium' | 'High';
 type FindingState = 'candidate' | 'confirmed';
-type VoiceClass = 'headline' | 'reporter' | 'editorial' | 'quoted_speaker' | 'paraphrased_source' | 'document_material';
+type VoiceClass = 'headline' | 'reporter' | 'editorial' | 'quoted_speaker' | 'paraphrased_source' | 'document_material' | 'uncertain';
 type MechanismFamily = 'intrinsic_linguistic' | 'framing_epistemic' | 'agency_causality' | 'journalism_cross_doc';
 type MechanismId =
   | 'loaded_language'
@@ -155,11 +155,29 @@ interface AnalysisRun {
   unprocessedParagraphs: number[];
 }
 
+type AnalysisRunStatus = 'processing' | 'complete' | 'partial' | 'failed';
+type PassageType = 'heading' | 'paragraph' | 'blockquote' | 'list_item' | 'caption' | 'other';
+type DetectorProviderKind = 'mock' | 'heuristic' | 'model';
+type AlignmentRelation = 'same_proposition' | 'compatible' | 'more_specific' | 'less_specific' | 'contradictory' | 'unrelated' | 'uncertain';
+type AuthenticityState = 'verified' | 'unverified' | 'disputed';
+type SourceDependenceType = 'independent_reporting' | 'syndication' | 'quotation' | 'citation' | 'shared_source' | 'unknown';
+
 interface CanonicalVocabulary {
   pressureLevel: PressureLevel[];
   confidenceLevel: ConfidenceLevel[];
   voiceClass: VoiceClass[];
   intrinsicAlphaSlice: MechanismId[];
+  mechanismFamily: MechanismFamily[];
+  findingState: FindingState[];
+  passageType: PassageType[];
+  analysisRunStatus: AnalysisRunStatus[];
+  detectorProviderKind: DetectorProviderKind[];
+  claimState: ClaimState[];
+  alignmentRelation: AlignmentRelation[];
+  authenticityState: AuthenticityState[];
+  evidenceDirectness: EvidenceItem['directness'][];
+  sourceDependenceType: SourceDependenceType[];
+  omissionDimension: string[];
 }
 
 interface BootstrapData {

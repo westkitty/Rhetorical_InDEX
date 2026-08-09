@@ -4,11 +4,11 @@
 {
   "artifact_path": "apps/web/dist/index.html",
   "current_baseline": {
-    "identity": "apps/web/dist/index.html sha256 4b2652f6d4985454bf2b6236d622ad32ce3fa3c34c20124037201f70291879b9",
-    "last_verified": "2026-08-09T20:00:00Z",
+    "identity": "apps/web/dist/index.html sha256 1a5ebc364fb0f53ac8845b1b7e9ddeac202a13f0020ac0458e263e7bef267812",
+    "last_verified": "2026-08-09T21:30:00Z",
     "state": "current-baseline"
   },
-  "last_updated": "2026-08-09T20:00:00Z",
+  "last_updated": "2026-08-09T21:30:00Z",
   "linked_parent_state": null,
   "project_id": "rhetorical-index-instrument-alpha-web",
   "project_name": "Rhetorical InDEX Instrument Alpha Web",
@@ -18,7 +18,7 @@
     "Instrument Alpha web application only",
     "The root standalone Rhetorical_InDEX.html remains the golden Experience Prototype and is not governed or replaced by this subsystem state"
   ],
-  "state_revision": 3
+  "state_revision": 4
 }
 -->
 
@@ -189,7 +189,7 @@ Add stable `INV-###` entries for rules future work must preserve.
 - **Validation Method:** Runtime DOM count, accessibility attributes, and base/overlay geometry comparison.
 <!-- /operational-state:entry -->
 
-**Note on artifact identity (2026-08-09 cleanup pass):** the current baseline hash above (`4b2652f6...`) supersedes the `8b3086f5...` hash referenced by `VER-001` through `VER-004` below. The rebuild that produced the new hash added Local Preview candidate validation (`INV-005`) and a taxonomy typo fix; it did not touch DOM structure, element IDs, CSS, or scanner/Lens/drawer logic. `VER-001`–`VER-004`'s Chromium evidence was not re-collected against the new hash in this pass (no Playwright/Chromium available in this environment) and should be treated as carried forward, not re-verified, until `npm run qa:runtime` is re-run against the current artifact.
+**Note on artifact identity (updated 2026-08-09, Instrument Alpha completion pass):** the current baseline hash is `1a5ebc36…`. It supersedes `4b2652f6…`, which itself superseded the `8b3086f5...` hash referenced by `VER-001` through `VER-004` below. The rebuild that produced the new hash added Local Preview candidate validation (`INV-005`) and a taxonomy typo fix; it did not touch DOM structure, element IDs, CSS, or scanner/Lens/drawer logic. `VER-001`–`VER-004`'s Chromium evidence has NOT been re-collected against either newer artifact — Playwright/Chromium is unavailable in this environment — so all four are now marked `freshness: stale`. Their `state: verified` reflects what was true for artifact `8b3086f5…` and must NOT be read as a current claim about `1a5ebc36…`. Re-run `npm run qa:runtime` to restore them. See `tests/prototype-parity/PARITY_MATRIX.md` for the current, honest per-behavior status (11 PASS / 0 FAIL / 21 UNVERIFIED).
 
 ## 5. Verified Working Behavior
 
@@ -201,7 +201,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
   "capability": "Article-first scanner supports exact spatial Lens reveal, Reveal All, radius-aware bounds, touch drag, pointer cancellation, and responsive layouts.",
   "dependencies": "Chromium and embedded fixture/taxonomy only; no runtime network dependency",
   "evidence": "qa/runtime-results.json: 59/59 pass; screenshots in qa/screens",
-  "freshness": "current",
+  "freshness": "stale",
   "id": "VER-001",
   "last_verified": "2026-08-09T19:00:00Z",
   "recheck_trigger": "Scanner, CSS, Lens, pointer, typography, or responsive changes",
@@ -218,7 +218,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
 - **Capability:** Article-first scanner supports exact spatial Lens reveal, Reveal All, radius-aware bounds, touch drag, pointer cancellation, and responsive layouts.
 - **Dependencies:** Chromium and embedded fixture/taxonomy only; no runtime network dependency
 - **Evidence:** qa/runtime-results.json: 59/59 pass; screenshots in qa/screens
-- **Freshness:** current
+- **Freshness:** stale — evidence predates artifact 1a5ebc36…; not re-collected
 - **Last Verified:** 2026-08-09T19:00:00Z
 - **Recheck Trigger:** Scanner, CSS, Lens, pointer, typography, or responsive changes
 - **Scope:** Desktop, 768x1024 tablet portrait, 1024x768 tablet landscape, 410x844 phone
@@ -231,7 +231,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
   "capability": "Finding drawer traps focus, closes with Escape/controls, restores focus, and supports Reduced Motion and Pattern Mode.",
   "dependencies": "Browser focus behavior",
   "evidence": "qa/runtime-results.json includes repeated focus-trap checks, focus restoration, Reduced Motion, and Pattern Mode",
-  "freshness": "current",
+  "freshness": "stale",
   "id": "VER-002",
   "last_verified": "2026-08-09T19:00:00Z",
   "recheck_trigger": "Drawer, keyboard, focus, motion, or accessibility changes",
@@ -248,7 +248,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
 - **Capability:** Finding drawer traps focus, closes with Escape/controls, restores focus, and supports Reduced Motion and Pattern Mode.
 - **Dependencies:** Browser focus behavior
 - **Evidence:** qa/runtime-results.json includes repeated focus-trap checks, focus restoration, Reduced Motion, and Pattern Mode
-- **Freshness:** current
+- **Freshness:** stale — evidence predates artifact 1a5ebc36…; not re-collected
 - **Last Verified:** 2026-08-09T19:00:00Z
 - **Recheck Trigger:** Drawer, keyboard, focus, motion, or accessibility changes
 - **Scope:** Scanner finding inspection
@@ -261,7 +261,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
   "capability": "Twelve Alpha-0 taxonomy records, exact fixture spans, one-mechanism Finding contract, and strict future detector boundary are internally consistent.",
   "dependencies": "Node.js and Python standard library for tests",
   "evidence": "11/11 Node tests and 5/5 Python tests passed",
-  "freshness": "current",
+  "freshness": "stale",
   "id": "VER-003",
   "last_verified": "2026-08-09T19:00:00Z",
   "recheck_trigger": "Schema, taxonomy, fixture, or detector-contract changes",
@@ -278,7 +278,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
 - **Capability:** Twelve Alpha-0 taxonomy records, exact fixture spans, one-mechanism Finding contract, and strict future detector boundary are internally consistent.
 - **Dependencies:** Node.js and Python standard library for tests
 - **Evidence:** 11/11 Node tests and 5/5 Python tests passed
-- **Freshness:** current
+- **Freshness:** stale — evidence predates artifact 1a5ebc36…; not re-collected
 - **Last Verified:** 2026-08-09T19:00:00Z
 - **Recheck Trigger:** Schema, taxonomy, fixture, or detector-contract changes
 - **Scope:** packages/schema, packages/taxonomy, packages/fixtures, services/api/detector_contract.py
@@ -291,7 +291,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
   "capability": "The built Instrument Alpha web artifact runs without external network requests in the tested journeys and produced no console errors.",
   "dependencies": "Embedded data only",
   "evidence": "qa/runtime-results.json reports no external requests and no console errors for all four tested viewport groups",
-  "freshness": "current",
+  "freshness": "stale",
   "id": "VER-004",
   "last_verified": "2026-08-09T19:00:00Z",
   "recheck_trigger": "Any dependency, network, build, or runtime integration change",
@@ -308,7 +308,7 @@ Add stable `VER-###` entries only when evidence proves the required behavior thr
 - **Capability:** The built Instrument Alpha web artifact runs without external network requests in the tested journeys and produced no console errors.
 - **Dependencies:** Embedded data only
 - **Evidence:** qa/runtime-results.json reports no external requests and no console errors for all four tested viewport groups
-- **Freshness:** current
+- **Freshness:** stale — evidence predates artifact 1a5ebc36…; not re-collected
 - **Last Verified:** 2026-08-09T19:00:00Z
 - **Recheck Trigger:** Any dependency, network, build, or runtime integration change
 - **Scope:** Standalone built web artifact
@@ -503,3 +503,15 @@ Add stable `DEC-###` entries for source locks, routes, naming, packaging, style,
 - **Validation not performed:** Chromium/Playwright runtime QA was not re-executed against the new artifact hash in this pass (environment has no Playwright/Chromium); Safari/iPadOS, Firefox, and real screen-reader sessions remain unverified, unchanged from Revision 2.
 - **Reason for broad revalidation:** Independent review findings F-001 (detector-level documentation mismatch + missing Local Preview validation boundary), F-002 (no TS/Python vocabulary parity check), F-003 (presence tests read as behavioral proof), and F-004 (taxonomy typo).
 - **Summary:** Close independent review findings F-001–F-004: formalize the three detector levels, validate Local Preview output against the same contract as the future Instrument Alpha detector, add automated vocabulary parity, clarify structural-guard test semantics, and fix the taxonomy typo.
+
+### Revision 4 — 2026-08-09T21:30:00Z — Instrument Alpha completion program
+
+- **Artifact/source identity:** `apps/web/dist/index.html` sha256 `1a5ebc364fb0f53ac8845b1b7e9ddeac202a13f0020ac0458e263e7bef267812`
+- **Scope of change:** additive. A Level 3 detector (`services/rhetoric`), comparison/omission gates (`services/comparison`), evidence architecture (`services/evidence`), a local analysis boundary + CLI (`services/api/analyze.py`), and benchmark machinery (`benchmarks/`) were added beside the existing Level 2 browser scanner. The only change to `apps/web` is a text-only transparency block appended to the Methodology view.
+- **New evidence:** 29/29 Node tests PASS; 160/160 Python tests PASS; typecheck PASS; build PASS and reproducible (two clean builds, identical hash); adversarial mutation testing confirmed the suite detects removal of the criteria-fabrication guard, the uncertainty cap, the nested-span collapse and cross-language vocabulary drift.
+- **Newly verified behavior:** see `INSTRUMENT_ALPHA_TRACEABILITY.md` — 106 PASS rows.
+- **Newly known failure:** None. Six defects were found by adversarial review and all six are fixed with regression tests (`docs/ADVERSARIAL_REVIEW.md`, D-001 … D-006).
+- **Superseded rule:** None.
+- **Validation NOT performed:** Chromium/Playwright runtime QA was **not executed** in this pass (Playwright unavailable on this host). All browser-runtime, responsive, touch and focus-management rows remain **UNVERIFIED** — see `tests/prototype-parity/PARITY_MATRIX.md` (11 PASS / 0 FAIL / 21 UNVERIFIED). `qa/runtime-results.json` and `qa/screens/*.png` are **stale**: produced against artifact `8b3086f5…`, superseded by `1a5ebc36…`. They are retained as historical evidence only.
+- **Calibration status:** **UNCALIBRATED.** `benchmarks/corpus/` contains zero adjudicated documents; `benchmarks/scripts/evaluate.py` reports `EMPTY`. No accuracy figure exists for any detector level and none is stated anywhere.
+- **Summary:** Build the Level 3 Instrument Alpha detector pipeline, comparison/evidence architecture and benchmark machinery beside the verified prototype, with strict validation, coverage honesty and adversarial regression coverage.

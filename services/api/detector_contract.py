@@ -5,13 +5,30 @@ vertical slice inherit the exact-span and semantic-validation rules learned from
 prototype work instead of importing the AI Studio server wholesale.
 """
 from __future__ import annotations
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-PRESSURE = {"P1", "P2", "P3", "P4"}
-CONFIDENCE = {"Low", "Medium", "High"}
-VOICE = {"headline", "reporter", "editorial", "quoted_speaker", "paraphrased_source", "document_material"}
-INTRINSIC_ALPHA_SLICE = {"loaded_language", "presupposition", "agent_suppression", "false_dilemma"}
+# Vocabulary is READ from the canonical contract source rather than restated
+# here. Previously these were literal sets kept in sync with TypeScript by a
+# parity test; reading the same file the TypeScript bindings are verified
+# against makes drift impossible by construction instead of merely detectable.
+# Loaded directly (not via services.rhetoric) so this module stays importable
+# by file path with no package/sys.path assumptions.
+_SCHEMA = json.loads(
+    (Path(__file__).resolve().parents[2] / "packages" / "schema" / "schema.json").read_text()
+)
+
+
+def _enum(name: str) -> set[str]:
+    return set(_SCHEMA["properties"][name]["enum"])
+
+
+PRESSURE = _enum("pressureLevel")
+CONFIDENCE = _enum("confidenceLevel")
+VOICE = _enum("voiceClass")
+INTRINSIC_ALPHA_SLICE = _enum("intrinsicAlphaSlice")
 
 
 @dataclass(frozen=True)
