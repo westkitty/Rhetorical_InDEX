@@ -155,9 +155,17 @@ interface AnalysisRun {
   unprocessedParagraphs: number[];
 }
 
+interface CanonicalVocabulary {
+  pressureLevel: PressureLevel[];
+  confidenceLevel: ConfidenceLevel[];
+  voiceClass: VoiceClass[];
+  intrinsicAlphaSlice: MechanismId[];
+}
+
 interface BootstrapData {
   taxonomy: { version: string; mechanisms: TaxonomyMechanism[] };
   fixture: { mode: 'synthetic_fixture'; event: EventRecord; findings: Finding[] };
+  vocabulary: CanonicalVocabulary;
 }
 
 interface Window {

@@ -54,9 +54,17 @@ The hybrid therefore carries forward the verified behavior while selectively tra
 - invented benchmark metrics;
 - production claims about detector accuracy.
 
+## Three detector levels
+
+To keep this decision record internally consistent with what is actually shipped, the project now distinguishes three detector levels explicitly:
+
+1. **Level 1 — Experience Prototype detector.** Deterministic/synthetic demonstration belonging to the trusted root `Rhetorical_InDEX.html`. Not a calibrated analytical instrument.
+2. **Level 2 — Local Preview detector.** Runs on real pasted text, heuristic, unbenchmarked, currently covers the bounded four-mechanism slice (Loaded language, Presupposition, Agent suppression, False dilemma), explicitly non-authoritative, intended for interaction and contract validation. **Implemented in `apps/web/src/app.ts` as of this hybrid foundation** — an earlier version of this document incorrectly implied this detector was future work; it validates its output against `packages/schema/src/localPreviewContract.ts` before that output enters application state.
+3. **Level 3 — Instrument Alpha detector.** Future calibrated detector, governed by the canonical taxonomy and the strict `services/api/detector_contract.py` boundary, benchmarked against a human-reviewed corpus. **Not yet implemented.**
+
 ## Next gate
 
-The next substantive milestone is the first real Python detector vertical slice for:
+The next substantive milestone is to replace or augment the current heuristic Level 2 Local Preview detector with the first calibrated Level 3 four-mechanism Instrument Alpha detector for:
 
 - Loaded language
 - Presupposition

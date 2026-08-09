@@ -3,10 +3,15 @@
   "$id": "https://rhetorical-index.example/schema/instrument-alpha.json",
   "title": "Rhetorical InDEX Instrument Alpha Contracts",
   "type": "object",
-  "description": "Shared contract summary. TypeScript contracts in packages/schema/src/contracts.ts are the executable source for the current dependency-light web build.",
+  "description": "Shared contract summary. TypeScript contracts in packages/schema/src/contracts.ts are the executable source for the current dependency-light web build. The enum lists below are the single canonical vocabulary shared by TypeScript (packages/schema/src/contracts.ts, packages/schema/src/localPreviewContract.ts) and Python (services/api/detector_contract.py); tests/vocabulary-parity.test.mjs and tests/python/test_vocabulary_parity.py fail if either language drifts from this file. The full 12-mechanism id list is canonical in packages/taxonomy/taxonomy.json, not duplicated here.",
   "properties": {
     "pressureLevel": { "enum": ["P1", "P2", "P3", "P4"] },
     "confidenceLevel": { "enum": ["Low", "Medium", "High"] },
+    "voiceClass": { "enum": ["headline", "reporter", "editorial", "quoted_speaker", "paraphrased_source", "document_material"] },
+    "intrinsicAlphaSlice": {
+      "description": "The bounded four-mechanism subset the Local Preview (Level 2) and future Instrument Alpha (Level 3) detectors are scoped to. Every id must also exist in packages/taxonomy/taxonomy.json.",
+      "enum": ["loaded_language", "presupposition", "agent_suppression", "false_dilemma"]
+    },
     "findingRule": { "const": "one finding = one mechanism on one exact span" }
   },
   "additionalProperties": true

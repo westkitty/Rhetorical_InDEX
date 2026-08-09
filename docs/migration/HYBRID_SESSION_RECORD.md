@@ -49,4 +49,8 @@ URL ingestion, the experimental Express/Gemini server, live comparison, and benc
 
 ## Next substantive milestone
 
-Implement the real four-mechanism intrinsic detector slice behind `services/api/detector_contract.py`, then construct the first human-reviewed benchmark. Do not promote URL ingestion before that gate.
+Replace or augment the current heuristic Level 2 Local Preview detector (`apps/web/src/app.ts`, present since this session's build) with the first calibrated Level 3 four-mechanism Instrument Alpha detector behind `services/api/detector_contract.py`, then construct the first human-reviewed benchmark around the functioning detector. Do not promote URL ingestion before that gate.
+
+## Independent review closure (F-001 – F-004)
+
+A later independent repository review of this session's commit (`dd6a7a5`) found that this record's original "Next substantive milestone" wording described the four-mechanism heuristic detector as future work, when the Level 2 Local Preview detector already existed. A follow-up cleanup pass: (1) formalized the three detector levels across the hybrid documentation set, (2) added `packages/schema/src/localPreviewContract.ts` so Local Preview candidates are validated against the same invariants as `services/api/detector_contract.py` before entering application state, with `tests/local-preview-contract.test.mjs` as regression proof, (3) added `packages/schema/schema.json` as a canonical cross-language vocabulary source with automated TypeScript/Python parity tests, (4) clarified `tests/source-contract.test.mjs` test names as structural/source-presence guards rather than behavioral proof, and (5) fixed a typo in `packages/taxonomy/taxonomy.json`. See `HYBRID_REQUIREMENT_TRACEABILITY.md` and `HYBRID_QA_REPORT.md` for evidence.

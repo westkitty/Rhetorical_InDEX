@@ -693,15 +693,41 @@
     return chunks;
   }
 
-  function localPreviewFindings(article: Article): Finding[] {
+  interface LocalPreviewResult {
+    findings: Finding[];
+    rejectedCount: number;
+  }
+
+  function localPreviewFindings(article: Article): LocalPreviewResult {
     const findings: Finding[] = [];
     const runId = `local-${fnv1a(article.content)}-${Date.now()}`;
     let counter = 0;
+    let rejectedCount = 0;
     const add = (paragraphIndex: number, startChar: number, endChar: number, mechanism: MechanismId, pressure: PressureLevel, confidence: ConfidenceLevel, criterion: string) => {
       const paragraph = article.paragraphs[paragraphIndex];
       const text = paragraph.slice(startChar, endChar);
       const taxonomy = TAXONOMY.get(mechanism);
       if (!taxonomy || !text.trim()) return;
+      const voiceClass: VoiceClass = 'reporter';
+      try {
+        // Reject-not-repair boundary: mirrors services/api/detector_contract.py so
+        // heuristic Local Preview candidates cannot enter application state without
+        // satisfying the same semantic contract the future calibrated Instrument
+        // Alpha detector will be held to. See packages/schema/src/localPreviewContract.ts.
+        validateLocalPreviewCandidate(DATA.vocabulary, article.paragraphs, {
+          paragraphIndex,
+          startChar,
+          endChar,
+          mechanism,
+          pressure,
+          confidence,
+          voiceClass,
+          triggeredCriteria: [criterion],
+        });
+      } catch (error) {
+        rejectedCount += 1;
+        return;
+      }
       counter += 1;
       findings.push({
         id: `local-${counter}`,
@@ -712,7 +738,7 @@
         pressure,
         confidence,
         state: 'candidate',
-        voiceClass: 'reporter',
+        voiceClass,
         triggeredCriteria: [criterion],
         nearMissCriteria: ['Local preview heuristics are intentionally recall-oriented and have not been benchmarked.'],
         alternateInterpretation: 'This is a candidate requiring contextual verification against the full taxonomy before production use.',
@@ -748,7 +774,7 @@
         add(paragraphIndex, match.index, match.index + match[0].length, 'agent_suppression', 'P2', 'Low', 'Candidate passive construction does not name an actor inside the detected span.');
       }
     });
-    return findings;
+    return { findings, rejectedCount };
   }
 
   function loadPasteArticle(): void {
@@ -772,7 +798,7 @@
       paragraphs,
       snapshotHash: hash,
     };
-    const findings = localPreviewFindings(article);
+    const { findings, rejectedCount } = localPreviewFindings(article);
     state.mode = 'local_preview';
     state.article = article;
     state.findings = findings;
@@ -786,7 +812,8 @@
     renderPastePanel(false);
     state.view = 'scanner';
     renderAll();
-    liveRegion.textContent = `Local preview complete. ${findings.length} candidate findings. Comparison is unavailable for single-document scans.`;
+    const integrityNote = rejectedCount > 0 ? ` ${rejectedCount} candidate(s) rejected by the local integrity check.` : '';
+    liveRegion.textContent = `Local preview complete. ${findings.length} candidate findings. Comparison is unavailable for single-document scans.${integrityNote}`;
   }
 
   function loadFixture(): void {

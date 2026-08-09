@@ -107,3 +107,40 @@ Not verified here:
 - a real screen-reader session.
 
 Those are not known failures, but they remain unverified and are recorded in `apps/web/OPERATIONAL_STATE.md`.
+
+## Cleanup pass — independent review findings F-001 through F-004
+
+An independent repository review of commit `dd6a7a5` returned **MERGE READY WITH MINOR FOLLOW-UPS** and identified four findings (F-001 through F-004). This section records their closure truthfully, including what was and was not re-verified.
+
+### What changed
+
+- `packages/schema/src/localPreviewContract.ts` (new): validates every Local Preview candidate against the same semantic invariants as `services/api/detector_contract.py` before it enters application state. Wired into `localPreviewFindings` in `apps/web/src/app.ts`; invalid candidates are rejected (dropped, counted, surfaced in the live-region announcement), never silently repaired.
+- `packages/schema/schema.json`: extended with `voiceClass` and `intrinsicAlphaSlice` enums as the single canonical vocabulary source shared by TypeScript and Python.
+- `tools/build_web.py`: embeds that canonical vocabulary into the built artifact's bootstrap data (`window.RI_BOOTSTRAP.vocabulary`) instead of it being hand-duplicated in the browser bundle.
+- `tests/vocabulary-parity.test.mjs` (new, Node) and `tests/python/test_vocabulary_parity.py` (new, Python): fail if TypeScript's `contracts.ts` unions or Python's `detector_contract.py` sets drift from `packages/schema/schema.json` or from each other.
+- `tests/local-preview-contract.test.mjs` (new): executes the real compiled `localPreviewFindings` (extracted from `apps/web/dist/app.js`, not reimplemented) against representative text and proves every candidate it produces is accepted by the real `services/api/detector_contract.py`, run as a Python subprocess.
+- `tests/source-contract.test.mjs`: three tests renamed/annotated `[structural guard]` with comments clarifying they check source-token presence, not runtime behavior; the Chromium suite and the new `local-preview-contract.test.mjs` are named as the actual behavioral evidence.
+- `packages/taxonomy/taxonomy.json`: fixed `"Praming a debate..."` → `"Framing a debate..."` in the `false_dilemma` P2 rubric. Confirmed (`grep -r`) this string did not appear anywhere else in the repository outside the taxonomy source and its baked-in copy in `apps/web/dist/index.html`, which is now corrected by rebuild.
+- `INSTRUMENT_ALPHA_README.md`, `HYBRID_RELEASE_NOTES.md`, `HYBRID_REQUIREMENT_TRACEABILITY.md`, `apps/web/OPERATIONAL_STATE.md`, `docs/migration/HYBRID_DECISION.md`, `docs/migration/HYBRID_SESSION_RECORD.md`, `services/api/README.md`: now describe three explicit detector levels (Level 1 Experience Prototype, Level 2 Local Preview — implemented, unbenchmarked, present since the original hybrid commit, Level 3 Instrument Alpha — the future calibrated detector, not yet implemented) instead of implying the four-mechanism heuristic detector was future work.
+
+### Exact commands run and results (this cleanup pass)
+
+| Check | Command | Result |
+|---|---:|---:|
+| TypeScript typecheck | `npm run typecheck` | PASS |
+| Web build | `npm run build` | PASS — `apps/web/dist/index.html` SHA-256 `4b2652f6d4985454bf2b6236d622ad32ce3fa3c34c20124037201f70291879b9` |
+| Build reproducibility | rebuilt twice in a row, hashes compared | IDENTICAL both times |
+| Node test suite | `node --test tests/*.test.mjs` | **20 / 20 PASS** (11 pre-existing tests, unchanged in count, 3 renamed `[structural guard]` for F-003 + 5 new in `tests/vocabulary-parity.test.mjs` + 4 new in `tests/local-preview-contract.test.mjs`) |
+| Python test suite | `python3 -m unittest discover -s tests/python -p 'test_*.py'` | **8 / 8 PASS** (5 pre-existing `test_detector_contract` + 3 new `test_vocabulary_parity`) |
+| Adversarial: TS validator (`validateLocalPreviewCandidate`) | 11 hand-constructed malformed candidates (bad mechanism, bad pressure/confidence/voice, out-of-bounds span, inverted span, empty/whitespace criteria, non-integer index) plus 1 positive control | **11/11 rejected, positive control accepted** |
+| Adversarial: vocabulary-drift detection | Injected an extra `"robot"` value into `packages/schema/schema.json`'s `voiceClass` enum, ran both parity tests, reverted | **Both the Node and Python parity tests failed as expected**, proving they actually detect drift and are not vacuous |
+| Typo recheck | `grep -rl "Praming"` across the full repository | **0 occurrences** |
+
+### Explicitly UNVERIFIED in this cleanup pass (not converted to PASS)
+
+- **Chromium/Playwright runtime QA (`tools/runtime_qa.py`, the 59-check suite behind `qa/runtime-results.json` and `qa/screens/*`).** Playwright is not installed in this environment and `pip install playwright` is blocked by the environment's externally-managed-Python protection; no system Chromium binary is available either. This suite was **not re-executed** in this cleanup pass. `qa/runtime-results.json` and `qa/screens/*.png` reflect the artifact hash `8b3086f5...` from the original hybrid build and are now **stale** relative to the rebuilt artifact hash `4b2652f6...` above. The changes in this pass do not touch DOM structure, element IDs, CSS, or the scanner/Lens/drawer implementation the Chromium suite exercises — only `localPreviewFindings`' internal candidate-validation step and doc text — so a regression in that specific surface is unlikely, but this is a reasoned expectation, not a re-measurement. **Re-run `npm run qa:runtime` in an environment with Playwright + Chromium before treating the 59-check figure as current.**
+- Safari/iPadOS, Firefox, and a real screen-reader session remain unverified, unchanged from the original report.
+
+### Findings closed
+
+See `HYBRID_REQUIREMENT_TRACEABILITY.md` → "Independent review closure (F-001 – F-004)" for the finding-by-finding repair/evidence table. Summary: **F-001, F-002, F-003, F-004 are all closed** by the changes and tests above.

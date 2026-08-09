@@ -4,11 +4,11 @@
 {
   "artifact_path": "apps/web/dist/index.html",
   "current_baseline": {
-    "identity": "apps/web/dist/index.html sha256 8b3086f56998b9f74a3533de8db93195ab2cb308bca6d715d15842b1f3d61a3a",
-    "last_verified": "2026-08-09T19:00:00Z",
+    "identity": "apps/web/dist/index.html sha256 4b2652f6d4985454bf2b6236d622ad32ce3fa3c34c20124037201f70291879b9",
+    "last_verified": "2026-08-09T20:00:00Z",
     "state": "current-baseline"
   },
-  "last_updated": "2026-08-09T19:17:09Z",
+  "last_updated": "2026-08-09T20:00:00Z",
   "linked_parent_state": null,
   "project_id": "rhetorical-index-instrument-alpha-web",
   "project_name": "Rhetorical InDEX Instrument Alpha Web",
@@ -18,7 +18,7 @@
     "Instrument Alpha web application only",
     "The root standalone Rhetorical_InDEX.html remains the golden Experience Prototype and is not governed or replaced by this subsystem state"
   ],
-  "state_revision": 2
+  "state_revision": 3
 }
 -->
 
@@ -136,6 +136,33 @@ Add stable `INV-###` entries for rules future work must preserve.
 
 <!-- operational-state:entry
 {
+  "authority": "Independent repository review, finding F-001",
+  "evidence": "packages/schema/src/localPreviewContract.ts; tests/local-preview-contract.test.mjs cross-checks every localPreviewFindings output against the real services/api/detector_contract.py",
+  "id": "INV-005",
+  "last_checked": "2026-08-09",
+  "recheck_trigger": "Any change to localPreviewFindings, localPreviewContract.ts, detector_contract.py, or the canonical vocabulary in packages/schema/schema.json",
+  "rule": "The Level 2 Local Preview detector (apps/web/src/app.ts) must validate every candidate against the same semantic invariants represented by services/api/detector_contract.py before it enters application state. Invalid candidates are rejected, not silently repaired.",
+  "scope": "Local Preview candidate generation",
+  "state": "verified",
+  "status": "active",
+  "title": "Local Preview output is validated against the same contract as the future Instrument Alpha detector"
+}
+-->
+### INV-005 — Local Preview output is validated against the same contract as the future Instrument Alpha detector
+
+- **State:** `verified`
+- **Authority:** Independent repository review, finding F-001
+- **Evidence:** `packages/schema/src/localPreviewContract.ts`; `tests/local-preview-contract.test.mjs` cross-checks every `localPreviewFindings` output against the real `services/api/detector_contract.py`
+- **Last Checked:** 2026-08-09
+- **Recheck Trigger:** Any change to `localPreviewFindings`, `localPreviewContract.ts`, `detector_contract.py`, or the canonical vocabulary in `packages/schema/schema.json`
+- **Rule:** The Level 2 Local Preview detector (`apps/web/src/app.ts`) must validate every candidate against the same semantic invariants represented by `services/api/detector_contract.py` before it enters application state. Invalid candidates are rejected, not silently repaired.
+- **Scope:** Local Preview candidate generation
+- **Status:** active
+- **Validation Method:** `npm test` runs `tests/local-preview-contract.test.mjs`, which executes the real compiled `localPreviewFindings` and feeds its output through the real Python validator.
+<!-- /operational-state:entry -->
+
+<!-- operational-state:entry
+{
   "authority": "Canonical implementation plan and verified prototype behavior",
   "evidence": "59/59 Chromium suite; one semantic article; overlay aria-hidden; geometry delta=0.00 across four viewports",
   "id": "INV-004",
@@ -161,6 +188,8 @@ Add stable `INV-###` entries for rules future work must preserve.
 - **Status:** active
 - **Validation Method:** Runtime DOM count, accessibility attributes, and base/overlay geometry comparison.
 <!-- /operational-state:entry -->
+
+**Note on artifact identity (2026-08-09 cleanup pass):** the current baseline hash above (`4b2652f6...`) supersedes the `8b3086f5...` hash referenced by `VER-001` through `VER-004` below. The rebuild that produced the new hash added Local Preview candidate validation (`INV-005`) and a taxonomy typo fix; it did not touch DOM structure, element IDs, CSS, or scanner/Lens/drawer logic. `VER-001`–`VER-004`'s Chromium evidence was not re-collected against the new hash in this pass (no Playwright/Chromium available in this environment) and should be treated as carried forward, not re-verified, until `npm run qa:runtime` is re-run against the current artifact.
 
 ## 5. Verified Working Behavior
 
@@ -321,25 +350,27 @@ Add stable `PND-###` entries for intentionally incomplete work. Pending does not
 <!-- operational-state:entry
 {
   "blocks_completion": false,
-  "dependency": "Reviewed taxonomy contract and provenance/run schema",
+  "dependency": "Reviewed taxonomy contract, provenance/run schema, and a human-reviewed benchmark corpus",
   "id": "PND-001",
   "priority": "next",
-  "reason_pending": "This release intentionally establishes the verified hybrid foundation before production inference.",
+  "reason_pending": "This release intentionally establishes the verified hybrid foundation, including a heuristic Level 2 Local Preview detector, before calibrated Level 3 production inference.",
   "state": "pending",
-  "task": "Implement real pasted-text detection for Loaded language, Presupposition, Agent suppression, and False dilemma behind the strict detector contract.",
-  "title": "Calibrated four-mechanism Instrument Alpha detector",
-  "validation_needed": "Stable exact spans, structured criteria/exclusions, pressure/confidence, voice provenance, and no cross-document assertions."
+  "task": "Replace or augment the current heuristic Level 2 Local Preview detector (apps/web/src/app.ts, present since this release) with the first calibrated Level 3 four-mechanism Instrument Alpha detector behind services/api/detector_contract.py, then build the human-reviewed benchmark around the functioning detector.",
+  "title": "Calibrated Level 3 Instrument Alpha detector",
+  "validation_needed": "Stable exact spans, structured criteria/exclusions, pressure/confidence, voice provenance, no cross-document assertions, and per-mechanism benchmark evidence against a human-reviewed corpus."
 }
 -->
-### PND-001 — Calibrated four-mechanism Instrument Alpha detector
+### PND-001 — Calibrated Level 3 Instrument Alpha detector
 
 - **State:** `pending`
 - **Blocks Completion:** No
-- **Dependency:** Reviewed taxonomy contract and provenance/run schema
+- **Dependency:** Reviewed taxonomy contract, provenance/run schema, and a human-reviewed benchmark corpus
 - **Priority:** next
-- **Reason Pending:** This release intentionally establishes the verified hybrid foundation before production inference.
-- **Task:** Implement real pasted-text detection for Loaded language, Presupposition, Agent suppression, and False dilemma behind the strict detector contract.
-- **Validation Needed:** Stable exact spans, structured criteria/exclusions, pressure/confidence, voice provenance, and no cross-document assertions.
+- **Reason Pending:** This release intentionally establishes the verified hybrid foundation, including a heuristic Level 2 Local Preview detector, before calibrated Level 3 production inference.
+- **Task:** Replace or augment the current heuristic Level 2 Local Preview detector (`apps/web/src/app.ts`, present since this release) with the first calibrated Level 3 four-mechanism Instrument Alpha detector behind `services/api/detector_contract.py`, then build the human-reviewed benchmark around the functioning detector.
+- **Validation Needed:** Stable exact spans, structured criteria/exclusions, pressure/confidence, voice provenance, no cross-document assertions, and per-mechanism benchmark evidence against a human-reviewed corpus.
+
+**Note (independent review, finding F-001):** an earlier revision of this entry described the four-mechanism heuristic detector itself as pending. That was inaccurate — the Level 2 Local Preview detector already existed in `apps/web/src/app.ts` at the time. Only the calibrated Level 3 detector is pending. See `INV-005` for the validation boundary now in place around the existing Level 2 detector.
 <!-- /operational-state:entry -->
 
 <!-- operational-state:entry
@@ -350,7 +381,7 @@ Add stable `PND-###` entries for intentionally incomplete work. Pending does not
   "priority": "after detector",
   "reason_pending": "Canonical build sequence requires detector before benchmark.",
   "state": "pending",
-  "task": "Create and adjudicate the first benchmark only after the four-mechanism detector vertical slice exists.",
+  "task": "Create and adjudicate the first benchmark only after the calibrated Level 3 four-mechanism detector vertical slice exists (not the heuristic Level 2 Local Preview detector, which is intentionally unbenchmarked).",
   "title": "First human-reviewed detector benchmark",
   "validation_needed": "Per-mechanism precision, recall, span accuracy, pressure agreement, calibration, and error classes."
 }
@@ -362,7 +393,7 @@ Add stable `PND-###` entries for intentionally incomplete work. Pending does not
 - **Dependency:** PND-001
 - **Priority:** after detector
 - **Reason Pending:** Canonical build sequence requires detector before benchmark.
-- **Task:** Create and adjudicate the first benchmark only after the four-mechanism detector vertical slice exists.
+- **Task:** Create and adjudicate the first benchmark only after the calibrated Level 3 four-mechanism detector vertical slice exists (not the heuristic Level 2 Local Preview detector, which is intentionally unbenchmarked).
 - **Validation Needed:** Per-mechanism precision, recall, span accuracy, pressure agreement, calibration, and error classes.
 <!-- /operational-state:entry -->
 
@@ -460,3 +491,15 @@ Add stable `DEC-###` entries for source locks, routes, naming, packaging, style,
 - **Validation not performed:** Safari/iPadOS runtime; Firefox runtime; Real screen-reader session
 - **Reason for broad revalidation:** New additive Instrument Alpha frontend and shared contracts were created beside the verified Experience Prototype.
 - **Summary:** Record verified hybrid Instrument Alpha web baseline and protected migration boundaries
+
+### Revision 3 — 2026-08-09T20:00:00Z
+
+- **Artifact/source identity:** apps/web/dist/index.html sha256 4b2652f6d4985454bf2b6236d622ad32ce3fa3c34c20124037201f70291879b9
+- **State deltas:** Updated metadata (`current_baseline`, `last_updated`, `state_revision`); added `INV-005`; rewrote `PND-001` and `PND-002` to accurately distinguish the already-implemented heuristic Level 2 Local Preview detector from the not-yet-implemented calibrated Level 3 Instrument Alpha detector; added artifact-identity note ahead of section 5.
+- **New evidence:** Independent repository review closure of findings F-001–F-004 (see `HYBRID_QA_REPORT.md` "Cleanup pass" section and `HYBRID_REQUIREMENT_TRACEABILITY.md` closure table). TypeScript typecheck PASS; build PASS and reproducible (rebuilt twice, identical hash); 20/20 Node tests PASS; 8/8 Python tests PASS; 11/11 hand-constructed adversarial candidates against the TS validator correctly rejected with 1/1 positive control correctly accepted; injected vocabulary drift correctly caught by both new parity tests, then reverted.
+- **Newly verified behavior:** INV-005.
+- **Newly known failure:** None.
+- **Superseded rule:** None — `PND-001`/`PND-002` reworded for accuracy, not for a rule change.
+- **Validation not performed:** Chromium/Playwright runtime QA was not re-executed against the new artifact hash in this pass (environment has no Playwright/Chromium); Safari/iPadOS, Firefox, and real screen-reader sessions remain unverified, unchanged from Revision 2.
+- **Reason for broad revalidation:** Independent review findings F-001 (detector-level documentation mismatch + missing Local Preview validation boundary), F-002 (no TS/Python vocabulary parity check), F-003 (presence tests read as behavioral proof), and F-004 (taxonomy typo).
+- **Summary:** Close independent review findings F-001–F-004: formalize the three detector levels, validate Local Preview output against the same contract as the future Instrument Alpha detector, add automated vocabulary parity, clarify structural-guard test semantics, and fix the taxonomy typo.

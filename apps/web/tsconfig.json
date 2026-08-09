@@ -10,6 +10,7 @@
   },
   "files": [
     "../../packages/schema/src/contracts.ts",
+    "../../packages/schema/src/localPreviewContract.ts",
     "src/app.ts"
   ]
 }

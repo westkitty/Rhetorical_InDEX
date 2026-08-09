@@ -32,7 +32,13 @@ def main() -> None:
 
     taxonomy = json.loads((ROOT / "packages" / "taxonomy" / "taxonomy.json").read_text())
     fixture = json.loads((ROOT / "packages" / "fixtures" / "sb802-demo.json").read_text())
-    bootstrap = json.dumps({"taxonomy": taxonomy, "fixture": fixture}, separators=(",", ":"), ensure_ascii=False)
+    schema = json.loads((ROOT / "packages" / "schema" / "schema.json").read_text())
+    vocabulary = {key: value["enum"] for key, value in schema["properties"].items() if "enum" in value}
+    bootstrap = json.dumps(
+        {"taxonomy": taxonomy, "fixture": fixture, "vocabulary": vocabulary},
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
     bootstrap = bootstrap.replace("<", "\\u003c")
 
     template = (WEB / "template.html").read_text()
