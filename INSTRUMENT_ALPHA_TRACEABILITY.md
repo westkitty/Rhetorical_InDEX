@@ -349,11 +349,31 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-91 | `evaluate.py` treats malformed adjudicated material as fatal, not skipped | `test_evaluate_treats_malformed_adjudicated_material_as_fatal` | PASS |
 | H-92 | Preserved submissions recover every inter-annotator agreement dimension | `test_preserved_submissions_recover_every_agreement_dimension` | PASS |
 
+| H-93 | Arbitrary-precision decimal scaling never rounds (30/50/100-digit adjacent values, all scales) | `test_30_digit_adjacent_values_remain_distinct_at_every_scale` (+50/100) | PASS |
+| H-94 | Exact scaling matches manual bigint multiplication | `test_exact_scaling_matches_manual_multiplication` | PASS |
+| H-95 | Presentation equivalents still match at huge magnitude | `test_presentation_equivalents_still_match_at_huge_magnitude` | PASS |
+| H-96 | Literal marker text cannot impersonate a real numeric identity token | `test_literal_marker_text_does_not_equal_a_real_number` | PASS |
+| H-97 | Injection using whatever the diagnostic rendering CURRENTLY produces still fails identity | `test_injection_using_whatever_the_diagnostic_rendering_CURRENTLY_produces` | PASS |
+| H-98 | Marker injection cannot ground a Material Omission with divergence disabled | `test_marker_injection_cannot_ground_a_material_omission_with_divergence_disabled` | PASS |
+| H-99 | Every malformed proposal shape (type/bounds) from the attack list is rejected (17 cases) | `M09CorpusIntegrityTests` proposal-validation methods | PASS |
+| H-100 | Ghost proposal reference rejected even when zero real proposals exist | `test_ghost_proposal_reference_is_rejected_even_when_no_real_proposals_exist` | PASS |
+| H-101 | Unexplained positive gold after two empty submissions is rejected | `test_unexplained_positive_gold_after_two_empty_submissions_is_rejected` | PASS |
+| H-102 | Explicit adjudicator_add resolution grounds unproposed positive gold | `test_explicit_adjudicator_add_resolution_grounds_unproposed_positive_gold` | PASS |
+| H-103 | `drop` resolution carrying a resultingAnnotationId is rejected | `test_drop_resolution_with_resulting_annotation_id_is_rejected` | PASS |
+| H-104 | Duplicate `resolutionId` is rejected | `test_duplicate_resolution_id_is_rejected` | PASS |
+| H-105 | Resolution missing `adjudicatorId` is rejected | `test_resolution_missing_adjudicator_id_is_rejected` | PASS |
+| H-106 | JSON Schema conditionally requires annotatorIds/annotatorSubmissions for adjudicated documents | `test_adjudicated_conditionally_requires_annotator_fields` | PASS |
+| H-107 | Schema `decision` enum matches the Python validator's | `test_decision_enum_matches_the_python_validator` | PASS |
+| H-108 | Structured submission/proposal/resolution records reject unknown properties | `test_structured_records_reject_additional_properties` | PASS |
+| H-109 | `resolutions` field of the wrong type is rejected cleanly, not character-iterated | `test_resolutions_field_wrong_type_is_rejected_cleanly` | PASS |
+| H-110 | Long digit run with no percent sign does not hang (regex backtracking DoS closed) | `test_long_digit_run_with_no_percent_sign_does_not_hang` | PASS |
+| H-111 | Many numbers in one document does not hang (O(k²) overlap-check DoS closed) | `test_many_numbers_in_one_document_does_not_hang` | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 258 |
+| PASS | 277 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

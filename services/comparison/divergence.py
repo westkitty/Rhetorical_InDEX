@@ -20,6 +20,7 @@ never become confident agreement, so an unrecognized conflict falls back to
 """
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass
 from decimal import Decimal
@@ -52,7 +53,19 @@ _NUM_CURRENCY = re.compile(
     re.IGNORECASE,
 )
 _NUM_PERCENT = re.compile(
-    r"(?P<value>\d[\d,]*(?:\.\d+)?)\s*(?:%|per\s?cent(?:age)?)",
+    # Fresh-sweep finding: with a MANDATORY trailing suffix (`%` / "percent")
+    # and no guard, a long digit run with no percent sign anywhere caused
+    # catastrophic backtracking — O(n^2), ~9s for 10,000 digits, unbounded
+    # for longer input. `(?<!\d)` stops finditer from retrying a match start
+    # at every position INSIDE an already-failed digit run (only a position
+    # not itself preceded by a digit can ever begin a distinct number), and
+    # the atomic group `(?>...)` stops the engine from backtracking character
+    # -by-character through the digits it already consumed once the suffix
+    # check fails — backtracking into the digit run can never succeed here,
+    # since only a literal `%` or "percent" immediately following (mod
+    # whitespace) makes this a match at all. Together these make matching
+    # linear in input length regardless of digit-run length.
+    r"(?<!\d)(?P<value>(?>\d[\d,]*(?:\.\d+)?))\s*(?:%|per\s?cent(?:age)?)",
     re.IGNORECASE,
 )
 _NUM_PLAIN = re.compile(
@@ -256,6 +269,42 @@ def _exact_decimal(raw: str) -> Decimal:
     return Decimal(_strip_commas(raw))
 
 
+def _scale_exact(value: Decimal, multiplier: int) -> Decimal:
+    """Multiply a Decimal by a positive integer scale factor with ZERO
+    precision loss, regardless of operand magnitude or the ambient Decimal
+    context's precision.
+
+    Review finding B-01: ``value *= Decimal(multiplier)`` uses Python's
+    ``decimal`` module's *context-bound* multiplication, which silently
+    rounds to the active context's precision (28 significant digits by
+    default). A 30-digit coefficient times ``1_000_000`` then rounds to 28
+    significant digits, so ``123456789012345678901234567890`` and
+    ``...67891`` (last digit different) both round to the same product —
+    exactly the "arithmetic makes distinct values equal" failure this
+    function exists to rule out entirely, not just push further out.
+
+    The fix operates directly on the Decimal's ``(sign, digits, exponent)``
+    tuple using Python's arbitrary-precision ``int`` for the multiplication —
+    ``int * int`` is exact at any magnitude, with no ambient context, no
+    configurable precision, and therefore nothing to misconfigure. The scale
+    factor is a plain positive integer (100 .. 1_000_000_000_000), so
+    multiplying the coefficient by it and leaving the exponent unchanged is
+    exact: value = coefficient * 10**exponent, so
+    value * multiplier = (coefficient * multiplier) * 10**exponent.
+    """
+    if multiplier <= 0:
+        raise ValueError(f"scale multiplier must be positive, got {multiplier!r}")
+    sign, digits, exponent = value.as_tuple()
+    if not isinstance(exponent, int):
+        # 'n' (NaN) / 'F' (Infinity) special exponents are never produced by
+        # the numeric regexes this feeds from; guard defensively regardless.
+        raise ValueError(f"cannot exactly scale a non-finite Decimal: {value!r}")
+    coefficient = int("".join(map(str, digits)))
+    scaled_coefficient = coefficient * multiplier
+    scaled_digits = tuple(int(d) for d in str(scaled_coefficient))
+    return Decimal((sign, scaled_digits, exponent))
+
+
 def _format_exact(value: Decimal) -> str:
     """Exact fixed-point rendering: no scientific notation, no precision loss.
 
@@ -264,6 +313,8 @@ def _format_exact(value: Decimal) -> str:
     -> ``Decimal("2E+6")``). Formatting with the ``f`` presentation type keeps
     every digit and forces fixed-point; only cosmetic trailing fractional
     zeros are trimmed afterward, which never changes the represented value.
+    ``format(value, "f")`` is itself context-independent — it renders the
+    Decimal's exact stored digits, it does not recompute or round them.
     """
     text = format(value, "f")
     if "." in text:
@@ -271,73 +322,89 @@ def _format_exact(value: Decimal) -> str:
     return text or "0"
 
 
-def canonical_proposition(text: str) -> str:
-    """Normalize a proposition for EXACT identity comparison.
+IdentityToken = tuple[str, str]
 
-    Used by the propositional-identity gate (review finding M-01, hardened
-    under finding A-01). Normalizes only presentation-level variation that
-    cannot change meaning:
 
-      * case, unicode form, whitespace, terminal punctuation
-      * numeric surface form — ``12%`` / ``12 percent`` -> ``«percent:x12»``,
-        ``$2 million`` / ``$2,000,000`` -> ``«currency:x2000000»``,
-        ``1,000`` / ``1000`` -> ``«num:x1000»``
+def _normalize_text_fragment(fragment: str) -> str:
+    """Presentation-only normalization of a literal (non-numeric) text span:
+    case, curly-quote form, and whitespace. Never touches digits — numeric
+    spans are extracted separately, before this ever runs on the remainder."""
+    fragment = fragment.lower()
+    fragment = re.sub(r"[‘’]", "'", fragment)
+    fragment = re.sub(r"[“”]", '"', fragment)
+    fragment = re.sub(r"\s+", " ", fragment)
+    return fragment.strip()
 
-    Numeric normalization is EXACT decimal arithmetic (``Decimal``), never
-    binary float: float's ``%g`` formatting collapses distinct large integers
-    to the same 6-significant-digit string (``2_000_000`` and ``2_000_001``
-    both rendered ``"2e+06"``), which silently made different numeric facts
-    compare as the same proposition. Decimal has no such rounding.
 
-    All three numeric patterns (currency, percent, plain) are matched against
-    the ORIGINAL text in one pass with non-overlapping spans, then substituted
-    into a fresh output string — never by mutating ``text`` in place with
-    successive ``.sub()`` calls, which is what previously let a later regex
-    re-scan an already-generated marker (matching the digits inside the old
-    lossy "«currency:2e+06»") and corrupt it further.
+def canonical_identity_key(text: str) -> tuple[IdentityToken, ...]:
+    """The LOAD-BEARING structured identity representation.
 
-    What actually makes re-scanning safe, independent of substitution order,
-    is that every marker glues a word character directly against its leading
-    digit (``«num:x1000»``, not ``«num: 1000»``): this defeats ``_NUM_PLAIN``'s
-    negative lookbehind on any later pass over the same text — including a
-    second call to this function, so canonicalization is idempotent. Mutation
-    testing confirmed this precisely: restoring sequential ``.sub()`` while
-    keeping the guarded marker format does NOT reproduce corruption, because
-    the guard, not the substitution order, is what's load-bearing here. The
-    single non-overlapping pass is kept anyway because it is still better
-    engineering — one deterministic scan instead of three, with no dependence
-    on a later regex correctly declining to match a marker it was never meant
-    to see.
+    Returns an immutable sequence of typed ``(kind, value)`` tokens —
+    ``("text", ...)`` for literal presentation-normalized prose, or
+    ``("currency" | "percent" | "num", exact_value)`` for a numeric span
+    extracted directly from the ORIGINAL source text. ``propositions_are_identical``
+    compares this tuple. It never compares a rendered string.
 
-    Word ORDER is deliberately preserved, because order carries semantic role:
-    "injured 12 and killed 40" and "injured 40 and killed 12" contain identical
-    tokens and opposite meanings. Any bag-of-words comparison is blind to that,
-    which is exactly how M-01 let contradictions ground an omission.
+    Review finding B-02: the previous representation was a single string with
+    numeric spans replaced by a marker substring (``"«num:x1000»"``). A marker
+    is still just characters, and characters are exactly what source text is
+    made of — a proposition whose literal wording happened to CONTAIN that
+    substring (coincidentally, or via deliberate injection) canonicalized to
+    the identical string as a proposition containing the real number 1000,
+    letting fabricated text impersonate a numeric token and falsely establish
+    `same_proposition`.
+
+    A tuple of typed tokens closes this by construction, not by making the
+    marker syntax harder to collide with: a ``("text", "...")`` token can
+    never compare equal to a ``("num", "...")`` token regardless of what
+    string content the text token holds, because tuple equality requires
+    the KIND to match, not merely the printable characters. Source text is
+    never reclassified as numeric after the fact — the only way a numeric
+    token is ever produced is a direct regex match against the ORIGINAL
+    characters of `text`, before any token has been constructed. There is no
+    later string-level pass in which literal text could be mistaken for one.
+
+    Word ORDER is deliberately preserved (as token order), because order
+    carries semantic role: "injured 12 and killed 40" and "injured 40 and
+    killed 12" contain identical tokens and opposite meanings. Any
+    bag-of-tokens comparison is blind to that, which is exactly how M-01 let
+    contradictions ground an omission.
     """
     import unicodedata
 
     text = unicodedata.normalize("NFC", text)
 
+    # `consumed` is kept sorted by start (via bisect.insort) so overlap
+    # checks are O(log k) instead of an O(k) linear scan. Fresh-sweep
+    # finding: the linear scan made this function O(k^2) in the number of
+    # numeric matches — a long, realistic article with hundreds of numbers
+    # (dates, currency, percentages) took multiple seconds; pathologically
+    # many would be a genuine DoS vector, in the exact function this defect
+    # was supposed to hold at the invariant level.
     consumed: list[tuple[int, int]] = []
-    markers: list[tuple[int, int, str]] = []
+    numeric_spans: list[tuple[int, int, str, str]] = []
 
     def _already_consumed(start: int) -> bool:
-        return any(s <= start < e for s, e in consumed)
+        idx = bisect.bisect_right(consumed, (start, len(text) + 1)) - 1
+        if idx < 0:
+            return False
+        span_start, span_end = consumed[idx]
+        return span_start <= start < span_end
 
     for match in _NUM_CURRENCY.finditer(text):
         value = _exact_decimal(match.group("value"))
         scale = match.group("scale")
         if scale:
-            value *= Decimal(_SCALE[scale.lower()])
-        consumed.append(match.span())
-        markers.append((match.start(), match.end(), f" «currency:x{_format_exact(value)}» "))
+            value = _scale_exact(value, _SCALE[scale.lower()])
+        bisect.insort(consumed, match.span())
+        numeric_spans.append((match.start(), match.end(), "currency", _format_exact(value)))
 
     for match in _NUM_PERCENT.finditer(text):
         if _already_consumed(match.start()):
             continue
         value = _exact_decimal(match.group("value"))
-        consumed.append(match.span())
-        markers.append((match.start(), match.end(), f" «percent:x{_format_exact(value)}» "))
+        bisect.insort(consumed, match.span())
+        numeric_spans.append((match.start(), match.end(), "percent", _format_exact(value)))
 
     for match in _NUM_PLAIN.finditer(text):
         if _already_consumed(match.start()):
@@ -345,38 +412,68 @@ def canonical_proposition(text: str) -> str:
         value = _exact_decimal(match.group("value"))
         scale = match.group("scale")
         if scale:
-            value *= Decimal(_SCALE[scale.lower()])
-        consumed.append(match.span())
-        markers.append((match.start(), match.end(), f" «num:x{_format_exact(value)}» "))
+            value = _scale_exact(value, _SCALE[scale.lower()])
+        bisect.insort(consumed, match.span())
+        numeric_spans.append((match.start(), match.end(), "num", _format_exact(value)))
 
-    markers.sort(key=lambda item: item[0])
-    rebuilt: list[str] = []
+    numeric_spans.sort(key=lambda item: item[0])
+
+    tokens: list[IdentityToken] = []
     cursor = 0
-    for start, end, marker in markers:
+    for start, end, kind, value in numeric_spans:
         if start < cursor:
-            continue  # defensive: priority scan above should already be non-overlapping
-        rebuilt.append(text[cursor:start])
-        rebuilt.append(marker)
+            continue  # defensive: the priority scan above is already non-overlapping
+        literal = _normalize_text_fragment(text[cursor:start])
+        if literal:
+            tokens.append(("text", literal))
+        tokens.append((kind, value))
         cursor = end
-    rebuilt.append(text[cursor:])
-    text = "".join(rebuilt)
 
-    text = text.lower()
-    text = re.sub(r"[‘’]", "'", text)
-    text = re.sub(r"[“”]", '"', text)
-    text = re.sub(r"[.,;:!?]+\s*$", "", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    trailing = text[cursor:]
+    if trailing:
+        trailing = _normalize_text_fragment(trailing)
+        # Terminal punctuation only ever applies at the true end of the
+        # proposition — matching the previous whole-string behaviour, where
+        # the strip regex was anchored to the end of the fully assembled
+        # string. Here that is exactly (and only) the final trailing fragment.
+        trailing = re.sub(r"[.,;:!?]+$", "", trailing).strip()
+        if trailing:
+            tokens.append(("text", trailing))
+
+    return tuple(tokens)
+
+
+def canonical_proposition(text: str) -> str:
+    """Diagnostic-only rendering of `canonical_identity_key`. NOT used for
+    identity comparison — see `canonical_identity_key` and
+    `propositions_are_identical`, which compare the structured tuple
+    directly and never call this function.
+
+    This exists for logs and debugging, where a readable string is more
+    useful than a tuple. It is deliberately NOT the load-bearing
+    representation: two propositions could in principle render to the same
+    diagnostic string while still legitimately comparing as non-identical
+    (this was exactly finding B-02 — a string-shaped rendering shares the
+    same character space as source text and is not safe as an identity key).
+    Do not reintroduce string comparison of this function's output as a
+    substitute for `canonical_identity_key` equality.
+    """
+    return " ".join(
+        value if kind == "text" else f"[{kind}:x{value}]"
+        for kind, value in canonical_identity_key(text)
+    )
 
 
 def propositions_are_identical(a: str, b: str) -> bool:
     """Whether two propositions are the SAME proposition.
 
-    This is the only affirmative identity signal in the system. It is
-    deliberately strict: absence of detected divergence is NOT evidence of
-    identity, so nothing else may assert `same_proposition`.
+    Compares `canonical_identity_key`, the structured typed-token
+    representation — never a rendered string (see B-02). This is the only
+    affirmative identity signal in the system. It is deliberately strict:
+    absence of detected divergence is NOT evidence of identity, so nothing
+    else may assert `same_proposition`.
     """
-    return canonical_proposition(a) == canonical_proposition(b)
+    return canonical_identity_key(a) == canonical_identity_key(b)
 
 
 def supported_checks() -> dict[str, Any]:

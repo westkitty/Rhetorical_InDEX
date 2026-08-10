@@ -54,10 +54,17 @@ The adjudicator must choose exactly one:
 | `merge` | both correct, spans reconciled |
 | `drop` | neither is defensible under the taxonomy |
 | `split` | genuinely two mechanisms; becomes two annotations |
+| `adjudicator_add` | the adjudicator identifies a finding **neither annotator proposed** (see §7b) |
 | `unresolvable` | the taxonomy does not decide this case |
 
 `unresolvable` is a legitimate outcome and **must not be forced**. It is a
 finding about the taxonomy, not about the annotators.
+
+`adjudicator_add` is deliberately rare and deliberately explicit. A
+third-party adjudicator reviewing the whole article may sometimes notice
+something neither original annotator flagged — that is a legitimate part of
+adjudication, not a defect in it — but it must never happen silently. See §7b
+for exactly what a valid `adjudicator_add` resolution requires.
 
 ## 5. Unresolvable cases are taxonomy defects
 
@@ -120,6 +127,51 @@ carry a preserved submission record from at least two distinct annotators
 agreeing with `annotatorIds`), and that every preserved proposal round-trips
 against its passage.
 
+## 7b. Every final gold outcome must have machine-readable provenance
+
+Finding B-04 of the final edge-invariant closure: nothing previously stopped
+`annotations[]` from containing a finding that traced back to nothing at
+all — no matching proposal, no resolution record, no adjudicator name. A
+corpus could silently accumulate gold that no annotator or adjudicator could
+actually be shown to have produced.
+
+The rule now enforced: a gold annotation is valid only if it is grounded in
+**one** of two ways.
+
+1. **Uncontested auto-merge** (§2) — it exactly restates a preserved proposal
+   (same `mechanismId`, `passageOrdinal`, `startChar`, `endChar`). This is the
+   common case and needs no resolution record; that is the point of §2.
+2. **An explicit resolution** — a `resolutions[]` record whose
+   `resultingAnnotationId` names it. Required whenever the gold annotation
+   does not exactly match an original proposal: an `uphold_a` / `uphold_b`
+   pick that adjusted the span, a `merge`, a `split`, or an `adjudicator_add`.
+
+Every resolution record itself is validated:
+
+- `resolutionId`, if present, is unique.
+- `adjudicatorId` is **required and non-empty** — a resolution is by
+  definition an adjudicator's decision, and the adjudicator must be named.
+- `proposalIds` must be an array, and every id in it must reference a real
+  preserved proposal — including when the document has zero real proposals
+  (a resolution cannot invent a proposal to point at just because there
+  happen to be none to check against).
+- `drop` must **not** carry a `resultingAnnotationId` — nothing survives a
+  drop, so claiming one would misrepresent the outcome.
+- `uphold_a` / `uphold_b` / `merge` / `split` / `adjudicator_add` **must**
+  carry a `resultingAnnotationId`, and it must name a real entry in
+  `annotations[]`.
+- `adjudicator_add` specifically must carry `proposalIds: []` (it explicitly
+  has no proposal origin — claiming one would be dishonest) and a non-empty
+  `note` or `rationale` explaining what the adjudicator saw and why.
+
+This closes the gap a mechanical validator can actually close. It does not
+try to detect every case where an adjudicator *should* have escalated a
+disagreement instead of quietly upholding one side — that remains a human
+judgment the protocol asks for in §3, not something span/mechanism matching
+can verify. What it does guarantee is that nothing reaches gold status
+without either restating what an annotator actually proposed, or naming the
+adjudicator and reasoning that put it there.
+
 ## 8. Promotion checklist
 
 Before setting `adjudicationStatus: "adjudicated"`:
@@ -130,6 +182,8 @@ Before setting `adjudicationStatus: "adjudicated"`:
 - [ ] every `excerpt` round-trips exactly against its passage
 - [ ] `disagreements[]` retained in full
 - [ ] taxonomy version recorded and matches the version annotated against
+- [ ] every gold annotation either restates a preserved proposal exactly or
+      has a `resolutions[]` record naming it and the adjudicator (§7b)
 
 ## 9. Re-adjudication on taxonomy change
 

@@ -12,6 +12,20 @@
     "passages",
     "annotations"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "adjudicationStatus": { "const": "adjudicated" }
+        },
+        "required": ["adjudicationStatus"]
+      },
+      "then": {
+        "description": "B-05: the JSON Schema must agree with benchmarks/scripts/validate_corpus.py — an adjudicated document is not schema-valid without a preserved submission record from at least two annotators.",
+        "required": ["annotatorIds", "annotatorSubmissions"]
+      }
+    }
+  ],
   "properties": {
     "articleId": {
       "type": "string"
@@ -200,6 +214,7 @@
           "annotatorId",
           "proposals"
         ],
+        "additionalProperties": false,
         "properties": {
           "submissionId": {
             "type": "string",
@@ -225,6 +240,7 @@
                 "reviewerConfidence",
                 "voiceClass"
               ],
+              "additionalProperties": false,
               "properties": {
                 "proposalId": {
                   "type": "string",
@@ -289,25 +305,30 @@
     },
     "resolutions": {
       "type": "array",
-      "description": "Adjudicator decisions linking original proposals to the final gold annotation. Append-only; originals are never deleted.",
+      "description": "B-04: adjudicator decisions linking original proposals to the final gold annotation, or explicitly recording an adjudicator-added finding that no proposal produced. Append-only; originals are never deleted. Every gold annotation must either exactly restate a preserved proposal or be named by a resolution's resultingAnnotationId — see benchmarks/ADJUDICATION.md §7b.",
       "items": {
         "type": "object",
         "required": [
           "decision",
+          "adjudicatorId",
           "proposalIds"
         ],
+        "additionalProperties": false,
         "properties": {
           "resolutionId": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique across the document, if used."
           },
           "proposalIds": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Every id must reference a real preserved proposal. Must be empty for decision=adjudicator_add."
           },
           "resultingAnnotationId": {
-            "type": "string"
+            "type": "string",
+            "description": "Required for uphold_a/uphold_b/merge/split/adjudicator_add; forbidden for drop."
           },
           "decision": {
             "enum": [
@@ -316,14 +337,32 @@
               "merge",
               "drop",
               "split",
+              "adjudicator_add",
               "unresolvable"
             ]
           },
           "adjudicatorId": {
-            "type": "string"
+            "type": "string",
+            "description": "Required and non-empty — a resolution is by definition an adjudicator's decision."
           },
           "note": {
             "type": "string"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Alternative to note; required (as either) for decision=adjudicator_add."
+          }
+        },
+        "if": {
+          "properties": { "decision": { "const": "adjudicator_add" } },
+          "required": ["decision"]
+        },
+        "then": {
+          "properties": {
+            "proposalIds": {
+              "maxItems": 0,
+              "description": "adjudicator_add explicitly has no proposal origin."
+            }
           }
         }
       }

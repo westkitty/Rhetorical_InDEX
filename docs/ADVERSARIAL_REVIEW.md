@@ -431,3 +431,147 @@ duplicate submission/proposal ids, annotator/submission mismatches,
 resolutions referencing unknown or wrong proposals, and re-running the
 role-swap and near-neighbor-numeric Material Omission attacks from the first
 hardening pass. No new Critical or Major defect was found in this delta.
+
+---
+
+# Edge-invariant closure (this commit)
+
+A subsequent independent audit reproduced five further Major defects in the
+A-01/A-02 fix itself, none of which the second sweep above caught, plus
+found three additional performance/robustness defects during its own fresh
+sweep. All eight are closed here.
+
+## B-01 — Decimal scaling was still lossy at large magnitude
+
+`value *= Decimal(multiplier)` uses the ambient Decimal *context*'s
+precision (28 significant digits by default) for the multiplication itself.
+A 30-digit coefficient times `1_000_000` rounds to 28 significant digits, so
+`123456789012345678901234567890` and `...67891` (last digit different) both
+round to the same product — the exact "arithmetic makes distinct values
+equal" failure A-01 was supposed to eliminate, just pushed from 6 significant
+digits (the old `%g` bug) to 28.
+
+**Repair.** `_scale_exact` operates directly on the Decimal's
+`(sign, digits, exponent)` tuple using Python's arbitrary-precision `int` for
+the multiplication itself — exact at any magnitude, with no ambient context
+and nothing to misconfigure. Verified with no collisions at 30, 50, and 100
+digits across every supported scale word.
+
+## B-02 — The marker string itself was the vulnerability
+
+`canonical_proposition("1000")` and `canonical_proposition("«num:x1000»")`
+canonicalized to the same string — literal source text containing marker
+syntax (coincidentally, or via deliberate injection) impersonated a real
+numeric token. The A-01 hardening had made the marker format harder to
+corrupt via re-scanning, but never addressed that a STRING-shaped identity
+representation is inherently collidable with source text, which is made of
+the same characters.
+
+**Repair.** `canonical_identity_key` returns a tuple of typed
+`(kind, value)` tokens — `("text", ...)` vs `("currency"|"percent"|"num", ...)`
+— compared by `propositions_are_identical` directly. A `"text"` token can
+never equal a `"num"` token regardless of its string content, because tuple
+equality requires the kind to match, not the printable characters.
+`canonical_proposition` is now diagnostic-only, documented as such, and nothing
+compares its output. A format-independent regression test discovers whatever
+the diagnostic rendering currently produces and confirms injecting exactly
+that text still fails identity — this caught a real gap in the original,
+format-hardcoded injection tests during mutation testing (see below).
+
+## B-03 — Proposal field validation had silent skip paths
+
+`validate_corpus.py`'s proposal validation used combined
+`if _is_int(x) and _is_int(y) and ...:` guards with no `else` branch — a
+wrong-typed `passageOrdinal` (bool, string), `startChar`/`endChar`, or
+`excerpt` made the whole condition false and validation for that field simply
+never ran, with zero errors reported. Rewritten to mirror the `annotations[]`
+block's explicit per-condition branching, so every failure mode has its own
+`err()` call and nothing falls through silently. 17 regressions added, one
+per malformed shape in the audit's attack list.
+
+## B-04 — Gold provenance was unenforced
+
+Two defects: `if proposal_ids and pid not in proposal_ids` let a resolution
+reference a nonexistent proposal whenever the document had zero real
+proposals (exactly the hard-negative precondition); and nothing stopped
+`annotations[]` from containing a finding with no proposal match and no
+resolution record at all — gold that traced to nothing.
+
+**Policy chosen** (documented in ADJUDICATION.md §7b): a gold annotation is
+valid only if it exactly restates a preserved proposal (uncontested
+auto-merge, needs no resolution) or is named by a resolution's
+`resultingAnnotationId`. A new `adjudicator_add` decision lets a third-party
+adjudicator add an unproposed finding, but only with a named adjudicator,
+empty `proposalIds`, and a non-empty rationale — never silently. Every
+resolution now requires `adjudicatorId`; `drop` may not carry a
+`resultingAnnotationId`; `resolutionId` and `proposalId` stay globally
+unique. The worked example's existing "siphon" disagreement now has a real
+`resolutions[]` record instead of only a free-text `resolvedAs`.
+
+## B-05 — Schema did not match the executable contract
+
+`_schema.json` never conditionally required `annotatorIds` /
+`annotatorSubmissions` for `adjudicationStatus: "adjudicated"`, and the
+`resolutions` item schema still described the pre-B-04 shape. Added a Draft
+2020-12 `if`/`then` conditional, brought the `decision` enum and
+`adjudicatorId` requirement in line with the validator, and set
+`additionalProperties: false` on the structured submission/proposal/
+resolution records to catch misspellings. `proposals` deliberately keeps no
+`minItems`, so hard negatives stay schema-valid. No `jsonschema` dependency
+was added (none was already present); parity is instead tested by reading
+the schema's own JSON and asserting specific facts against the validator's
+module-level constants (`VALID_RESOLUTION_DECISIONS`, `MIN_ANNOTATORS`).
+
+## Three further defects found during this closure's own fresh sweep
+
+Not requested by name, but directly adjacent to B-01/B-02's numeric-matching
+code and found by genuinely trying to falsify rather than re-reading the new
+tests:
+
+- **`resolutions` field type confusion.** `data.get("resolutions", []) or []`
+  let a non-empty string silently type-confuse into "an iterable of
+  records" — `enumerate()` over a string yields its *characters*, producing
+  one bogus per-character error instead of one clear type error. Still
+  correctly invalid, but noisy and conceptually wrong. Fixed with an explicit
+  `isinstance` check.
+- **`_NUM_PERCENT` catastrophic backtracking (DoS).** The regex's mandatory
+  trailing suffix (`%` / "percent") with no lookbehind guard meant a long
+  digit run with no percent sign anywhere forced the engine to backtrack
+  through the entire run at every starting position — O(n²), measured at
+  ~9.5s for a 10,000-digit non-percent number, extrapolating to minutes for
+  the 100,000-digit inputs B-01 explicitly made first-class. Fixed with a
+  `(?<!\d)` lookbehind (stops retrying inside an already-failed digit run)
+  plus an atomic group around the digit-matching (stops intra-match
+  backtracking); confirmed linear from 10,000 to 1,000,000 digits.
+- **`_already_consumed` O(k²) in match count.** The non-overlapping-span
+  tracking added for B-02 checked each new numeric match against every
+  previously-accepted span with a linear scan — fine for a handful of
+  numbers, but a realistic long article with hundreds of dates/currency/
+  percentages (exactly this system's real input shape) took multiple
+  seconds, worsening quadratically. Fixed by keeping `consumed` sorted via
+  `bisect.insort` and using `bisect.bisect_right` for O(log k) lookups;
+  confirmed linear from 500 to 8,000 repetitions.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| B-01 `_scale_exact` reverted to context-bound `Decimal *=` | **15 failures** |
+| B-02 identity compares `canonical_proposition` strings instead of the typed key | **0 failures against the pre-existing guillemet-based tests — caught only by the new format-independent test (1 failure)**, itself a finding: hardcoding an attack payload's format is fragile |
+| B-03 proposal ordinal/start/end validation reverted to combined-condition silent-skip | **1 failure** — the excerpt-type case; most other cases are independently caught by B-04's gold-grounding check as a side effect (real defense-in-depth, not full per-field mutation isolation) |
+| B-04 `if proposal_ids and pid not in proposal_ids` restored | **1 failure** |
+| B-04 gold-provenance grounding check disabled entirely | **1 failure** |
+| `resolutions` type check removed | **1 failure** (reproduces the per-character noise) |
+| `_NUM_PERCENT` lookbehind/atomic-group guard removed | 100,000-digit input did not complete in 20s (timed out) |
+| `_already_consumed` bisect reverted to linear scan | **1 failure** (4,000-repetition document took 3.2s, over the 3.0s budget) |
+
+## Fresh sweep
+
+§8's numeric identity attack matrix (adjacent values at 10⁰ through 10¹⁰⁰,
+every scale word, every numeric kind, literal-marker injection, role/from-to
+swaps, formatting equivalents) and §7's corpus coherence attack matrix (13
+cases spanning hard negatives, ghost references, malformed resolutions, and
+malformed proposal types) were run as explicit adversarial probes, not just
+re-derived from the new unit tests — every case behaved exactly as required.
+The three defects above were found in this same pass. No further Critical or
+Major defect was found.

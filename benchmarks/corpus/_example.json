@@ -297,5 +297,15 @@
         }
       ]
     }
+  ],
+  "resolutions": [
+    {
+      "resolutionId": "res-1-load-83",
+      "decision": "uphold_a",
+      "adjudicatorId": "adjudicator-example-c",
+      "proposalIds": ["prop-a-1-load-83", "prop-b-1-load-83"],
+      "resultingAnnotationId": "ann-1-load-83",
+      "note": "'siphon' imports evaluation without substituting a softened term, so loaded_language is upheld over euphemism_dysphemism; recorded as alternativeAcceptableMechanism on the gold annotation."
+    }
   ]
 }

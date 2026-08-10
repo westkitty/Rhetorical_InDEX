@@ -41,6 +41,14 @@ VALID_GENRE = {"straight_news", "analysis", "opinion", "press_release", "other"}
 SCORED_STATUS = "adjudicated"
 MIN_ANNOTATORS = 2
 
+# B-05: module-level so a schema-parity test can assert these agree with
+# benchmarks/corpus/_schema.json's `decision` enum, rather than the two
+# drifting apart silently.
+VALID_RESOLUTION_DECISIONS = {
+    "uphold_a", "uphold_b", "merge", "drop", "split", "adjudicator_add", "unresolvable",
+}
+DECISIONS_PRODUCING_GOLD = {"uphold_a", "uphold_b", "merge", "split", "adjudicator_add"}
+
 
 @dataclass
 class DocumentReport:
@@ -142,6 +150,7 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
         return report
 
     seen_ids: set[str] = set()
+    annotation_records: dict[str, dict] = {}
     for index, ann in enumerate(annotations):
         label = f"annotations[{index}]"
         if not isinstance(ann, dict):
@@ -157,6 +166,7 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             err(f"duplicate annotationId {ann_id!r}")
         else:
             seen_ids.add(ann_id)
+            annotation_records[ann_id] = ann
 
         mechanism = ann.get("mechanismId")
         if mechanism not in vocab.mechanism_ids():
@@ -217,6 +227,10 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
     # guard) is exactly the bug: it let an empty `annotatorSubmissions: []`
     # skip this check entirely, silently discarding annotation history.
     proposal_ids: set[str] = set()
+    # B-04: fingerprints of well-typed proposals, used below to recognize an
+    # uncontested auto-merge (a gold annotation that exactly restates some
+    # original proposal) without requiring a resolution record for it.
+    proposal_fingerprints: set[tuple[str, int, int, int]] = set()
     if "annotatorSubmissions" not in data:
         err("annotatorSubmissions is required for adjudicated documents")
         submissions: list[Any] = []
@@ -268,22 +282,57 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 if required not in proposal:
                     err(f"{p_label} missing required field {required}")
 
-            pid = proposal.get("proposalId")
-            if isinstance(pid, str):
-                if pid in proposal_ids:
+            # B-03: every field below is validated by VALUE and TYPE, not
+            # merely by key presence. The previous version silently skipped
+            # validation whenever a field had the wrong type (a bool
+            # passageOrdinal, a string startChar, a non-string excerpt) —
+            # wrong-typed data passed with zero errors because the guarding
+            # `and`/`isinstance` conditions were false and there was no
+            # `else` branch to report that. Every branch below has an
+            # explicit failure path; nothing falls through silently.
+            if "proposalId" in proposal:
+                pid = proposal.get("proposalId")
+                if not isinstance(pid, str) or not pid.strip():
+                    err(f"{p_label}.proposalId must be a non-empty string")
+                elif pid in proposal_ids:
                     err(f"duplicate proposalId {pid!r}")
-                proposal_ids.add(pid)
+                else:
+                    proposal_ids.add(pid)
 
-            mechanism = proposal.get("mechanismId")
-            if "mechanismId" in proposal and mechanism not in vocab.mechanism_ids():
-                err(f"{p_label}.mechanismId unknown: {mechanism!r}")
+            if "mechanismId" in proposal:
+                mechanism = proposal.get("mechanismId")
+                if mechanism not in vocab.mechanism_ids():
+                    err(f"{p_label}.mechanismId unknown: {mechanism!r}")
+                elif mechanism in vocab.CROSS_DOCUMENT_MECHANISMS:
+                    err(
+                        f"{p_label}.mechanismId {mechanism!r} is cross-document and cannot "
+                        "be proposed intrinsically"
+                    )
 
-            ordinal = proposal.get("passageOrdinal")
-            if _is_int(ordinal) and ordinal in texts:
-                start, end, excerpt = proposal.get("startChar"), proposal.get("endChar"), proposal.get("excerpt")
-                if _is_int(start) and _is_int(end) and isinstance(excerpt, str):
-                    if not (0 <= start < end <= len(texts[ordinal])) or texts[ordinal][start:end] != excerpt:
-                        err(f"{p_label}.excerpt does not round-trip against its passage")
+            if "passageOrdinal" in proposal:
+                ordinal = proposal.get("passageOrdinal")
+                if not _is_int(ordinal) or ordinal not in texts:
+                    err(f"{p_label}.passageOrdinal does not reference an existing passage: {ordinal!r}")
+                else:
+                    text = texts[ordinal]
+                    start, end = proposal.get("startChar"), proposal.get("endChar")
+                    if not _is_int(start) or not _is_int(end):
+                        err(f"{p_label} startChar/endChar must be integers (booleans rejected)")
+                    elif start < 0:
+                        err(f"{p_label}.startChar must be >= 0")
+                    elif end <= start:
+                        err(f"{p_label}.endChar must be greater than startChar")
+                    elif end > len(text):
+                        err(f"{p_label}.endChar {end} exceeds passage length {len(text)}")
+                    else:
+                        excerpt = proposal.get("excerpt")
+                        if not isinstance(excerpt, str):
+                            err(f"{p_label}.excerpt must be a string")
+                        elif text[start:end] != excerpt:
+                            err(
+                                f"{p_label}.excerpt does not round-trip: stored {excerpt!r}, "
+                                f"passage slice {text[start:end]!r}"
+                            )
 
             if "pressure" in proposal and proposal.get("pressure") not in vocab.PRESSURE:
                 err(f"{p_label}.pressure invalid: {proposal.get('pressure')!r}")
@@ -291,6 +340,13 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 err(f"{p_label}.reviewerConfidence invalid: {proposal.get('reviewerConfidence')!r}")
             if "voiceClass" in proposal and proposal.get("voiceClass") not in vocab.VOICE:
                 err(f"{p_label}.voiceClass invalid: {proposal.get('voiceClass')!r}")
+
+            fp_mechanism = proposal.get("mechanismId")
+            fp_ordinal, fp_start, fp_end = (
+                proposal.get("passageOrdinal"), proposal.get("startChar"), proposal.get("endChar"),
+            )
+            if isinstance(fp_mechanism, str) and _is_int(fp_ordinal) and _is_int(fp_start) and _is_int(fp_end):
+                proposal_fingerprints.add((fp_mechanism, fp_ordinal, fp_start, fp_end))
 
     if len(submission_annotator_ids) < MIN_ANNOTATORS:
         err(
@@ -307,22 +363,107 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 f"a preserved submission record {sorted(submission_annotator_ids)}"
             )
 
-    for index, record in enumerate(data.get("resolutions", []) or []):
+    # B-04: EVERY FINAL GOLD OUTCOME MUST HAVE MACHINE-READABLE PROVENANCE.
+    #
+    # Policy (recorded in ADJUDICATION.md §7): a third-party adjudicator MAY
+    # add a positive finding that neither original annotator proposed, but
+    # only via an explicit `adjudicator_add` resolution — never silently.
+    # A gold annotation is grounded when EITHER:
+    #   (a) it exactly restates some preserved proposal (mechanism, passage,
+    #       span) — the uncontested auto-merge case from ADJUDICATION.md §2,
+    #       which by design needs no resolution record; or
+    #   (b) a resolution record's `resultingAnnotationId` names it.
+    # Anything else is ungrounded gold and is rejected.
+    resolution_ids: set[str] = set()
+    grounded_annotation_ids: set[str] = set()
+
+    resolutions = data.get("resolutions", [])
+    if resolutions is None:
+        resolutions = []
+    elif not isinstance(resolutions, list):
+        # Fresh-sweep finding: `resolutions or []` type-confused a non-list,
+        # non-empty value (e.g. a string) into an iterable of "records" —
+        # enumerate() over a string yields its CHARACTERS, one bogus
+        # "resolutions[N] is not an object" error per character. Still
+        # correctly invalid, but noisy and conceptually wrong; reject the
+        # type directly instead.
+        err("resolutions must be an array")
+        resolutions = []
+
+    for index, record in enumerate(resolutions):
         label = f"resolutions[{index}]"
         if not isinstance(record, dict):
             err(f"{label} is not an object")
             continue
+
+        resolution_id = record.get("resolutionId")
+        if resolution_id is not None:
+            if not isinstance(resolution_id, str) or not resolution_id.strip():
+                err(f"{label}.resolutionId must be a non-empty string")
+            elif resolution_id in resolution_ids:
+                err(f"duplicate resolutionId {resolution_id!r}")
+            else:
+                resolution_ids.add(resolution_id)
+
         decision = record.get("decision")
-        if decision not in {"uphold_a", "uphold_b", "merge", "drop", "split", "unresolvable"}:
+        if decision not in VALID_RESOLUTION_DECISIONS:
             err(f"{label}.decision invalid: {decision!r}")
         if decision == "unresolvable":
             err(
                 f"{label} is marked 'unresolvable' in an adjudicated document; such documents "
                 "must remain 'disputed' and are excluded from scoring"
             )
-        for pid in record.get("proposalIds", []) or []:
-            if proposal_ids and pid not in proposal_ids:
-                err(f"{label} references unknown proposalId {pid!r}")
+
+        adjudicator_id = record.get("adjudicatorId")
+        if not isinstance(adjudicator_id, str) or not adjudicator_id.strip():
+            err(f"{label}.adjudicatorId must be a non-empty string — every resolution is an "
+                "adjudicator's decision and must name who made it")
+
+        proposal_id_refs = record.get("proposalIds", [])
+        if not isinstance(proposal_id_refs, list):
+            err(f"{label}.proposalIds must be an array")
+            proposal_id_refs = []
+        else:
+            for pid in proposal_id_refs:
+                if pid not in proposal_ids:
+                    err(f"{label} references unknown proposalId {pid!r}")
+
+        resulting_id = record.get("resultingAnnotationId")
+        if decision == "drop":
+            if resulting_id is not None:
+                err(f"{label} decision 'drop' must not carry a resultingAnnotationId — nothing survives a drop")
+        elif decision in DECISIONS_PRODUCING_GOLD:
+            if not isinstance(resulting_id, str) or not resulting_id.strip():
+                err(f"{label} decision {decision!r} requires a non-empty resultingAnnotationId")
+            elif resulting_id not in annotation_records:
+                err(
+                    f"{label}.resultingAnnotationId {resulting_id!r} does not reference an "
+                    "existing gold annotation"
+                )
+            else:
+                grounded_annotation_ids.add(resulting_id)
+
+        if decision == "adjudicator_add":
+            if proposal_id_refs:
+                err(
+                    f"{label} decision 'adjudicator_add' must have an empty proposalIds — it "
+                    "explicitly has no proposal origin, and claiming one would misrepresent it"
+                )
+            note = record.get("note") or record.get("rationale")
+            if not isinstance(note, str) or not note.strip():
+                err(f"{label} decision 'adjudicator_add' requires a non-empty note or rationale")
+
+    for ann_id, ann in annotation_records.items():
+        if ann_id in grounded_annotation_ids:
+            continue
+        fingerprint = (ann.get("mechanismId"), ann.get("passageOrdinal"), ann.get("startChar"), ann.get("endChar"))
+        if fingerprint in proposal_fingerprints:
+            continue
+        err(
+            f"annotations[].annotationId {ann_id!r} has no machine-readable provenance: it does "
+            "not exactly restate any preserved proposal, and no resolution's resultingAnnotationId "
+            "names it — every final gold outcome must be traceable"
+        )
 
     return report
 

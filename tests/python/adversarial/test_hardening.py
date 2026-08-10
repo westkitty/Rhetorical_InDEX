@@ -26,7 +26,11 @@ from services.comparison import (  # noqa: E402
     align_pair,
 )
 from services.comparison.dependence import assess_independence  # noqa: E402
-from services.comparison.divergence import canonical_proposition, propositions_are_identical  # noqa: E402
+from services.comparison.divergence import (  # noqa: E402
+    canonical_identity_key,
+    canonical_proposition,
+    propositions_are_identical,
+)
 from services.comparison.omission import (  # noqa: E402
     OmissionRejection,
     evaluate_candidate_omission,
@@ -138,13 +142,17 @@ class M01PropositionalIdentityTests(unittest.TestCase):
 
 
 class A01ExactNumericIdentityTests(unittest.TestCase):
-    """canonical_proposition must be EXACT, never lossy float formatting.
+    """propositions_are_identical (backed by canonical_identity_key) must be
+    EXACT, never lossy float formatting and never string-collidable.
 
     Finding A-01 (final pre-calibration audit): %g float formatting collapsed
     2_000_000 and 2_000_001 to the same 6-significant-digit string, and
     sequential in-place `.sub()` calls let a later regex re-match digits
-    inside an already-generated marker. Both are fixed by exact Decimal
-    arithmetic and a single non-overlapping-span substitution pass.
+    inside an already-generated marker.
+
+    canonical_proposition() is diagnostic-only now (see B-02 below); these
+    tests exercise the LOAD-BEARING functions, propositions_are_identical and
+    canonical_identity_key, directly wherever the distinction matters.
     """
 
     EQUIVALENT = (
@@ -191,7 +199,7 @@ class A01ExactNumericIdentityTests(unittest.TestCase):
         for label, a, b in self.NON_EQUIVALENT:
             with self.subTest(label):
                 self.assertFalse(propositions_are_identical(a, b), f"{label}: {a!r} vs {b!r}")
-                self.assertNotEqual(canonical_proposition(a), canonical_proposition(b), label)
+                self.assertNotEqual(canonical_identity_key(a), canonical_identity_key(b), label)
 
     def test_word_order_still_carries_role_after_the_fix(self):
         for label, a, b in self.ROLE_SWAPS:
@@ -211,24 +219,229 @@ class A01ExactNumericIdentityTests(unittest.TestCase):
                 twice = canonical_proposition(once)
                 self.assertEqual(once, twice, f"not idempotent: {once!r} -> {twice!r}")
 
-    def test_no_nested_or_scientific_notation_markers_survive(self):
+    def test_no_scientific_notation_in_numeric_tokens_or_diagnostic_rendering(self):
         for text in ("$2,000,000", "$2,000,001", "999999999999", "12.0001%"):
+            for kind, value in canonical_identity_key(text):
+                if kind != "text":
+                    self.assertNotIn("e+", value, f"scientific notation leaked into token {value!r}")
+                    self.assertNotIn("e-", value, f"scientific notation leaked into token {value!r}")
             canon = canonical_proposition(text)
             self.assertNotIn("e+", canon, f"scientific notation leaked into {canon!r}")
             self.assertNotIn("e-", canon, f"scientific notation leaked into {canon!r}")
-            # A correctly-formed marker never contains a second guillemet pair
-            # nested inside the first (the old bug's signature).
-            self.assertEqual(canon.count("«"), canon.count("»"), canon)
 
     def test_deterministic_property_adjacent_values_never_collide(self):
-        """canonical(n) != canonical(n + 1) across several magnitudes, fixed
-        deterministic data only — no randomized fuzzing."""
+        """identity_key(n) != identity_key(n + 1) across several magnitudes,
+        fixed deterministic data only — no randomized fuzzing."""
         magnitudes = (1, 99, 1_000, 999_999, 1_000_000, 2_000_000, 999_999_999_999)
         for n in magnitudes:
             with self.subTest(n=n):
-                low = canonical_proposition(f"the total was {n}")
-                high = canonical_proposition(f"the total was {n + 1}")
+                low = canonical_identity_key(f"the total was {n}")
+                high = canonical_identity_key(f"the total was {n + 1}")
                 self.assertNotEqual(low, high, f"{n} and {n + 1} collided")
+
+    def test_long_digit_run_with_no_percent_sign_does_not_hang(self):
+        """Fresh-sweep finding: _NUM_PERCENT's mandatory trailing suffix
+        (`%` / "percent") with no lookbehind guard caused catastrophic
+        backtracking on a long digit run that never satisfies it — O(n^2),
+        observed ~9s at 10,000 digits and effectively unbounded beyond that.
+        This must stay linear: a 100,000-digit non-percent number is well
+        within a single JSON string field and must not be a DoS vector."""
+        import time
+
+        big = "9" * 100_000
+        start = time.time()
+        canonical_identity_key(f"the total was {big}")
+        elapsed = time.time() - start
+        self.assertLess(elapsed, 2.0, f"took {elapsed:.2f}s — regressed to quadratic behavior")
+
+    def test_many_numbers_in_one_document_does_not_hang(self):
+        """Fresh-sweep finding: `_already_consumed`'s linear scan over the
+        growing `consumed` list made canonical_identity_key O(k^2) in the
+        NUMBER of numeric matches, independent of the percent-regex fix
+        above — a realistic long article with hundreds of dates/currency/
+        percentages (exactly the input this system exists to process) took
+        multiple seconds. Fixed with bisect for O(log k) overlap checks."""
+        import time
+
+        paragraph = (
+            "The council approved $2,000,000 in funding on Tuesday, "
+            "a 12 percent increase over last year. "
+        )
+        text = paragraph * 4000  # several thousand numeric matches
+        start = time.time()
+        canonical_identity_key(text)
+        elapsed = time.time() - start
+        self.assertLess(elapsed, 3.0, f"took {elapsed:.2f}s — regressed to quadratic behavior")
+
+
+class B01ArbitraryPrecisionScalingTests(unittest.TestCase):
+    """B-01: Decimal scale multiplication must never round under the ambient
+    context precision (28 significant digits by default), regardless of how
+    many digits the source numeral has.
+    """
+
+    SCALES = ("hundred", "thousand", "million", "billion", "trillion")
+
+    def _adjacent(self, digits, scale):
+        low = "1" + "2" * (digits - 1)
+        high = low[:-1] + "3"
+        a = f"the fund holds ${low} {scale}"
+        b = f"the fund holds ${high} {scale}"
+        return a, b
+
+    def test_30_digit_adjacent_values_remain_distinct_at_every_scale(self):
+        for scale in self.SCALES:
+            with self.subTest(scale=scale):
+                a, b = self._adjacent(30, scale)
+                self.assertFalse(propositions_are_identical(a, b), f"{scale}: {a!r} vs {b!r}")
+
+    def test_50_digit_adjacent_values_remain_distinct_at_every_scale(self):
+        for scale in self.SCALES:
+            with self.subTest(scale=scale):
+                a, b = self._adjacent(50, scale)
+                self.assertFalse(propositions_are_identical(a, b), f"{scale}: {a!r} vs {b!r}")
+
+    def test_100_digit_adjacent_values_remain_distinct_at_every_scale(self):
+        for scale in self.SCALES:
+            with self.subTest(scale=scale):
+                a, b = self._adjacent(100, scale)
+                self.assertFalse(propositions_are_identical(a, b), f"{scale}: {a!r} vs {b!r}")
+
+    def test_large_decimal_fractions_remain_distinct(self):
+        a = "the rate was 123456789012345678901234567890.123456 percent"
+        b = "the rate was 123456789012345678901234567890.123457 percent"
+        self.assertFalse(propositions_are_identical(a, b))
+
+    def test_exact_scaling_matches_manual_multiplication(self):
+        from decimal import Decimal
+        from services.comparison.divergence import _scale_exact
+
+        coefficient = Decimal("123456789012345678901234567890")
+        for word, multiplier in (
+            ("hundred", 100), ("thousand", 1_000), ("million", 1_000_000),
+            ("billion", 1_000_000_000), ("trillion", 1_000_000_000_000),
+        ):
+            with self.subTest(word):
+                expected = int(coefficient) * multiplier
+                self.assertEqual(int(_scale_exact(coefficient, multiplier)), expected)
+
+    def test_presentation_equivalents_still_match_at_huge_magnitude(self):
+        a = "the fund holds $2 trillion"
+        b = "the fund holds $2,000,000,000,000"
+        self.assertTrue(propositions_are_identical(a, b))
+
+    def test_no_two_distinct_accepted_values_round_to_equal(self):
+        """Direct probe of the previously-broken path: multiplying a
+        30-digit coefficient by every supported scale must never round."""
+        from decimal import Decimal, getcontext
+        from services.comparison.divergence import _scale_exact
+
+        self.assertEqual(getcontext().prec, 28, "ambient context assumed default for this test")
+        coeff_a = Decimal("1" * 30)
+        coeff_b = Decimal("1" * 29 + "2")
+        for _, multiplier in (
+            ("hundred", 100), ("thousand", 1_000), ("million", 1_000_000),
+            ("billion", 1_000_000_000), ("trillion", 1_000_000_000_000),
+        ):
+            self.assertNotEqual(_scale_exact(coeff_a, multiplier), _scale_exact(coeff_b, multiplier))
+
+
+class B02TypedIdentityInjectionTests(unittest.TestCase):
+    """B-02: raw source text must never impersonate a numeric identity token."""
+
+    def test_injection_using_whatever_the_diagnostic_rendering_CURRENTLY_produces(self):
+        """Format-independent version of the injection attack: rather than
+        hardcoding a guess at canonical_proposition's marker syntax (which
+        could silently drift and stop testing anything real — verified this
+        happened once already: a mutation that made identity compare
+        RENDERED STRINGS passed cleanly against the guillemet-based tests
+        below, because the live rendering format had since changed to
+        square brackets), this discovers the current format by calling
+        canonical_proposition itself and embeds exactly that text. This test
+        must fail identity regardless of what canonical_proposition's syntax
+        happens to be today or after any future change to it."""
+        rendered = canonical_proposition("1000")
+        fake = f"the value is {rendered}"
+        real = "the value is 1000"
+        self.assertFalse(propositions_are_identical(real, fake), f"rendered marker was {rendered!r}")
+
+    def test_literal_marker_text_does_not_equal_a_real_number(self):
+        self.assertFalse(propositions_are_identical("1000", "«num:x1000»"))
+
+    def test_literal_currency_marker_text_does_not_equal_a_real_currency(self):
+        self.assertFalse(propositions_are_identical("$2 million", "«currency:x2000000»"))
+
+    def test_multiple_injected_fake_markers_do_not_establish_identity(self):
+        a = "the total is 1000 and the rate is 12%"
+        b = "the total is «num:x1000» and the rate is «percent:x12»"
+        self.assertFalse(propositions_are_identical(a, b))
+
+    def test_nested_fake_marker_text_does_not_establish_identity(self):
+        a = "the count reached 12345678"
+        b = "the count reached «num:x«num:x12345678»»"
+        self.assertFalse(propositions_are_identical(a, b))
+
+    def test_fake_marker_embedded_alongside_the_real_matching_number_still_differs(self):
+        # Same real number present in both, but b also carries extra fake
+        # marker text — token sequences must still differ in length/content.
+        a = "the fund holds $2,000,000"
+        b = "the fund holds $2,000,000 «currency:x2000000»"
+        self.assertFalse(propositions_are_identical(a, b))
+
+    def test_diagnostic_rendering_is_not_load_bearing_and_not_reused_for_comparison(self):
+        """canonical_proposition may legitimately render two non-identical
+        propositions to visually similar strings — that is fine, because
+        nothing compares its output. Only canonical_identity_key is load-bearing."""
+        a = "1000"
+        b = "«num:x1000»"
+        self.assertFalse(propositions_are_identical(a, b))
+        # The diagnostic renderer is still internally idempotent (documented,
+        # not a safety requirement) — verify that property holds too.
+        once = canonical_proposition(a)
+        twice = canonical_proposition(once)
+        self.assertEqual(once, twice)
+
+    def test_role_swaps_remain_different_under_typed_identity(self):
+        self.assertFalse(propositions_are_identical(
+            "injured 12 and killed 40", "injured 40 and killed 12"))
+        self.assertFalse(propositions_are_identical(
+            "moved Tuesday to Thursday", "moved Thursday to Tuesday"))
+
+    def test_formatting_equivalent_real_numbers_still_match_under_typed_identity(self):
+        self.assertTrue(propositions_are_identical("$2 million", "$2,000,000"))
+        self.assertTrue(propositions_are_identical("12%", "12 percent"))
+
+    def test_marker_injection_cannot_ground_a_material_omission_with_divergence_disabled(self):
+        """End-to-end: even with detect_divergence forced to a no-op, injected
+        marker text must not let a fabricated proposition pass the identity
+        gate and support a Material Omission."""
+        import services.comparison.claims as claims_module
+
+        original = claims_module.detect_divergence
+        claims_module.detect_divergence = lambda a, b: []
+        try:
+            target = [claim("ct", "the town budget passed unanimously", "sentinel", "art-sn")]
+            comparison_set = ComparisonSet(
+                comparison_set_id="cs", target_article_id="art-sn",
+                member_article_ids=("art-tw", "art-pj"), provenance_kind="retrieved",
+                source_of_article={"art-tw": "techwire", "art-pj": "policy"},
+                dependencies=(SourceDependency(("techwire", "policy"), "independent_reporting", "High"),),
+            )
+            supporting = [
+                claim("f1", "the fund contains «currency:x2000000»", "techwire", "art-tw"),
+                claim("f2", "the fund contains «currency:x2000000»", "policy", "art-pj"),
+            ]
+            with self.assertRaises(OmissionRejection) as ctx:
+                evaluate_candidate_omission(
+                    comparison_set=comparison_set,
+                    candidate_proposition="the fund contains $2,000,000",
+                    supporting_claims=supporting, target_claims=target,
+                    dimension="Scale", target_published_at="2026-07-12T10:00:00Z",
+                    knowable_at="2026-07-10T09:00:00Z", rationale="x",
+                )
+            self.assertEqual(ctx.exception.gate, "presence_elsewhere")
+        finally:
+            claims_module.detect_divergence = original
 
 
 class M02IndependenceTests(unittest.TestCase):
@@ -944,10 +1157,10 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         )
         self.assertTrue(self._validate(doc).valid)
 
-    def test_both_submissions_empty_but_adjudication_still_positive_is_structurally_valid(self):
-        """A third-party adjudicator finding something neither annotator flagged
-        is a coherence question for the adjudication protocol, not something the
-        corpus validator is positioned to reject."""
+    def test_unexplained_positive_gold_after_two_empty_submissions_is_rejected(self):
+        """B-04: a gold annotation with no matching proposal and no resolution
+        record is ungrounded — a third-party adjudicator may not silently add
+        a finding neither annotator proposed."""
         annotation = self._annotation()
         doc = self._document(
             annotations=[annotation],
@@ -956,7 +1169,30 @@ class M09CorpusIntegrityTests(unittest.TestCase):
                 self._submission("annotator-b", proposals=[]),
             ],
         )
-        self.assertTrue(self._validate(doc).valid)
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("no machine-readable provenance" in e for e in report.errors), report.errors)
+
+    def test_explicit_adjudicator_add_resolution_grounds_unproposed_positive_gold(self):
+        """B-04 policy: an adjudicator MAY add an unproposed finding, but only
+        via an explicit adjudicator_add resolution naming who and why."""
+        annotation = self._annotation()
+        doc = self._document(
+            annotations=[annotation],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+            resolutions=[{
+                "decision": "adjudicator_add",
+                "adjudicatorId": "adjudicator-c",
+                "resultingAnnotationId": annotation["annotationId"],
+                "proposalIds": [],
+                "note": "Adjudicator independently identified this span during final review.",
+            }],
+        )
+        report = self._validate(doc)
+        self.assertTrue(report.valid, report.errors)
 
     def test_duplicate_submission_id_is_rejected(self):
         doc = self._document(annotatorSubmissions=[
@@ -1027,11 +1263,167 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         ])
         self.assertFalse(self._validate(doc).valid)
 
+    def test_proposal_cross_document_mechanism_is_rejected(self):
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[
+                self._proposal("annotator-a", mechanismId="material_omission")]),
+            self._submission("annotator-b", proposals=[]),
+        ])
+        self.assertFalse(self._validate(doc).valid)
+
+    def _malformed_proposal_doc(self, **over):
+        return self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[self._proposal("annotator-a", **over)]),
+            self._submission("annotator-b", proposals=[]),
+        ])
+
+    # B-03: one regression per malformed proposal shape from the audit's
+    # explicit attack list. Every case must be rejected — none may silently
+    # skip validation because a field has the wrong type.
+
+    def test_proposal_id_not_string_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(proposalId=123)).valid)
+
+    def test_proposal_id_empty_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(proposalId="")).valid)
+
+    def test_proposal_ordinal_bool_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(passageOrdinal=True)).valid)
+
+    def test_proposal_ordinal_string_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(passageOrdinal="0")).valid)
+
+    def test_proposal_ordinal_negative_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(passageOrdinal=-1)).valid)
+
+    def test_proposal_ordinal_nonexistent_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(passageOrdinal=999)).valid)
+
+    def test_proposal_start_char_bool_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(startChar=True)).valid)
+
+    def test_proposal_end_char_bool_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(endChar=True)).valid)
+
+    def test_proposal_start_char_string_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(startChar="23")).valid)
+
+    def test_proposal_end_char_string_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(endChar="49")).valid)
+
+    def test_proposal_negative_start_char_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(startChar=-1)).valid)
+
+    def test_proposal_end_not_greater_than_start_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(startChar=30, endChar=30)).valid)
+
+    def test_proposal_end_exceeds_passage_length_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(endChar=9999)).valid)
+
+    def test_proposal_excerpt_non_string_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(excerpt=12345)).valid)
+
+    def test_proposal_invalid_pressure_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(pressure="P9")).valid)
+
+    def test_proposal_invalid_reviewer_confidence_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(reviewerConfidence="Certain")).valid)
+
+    def test_proposal_invalid_voice_class_is_rejected(self):
+        self.assertFalse(self._validate(self._malformed_proposal_doc(voiceClass="publisher")).valid)
+
     def test_resolution_referencing_unknown_proposal_is_rejected(self):
-        doc = self._document(resolutions=[{"decision": "drop", "proposalIds": ["nonexistent-proposal"]}])
+        doc = self._document(resolutions=[{
+            "decision": "drop", "adjudicatorId": "adjudicator-c", "proposalIds": ["nonexistent-proposal"],
+        }])
         report = self._validate(doc)
         self.assertFalse(report.valid)
         self.assertTrue(any("unknown proposalId" in e for e in report.errors))
+
+    def test_ghost_proposal_reference_is_rejected_even_when_no_real_proposals_exist(self):
+        """B-04 root cause: `if proposal_ids and pid not in proposal_ids` let a
+        ghost reference through whenever proposal_ids was EMPTY. Reproduce that
+        exact precondition — two zero-proposal submissions — and confirm the
+        ghost reference is still caught."""
+        doc = self._document(
+            annotations=[],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+            resolutions=[{
+                "decision": "drop", "adjudicatorId": "adjudicator-c", "proposalIds": ["ghost-proposal"],
+            }],
+        )
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("unknown proposalId" in e for e in report.errors), report.errors)
+
+    def test_resolution_referencing_unknown_gold_annotation_is_rejected(self):
+        doc = self._document(resolutions=[{
+            "decision": "uphold_a", "adjudicatorId": "adjudicator-c",
+            "proposalIds": ["p-annotator-a"], "resultingAnnotationId": "ghost-annotation",
+        }])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("does not reference an existing gold annotation" in e for e in report.errors))
+
+    def test_drop_resolution_with_resulting_annotation_id_is_rejected(self):
+        doc = self._document(resolutions=[{
+            "decision": "drop", "adjudicatorId": "adjudicator-c",
+            "proposalIds": ["p-annotator-b"], "resultingAnnotationId": "a1",
+        }])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("must not carry a resultingAnnotationId" in e for e in report.errors))
+
+    def test_duplicate_resolution_id_is_rejected(self):
+        doc = self._document(resolutions=[
+            {"resolutionId": "res-1", "decision": "drop", "adjudicatorId": "adjudicator-c",
+             "proposalIds": ["p-annotator-b"]},
+            {"resolutionId": "res-1", "decision": "drop", "adjudicatorId": "adjudicator-c",
+             "proposalIds": ["p-annotator-a"]},
+        ])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("duplicate resolutionId" in e for e in report.errors))
+
+    def test_resolution_missing_adjudicator_id_is_rejected(self):
+        doc = self._document(resolutions=[{"decision": "drop", "proposalIds": ["p-annotator-b"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("adjudicatorId" in e for e in report.errors))
+
+    def test_resolutions_field_wrong_type_is_rejected_cleanly(self):
+        """Fresh-sweep finding: `data.get('resolutions', []) or []` type-confused
+        a non-empty string into an iterable of records — enumerate() over a
+        string yields characters, producing one bogus error per character
+        instead of a single clear type error."""
+        doc = self._document(resolutions="not a list")
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertEqual(report.errors, ["resolutions must be an array"])
+
+    def test_adjudicator_add_with_nonempty_proposal_ids_is_rejected(self):
+        annotation = self._annotation()
+        doc = self._document(annotations=[annotation], resolutions=[{
+            "decision": "adjudicator_add", "adjudicatorId": "adjudicator-c",
+            "resultingAnnotationId": annotation["annotationId"],
+            "proposalIds": ["p-annotator-a"], "note": "should not claim a proposal origin",
+        }])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("must have an empty proposalIds" in e for e in report.errors))
+
+    def test_adjudicator_add_without_note_is_rejected(self):
+        annotation = self._annotation()
+        doc = self._document(annotations=[annotation], resolutions=[{
+            "decision": "adjudicator_add", "adjudicatorId": "adjudicator-c",
+            "resultingAnnotationId": annotation["annotationId"], "proposalIds": [],
+        }])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("requires a non-empty note or rationale" in e for e in report.errors))
 
     def test_worked_example_carries_two_structured_submissions(self):
         example = json.loads((ROOT / "benchmarks" / "corpus" / "_example.json").read_text())
@@ -1120,3 +1512,83 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         reports = validate_corpus(ROOT / "benchmarks" / "corpus")
         self.assertEqual([r for r in reports if r.scored], [],
                          "the repository benchmark corpus must remain EMPTY")
+
+
+class B05SchemaParityTests(unittest.TestCase):
+    """B-05: benchmarks/corpus/_schema.json and validate_corpus.py's
+    executable contract must agree.
+
+    No `jsonschema` (or any other JSON Schema engine) dependency is installed
+    in this repository and this task explicitly says not to add a heavyweight
+    dependency merely to run schema tests. These tests instead do targeted,
+    hand-rolled structural checks against the schema's own JSON — proving the
+    specific facts that matter (conditional requirement present, decision
+    enum matches the validator's, minItems matches MIN_ANNOTATORS, hard
+    negatives aren't blocked by an accidental proposals minItems) — without a
+    general-purpose validator.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schema = json.loads((ROOT / "benchmarks" / "corpus" / "_schema.json").read_text())
+
+    def test_schema_is_valid_json(self):
+        self.assertIsInstance(self.schema, dict)
+
+    def test_adjudicated_conditionally_requires_annotator_fields(self):
+        conditions = self.schema["allOf"]
+        matched = [
+            c for c in conditions
+            if c.get("if", {}).get("properties", {}).get("adjudicationStatus", {}).get("const") == "adjudicated"
+        ]
+        self.assertEqual(len(matched), 1, "expected exactly one adjudicated-status conditional")
+        required = set(matched[0]["then"]["required"])
+        self.assertEqual(required, {"annotatorIds", "annotatorSubmissions"})
+
+    def test_decision_enum_matches_the_python_validator(self):
+        from validate_corpus import VALID_RESOLUTION_DECISIONS
+
+        schema_enum = set(self.schema["properties"]["resolutions"]["items"]["properties"]["decision"]["enum"])
+        self.assertEqual(schema_enum, VALID_RESOLUTION_DECISIONS)
+
+    def test_resolution_requires_adjudicator_id(self):
+        self.assertIn("adjudicatorId", self.schema["properties"]["resolutions"]["items"]["required"])
+
+    def test_submissions_min_items_matches_min_annotators(self):
+        from validate_corpus import MIN_ANNOTATORS
+
+        self.assertEqual(self.schema["properties"]["annotatorSubmissions"]["minItems"], MIN_ANNOTATORS)
+
+    def test_proposals_have_no_min_items_hard_negatives_stay_valid(self):
+        proposals_schema = self.schema["properties"]["annotatorSubmissions"]["items"]["properties"]["proposals"]
+        self.assertNotIn(
+            "minItems", proposals_schema,
+            "a nonzero minItems on proposals would make hard negatives schema-invalid",
+        )
+
+    def test_structured_records_reject_additional_properties(self):
+        submission_item = self.schema["properties"]["annotatorSubmissions"]["items"]
+        proposal_item = submission_item["properties"]["proposals"]["items"]
+        resolution_item = self.schema["properties"]["resolutions"]["items"]
+        for label, item in (
+            ("annotatorSubmissions item", submission_item),
+            ("proposals item", proposal_item),
+            ("resolutions item", resolution_item),
+        ):
+            with self.subTest(label):
+                self.assertFalse(item.get("additionalProperties", True), label)
+
+    def test_worked_example_declares_the_fields_the_schema_requires_for_adjudicated_status(self):
+        """A hand-rolled stand-in for full schema validation: confirm the
+        worked example actually carries every field the conditional block
+        requires, using the schema's own declared requirement list rather
+        than a hardcoded duplicate of it."""
+        example = json.loads((ROOT / "benchmarks" / "corpus" / "_example.json").read_text())
+        self.assertEqual(example["adjudicationStatus"], "adjudicated")
+        conditions = self.schema["allOf"]
+        required = next(
+            c["then"]["required"] for c in conditions
+            if c.get("if", {}).get("properties", {}).get("adjudicationStatus", {}).get("const") == "adjudicated"
+        )
+        for field_name in required:
+            self.assertIn(field_name, example, f"worked example is missing {field_name!r}")
