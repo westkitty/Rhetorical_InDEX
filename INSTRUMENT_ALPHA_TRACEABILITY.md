@@ -369,11 +369,33 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-110 | Long digit run with no percent sign does not hang (regex backtracking DoS closed) | `test_long_digit_run_with_no_percent_sign_does_not_hang` | PASS |
 | H-111 | Many numbers in one document does not hang (O(k²) overlap-check DoS closed) | `test_many_numbers_in_one_document_does_not_hang` | PASS |
 
+| H-112 | Malformed comma grouping cannot establish numeric identity with a clean integer | `test_malformed_grouping_never_matches_a_clean_integer` | PASS |
+| H-113 | No malformed numeric form collides with any clean integer (exhaustive cross-product) | `test_no_malformed_form_collides_with_any_clean_integer` | PASS |
+| H-114 | Malformed grouping is not reflowed into a single clean numeric token | `test_malformed_grouping_is_not_reflowed_into_one_clean_token` | PASS |
+| H-115 | Well-formed thousands grouping still normalizes | `test_well_formed_grouping_still_normalizes` | PASS |
+| H-116 | Malformed grouping cannot ground an omission with divergence disabled | `test_malformed_grouping_cannot_ground_an_omission_without_divergence` | PASS |
+| H-117 | Auto-merge requires ≥2 independent annotators agreeing | `test_identical_proposals_from_two_annotators_auto_merge` / `test_only_one_preserved_proposal_cannot_auto_merge` | PASS |
+| H-118 | Presence disagreement requires adjudication | `test_presence_disagreement_requires_adjudication` | PASS |
+| H-119 | Pressure disagreement cannot auto-merge | `test_pressure_disagreement_cannot_auto_merge` | PASS |
+| H-120 | Voice disagreement cannot auto-merge | `test_voice_disagreement_cannot_auto_merge` | PASS |
+| H-121 | Auto-merged gold span must equal the protocol-defined intersection | `test_gold_that_is_not_the_intersection_is_rejected` | PASS |
+| H-122 | Span IoU below threshold cannot auto-merge | `test_iou_below_threshold_cannot_auto_merge` | PASS |
+| H-123 | Three-annotator consensus policy is explicit and tested | `test_three_annotator_consensus_uses_intersection_over_all` | PASS |
+| H-124 | `merge` cannot have empty `proposalIds` | `test_merge_with_empty_proposal_ids_is_rejected` | PASS |
+| H-125 | `merge` must draw on ≥2 distinct annotators | `test_merge_from_a_single_annotator_is_rejected` | PASS |
+| H-126 | `split` represents multiple resulting gold annotations | `test_valid_split_produces_two_gold_annotations` / `test_split_with_one_result_is_rejected` | PASS |
+| H-127 | Resolution cardinality is decision-specific | `test_cardinality_table_covers_every_gold_producing_decision` | PASS |
+| H-128 | Removed singular `resultingAnnotationId` is rejected outright | `test_removed_singular_resulting_annotation_id_is_rejected` | PASS |
+| H-129 | Each gold annotation is grounded exactly once | `test_two_resolutions_cannot_claim_the_same_gold_annotation` | PASS |
+| H-130 | Schema resolution cardinality matches the Python table | `test_schema_resolution_cardinality_matches_the_python_table` | PASS |
+| H-131 | Schema requires ≥2 unique annotatorIds | `test_schema_requires_two_unique_annotator_ids` | PASS |
+| H-132 | Schema documents the Python-only semantic boundary honestly | `test_schema_documents_the_python_only_semantic_boundary` | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 277 |
+| PASS | 298 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

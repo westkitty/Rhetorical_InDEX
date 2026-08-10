@@ -47,9 +47,34 @@ _SCALE = {
     "trillion": 1_000_000_000_000,
 }
 
+# Strict numeric literal grammar (review finding C-01).
+#
+# The previous body pattern was `\d[\d,]*`, which accepted ANY arrangement of
+# digits and commas and then had every comma stripped during canonicalization.
+# That silently turned structurally different source text into the SAME number:
+# "1,2,3" / "1,00" / "12,34,567" / "1,,000" all canonicalized to the same
+# values as "123" / "100" / "1234567" / "1000", so a malformed or entirely
+# different numeral could establish `same_proposition` with an unrelated clean
+# integer. Comma-stripping is only meaning-preserving for genuine thousands
+# grouping; anywhere else a comma is a separator, not decoration.
+#
+# Accepted as ONE numeric token:
+#   * ungrouped digits            1, 12, 123, 1000, 1000000
+#   * correct thousands grouping  1,000  12,345  1,234,567
+#   * either, with a fraction     1,234.50  1234.5
+#
+# Rejected as one token (each stays literal text, or splits into separate
+# numerals with the comma surviving as text — never silently reflowed into a
+# different clean integer):
+#   1,2,3   1,00   12,34,567   1234,567   1,,000   ,1000   1000,
+#
+# The grouped alternative is tried FIRST: `\d+` would otherwise match only the
+# leading run of "1,234,567" and strand the rest.
+_NUM_BODY = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+
 # Currency first, then percent, then scaled/bare numbers.
 _NUM_CURRENCY = re.compile(
-    r"(?P<sym>[$£€])\s?(?P<value>\d[\d,]*(?:\.\d+)?)\s*(?P<scale>hundred|thousand|million|billion|trillion|k|m|bn|b)?",
+    r"(?P<sym>[$£€])\s?(?P<value>" + _NUM_BODY + r")\s*(?P<scale>hundred|thousand|million|billion|trillion|k|m|bn|b)?",
     re.IGNORECASE,
 )
 _NUM_PERCENT = re.compile(
@@ -65,11 +90,11 @@ _NUM_PERCENT = re.compile(
     # since only a literal `%` or "percent" immediately following (mod
     # whitespace) makes this a match at all. Together these make matching
     # linear in input length regardless of digit-run length.
-    r"(?<!\d)(?P<value>(?>\d[\d,]*(?:\.\d+)?))\s*(?:%|per\s?cent(?:age)?)",
+    r"(?<!\d)(?P<value>(?>" + _NUM_BODY + r"))\s*(?:%|per\s?cent(?:age)?)",
     re.IGNORECASE,
 )
 _NUM_PLAIN = re.compile(
-    r"(?<![\w$£€.])(?P<value>\d[\d,]*(?:\.\d+)?)\s*(?P<scale>hundred|thousand|million|billion|trillion)?(?![\w%])",
+    r"(?<![\w$£€.])(?P<value>" + _NUM_BODY + r")\s*(?P<scale>hundred|thousand|million|billion|trillion)?(?![\w%])",
     re.IGNORECASE,
 )
 _CLOCK = re.compile(r"\b(?P<h>\d{1,2})(?::(?P<m>\d{2}))?\s*(?P<mer>a\.?m\.?|p\.?m\.?)\b", re.IGNORECASE)

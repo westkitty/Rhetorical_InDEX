@@ -303,9 +303,17 @@
       "resolutionId": "res-1-load-83",
       "decision": "uphold_a",
       "adjudicatorId": "adjudicator-example-c",
-      "proposalIds": ["prop-a-1-load-83", "prop-b-1-load-83"],
-      "resultingAnnotationId": "ann-1-load-83",
-      "note": "'siphon' imports evaluation without substituting a softened term, so loaded_language is upheld over euphemism_dysphemism; recorded as alternativeAcceptableMechanism on the gold annotation."
+      "proposalIds": ["prop-a-1-load-83"],
+      "resultingAnnotationIds": ["ann-1-load-83"],
+      "note": "Mechanism disagreement: annotator-a proposed loaded_language, annotator-b proposed euphemism_dysphemism (prop-b-1-load-83) for the same span. 'siphon' imports evaluation without substituting a softened term, so loaded_language is upheld; annotator-b's reading is recorded as alternativeAcceptableMechanism on the gold annotation."
+    },
+    {
+      "resolutionId": "res-2-agen-77",
+      "decision": "uphold_a",
+      "adjudicatorId": "adjudicator-example-c",
+      "proposalIds": ["prop-a-2-agen-77"],
+      "resultingAnnotationIds": ["ann-2-agen-77"],
+      "note": "Presence disagreement: only annotator-a proposed agent_suppression on 'were told nothing for months'; annotator-b did not mark this span at all. Upheld — no actor is named for who withheld the information, so responsibility is grammatically removed."
     }
   ]
 }

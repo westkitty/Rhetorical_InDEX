@@ -47,7 +47,74 @@ MIN_ANNOTATORS = 2
 VALID_RESOLUTION_DECISIONS = {
     "uphold_a", "uphold_b", "merge", "drop", "split", "adjudicator_add", "unresolvable",
 }
-DECISIONS_PRODUCING_GOLD = {"uphold_a", "uphold_b", "merge", "split", "adjudicator_add"}
+# C-03: per-decision cardinality as
+# (min proposalIds, max proposalIds, min resulting gold, max resulting gold).
+# `None` means unbounded. Without these, `merge` with an empty `proposalIds`
+# grounded arbitrary gold with no proposal origin — a silent backdoor around
+# `adjudicator_add`, which exists precisely to make that case explicit.
+RESOLUTION_CARDINALITY: dict[str, tuple[int, int | None, int, int | None]] = {
+    "uphold_a": (1, 1, 1, 1),
+    "uphold_b": (1, 1, 1, 1),
+    "merge": (2, None, 1, 1),
+    "drop": (1, None, 0, 0),
+    "split": (1, None, 2, None),
+    "adjudicator_add": (0, 0, 1, 1),
+}
+
+# ADJUDICATION.md §2 auto-merge threshold.
+AUTO_MERGE_MIN_IOU = 0.8
+
+
+def _span_iou(a: tuple[int, int], b: tuple[int, int]) -> float:
+    """Intersection-over-union of two half-open character spans."""
+    overlap = min(a[1], b[1]) - max(a[0], b[0])
+    if overlap <= 0:
+        return 0.0
+    union = max(a[1], b[1]) - min(a[0], b[0])
+    return overlap / union if union > 0 else 0.0
+
+
+def _auto_merge_span(annotation: dict, proposals: list[dict[str, Any]]) -> tuple[int, int] | None:
+    """The protocol-defined merged span, if this gold annotation is a genuine
+    auto-merge; ``None`` if adjudication was required instead.
+
+    ADJUDICATION.md §2: two annotations merge WITHOUT adjudication only when
+    they share mechanism, passage, pressure and voice, and their spans overlap
+    at IoU >= 0.8. The merged span is the INTERSECTION — the text both
+    annotators agreed carries the mechanism.
+
+    Policy for three or more annotators (defined here, deliberately, rather
+    than left ambiguous): every preserved proposal matching the gold's
+    mechanism/passage/pressure/voice is taken as the agreeing set, that set
+    must cover at least MIN_ANNOTATORS distinct annotators, EVERY pair in it
+    must meet the IoU threshold, and the merged span is the intersection over
+    the whole set. A proposal that agrees on mechanism/passage but differs on
+    pressure or voice is simply not in the set — which is what makes a
+    pressure or voice disagreement fall through to "adjudication required"
+    rather than quietly auto-merging.
+    """
+    mechanism = annotation.get("mechanismId")
+    ordinal = annotation.get("passageOrdinal")
+    pressure = annotation.get("pressure")
+    voice = annotation.get("voiceClass")
+
+    agreeing = [
+        p for p in proposals
+        if p["mechanismId"] == mechanism
+        and p["passageOrdinal"] == ordinal
+        and p["pressure"] == pressure
+        and p["voiceClass"] == voice
+    ]
+    if len({p["annotatorId"] for p in agreeing}) < MIN_ANNOTATORS:
+        return None
+
+    spans = [(p["startChar"], p["endChar"]) for p in agreeing]
+    for i in range(len(spans)):
+        for j in range(i + 1, len(spans)):
+            if _span_iou(spans[i], spans[j]) < AUTO_MERGE_MIN_IOU:
+                return None
+
+    return (max(s[0] for s in spans), min(s[1] for s in spans))
 
 
 @dataclass
@@ -227,10 +294,16 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
     # guard) is exactly the bug: it let an empty `annotatorSubmissions: []`
     # skip this check entirely, silently discarding annotation history.
     proposal_ids: set[str] = set()
-    # B-04: fingerprints of well-typed proposals, used below to recognize an
-    # uncontested auto-merge (a gold annotation that exactly restates some
-    # original proposal) without requiring a resolution record for it.
-    proposal_fingerprints: set[tuple[str, int, int, int]] = set()
+    # B-04 / C-02: every well-typed proposal, recorded WITH its annotator and
+    # its full agreement-relevant shape. C-02: the earlier version kept only a
+    # set of (mechanism, ordinal, start, end) fingerprints and treated a gold
+    # annotation as auto-merged if it matched ANY ONE of them — which is not
+    # consensus at all, merely evidence that a single annotator proposed it.
+    # Auto-merge per ADJUDICATION.md §2 requires agreement between at least two
+    # distinct annotators, so pressure, voice and annotator identity all have to
+    # survive to the grounding check below.
+    proposal_records: list[dict[str, Any]] = []
+    proposal_id_owner: dict[str, str] = {}
     if "annotatorSubmissions" not in data:
         err("annotatorSubmissions is required for adjudicated documents")
         submissions: list[Any] = []
@@ -345,8 +418,28 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             fp_ordinal, fp_start, fp_end = (
                 proposal.get("passageOrdinal"), proposal.get("startChar"), proposal.get("endChar"),
             )
-            if isinstance(fp_mechanism, str) and _is_int(fp_ordinal) and _is_int(fp_start) and _is_int(fp_end):
-                proposal_fingerprints.add((fp_mechanism, fp_ordinal, fp_start, fp_end))
+            if (
+                isinstance(annotator_id, str)
+                and isinstance(fp_mechanism, str)
+                and _is_int(fp_ordinal) and _is_int(fp_start) and _is_int(fp_end)
+            ):
+                # Read proposalId freshly rather than reusing the `pid` local:
+                # that variable is only assigned inside `if "proposalId" in
+                # proposal`, so on a proposal missing the field it would still
+                # hold the PREVIOUS proposal's id and silently misattribute it.
+                own_id = proposal.get("proposalId")
+                proposal_records.append({
+                    "annotatorId": annotator_id,
+                    "proposalId": own_id if isinstance(own_id, str) else None,
+                    "mechanismId": fp_mechanism,
+                    "passageOrdinal": fp_ordinal,
+                    "startChar": fp_start,
+                    "endChar": fp_end,
+                    "pressure": proposal.get("pressure"),
+                    "voiceClass": proposal.get("voiceClass"),
+                })
+                if isinstance(own_id, str):
+                    proposal_id_owner[own_id] = annotator_id
 
     if len(submission_annotator_ids) < MIN_ANNOTATORS:
         err(
@@ -363,19 +456,26 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 f"a preserved submission record {sorted(submission_annotator_ids)}"
             )
 
-    # B-04: EVERY FINAL GOLD OUTCOME MUST HAVE MACHINE-READABLE PROVENANCE.
+    # B-04 / C-02 / C-03: EVERY FINAL GOLD OUTCOME MUST HAVE MACHINE-READABLE
+    # PROVENANCE, and that provenance must be the one the protocol actually
+    # allows.
     #
-    # Policy (recorded in ADJUDICATION.md §7): a third-party adjudicator MAY
-    # add a positive finding that neither original annotator proposed, but
-    # only via an explicit `adjudicator_add` resolution — never silently.
     # A gold annotation is grounded when EITHER:
-    #   (a) it exactly restates some preserved proposal (mechanism, passage,
-    #       span) — the uncontested auto-merge case from ADJUDICATION.md §2,
-    #       which by design needs no resolution record; or
-    #   (b) a resolution record's `resultingAnnotationId` names it.
-    # Anything else is ungrounded gold and is rejected.
+    #   (a) it is a genuine AUTO-MERGE under ADJUDICATION.md §2 — at least
+    #       MIN_ANNOTATORS distinct annotators independently proposed the same
+    #       mechanism on the same passage with the same pressure and the same
+    #       voice, pairwise span IoU >= AUTO_MERGE_MIN_IOU, and the gold span
+    #       is exactly the intersection of those proposals; or
+    #   (b) exactly one resolution record's `resultingAnnotationIds` names it,
+    #       with that record satisfying its decision's cardinality contract.
+    #
+    # C-02: (a) previously accepted a match against ANY ONE proposal. One
+    # annotator proposing something and another not proposing it is a PRESENCE
+    # DISAGREEMENT and requires adjudication — as does a pressure or voice
+    # disagreement. Calling any of those an "auto-merge" silently converted one
+    # annotator's opinion into consensus gold.
     resolution_ids: set[str] = set()
-    grounded_annotation_ids: set[str] = set()
+    grounded_by_resolution: dict[str, int] = {}
 
     resolutions = data.get("resolutions", [])
     if resolutions is None:
@@ -419,6 +519,13 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             err(f"{label}.adjudicatorId must be a non-empty string — every resolution is an "
                 "adjudicator's decision and must name who made it")
 
+        if "resultingAnnotationId" in record:
+            err(
+                f"{label} uses the removed singular 'resultingAnnotationId'; use "
+                "'resultingAnnotationIds' (an array) — a 'split' decision produces more "
+                "than one gold annotation and the singular field cannot represent it"
+            )
+
         proposal_id_refs = record.get("proposalIds", [])
         if not isinstance(proposal_id_refs, list):
             err(f"{label}.proposalIds must be an array")
@@ -428,42 +535,93 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 if pid not in proposal_ids:
                     err(f"{label} references unknown proposalId {pid!r}")
 
-        resulting_id = record.get("resultingAnnotationId")
-        if decision == "drop":
-            if resulting_id is not None:
-                err(f"{label} decision 'drop' must not carry a resultingAnnotationId — nothing survives a drop")
-        elif decision in DECISIONS_PRODUCING_GOLD:
-            if not isinstance(resulting_id, str) or not resulting_id.strip():
-                err(f"{label} decision {decision!r} requires a non-empty resultingAnnotationId")
-            elif resulting_id not in annotation_records:
+        resulting_ids = record.get("resultingAnnotationIds", [])
+        if not isinstance(resulting_ids, list):
+            err(f"{label}.resultingAnnotationIds must be an array")
+            resulting_ids = []
+        else:
+            seen_here: set[str] = set()
+            for rid in resulting_ids:
+                if not isinstance(rid, str) or not rid.strip():
+                    err(f"{label}.resultingAnnotationIds entries must be non-empty strings")
+                elif rid not in annotation_records:
+                    err(f"{label}.resultingAnnotationIds references unknown gold annotation {rid!r}")
+                elif rid in seen_here:
+                    err(f"{label}.resultingAnnotationIds lists {rid!r} more than once")
+                else:
+                    seen_here.add(rid)
+                    grounded_by_resolution[rid] = grounded_by_resolution.get(rid, 0) + 1
+
+        # C-03: decision-specific cardinality. Without this, `merge` with an
+        # empty proposalIds was a backdoor that grounded arbitrary gold with no
+        # proposal origin at all — exactly what `adjudicator_add` exists to make
+        # explicit and auditable.
+        spec = RESOLUTION_CARDINALITY.get(decision)
+        if spec is not None:
+            min_proposals, max_proposals, min_results, max_results = spec
+            if len(proposal_id_refs) < min_proposals:
                 err(
-                    f"{label}.resultingAnnotationId {resulting_id!r} does not reference an "
-                    "existing gold annotation"
+                    f"{label} decision {decision!r} requires at least {min_proposals} proposalId(s), "
+                    f"got {len(proposal_id_refs)}"
                 )
-            else:
-                grounded_annotation_ids.add(resulting_id)
+            if max_proposals is not None and len(proposal_id_refs) > max_proposals:
+                err(
+                    f"{label} decision {decision!r} allows at most {max_proposals} proposalId(s), "
+                    f"got {len(proposal_id_refs)}"
+                )
+            if len(resulting_ids) < min_results:
+                err(
+                    f"{label} decision {decision!r} requires at least {min_results} resulting gold "
+                    f"annotation(s), got {len(resulting_ids)}"
+                )
+            if max_results is not None and len(resulting_ids) > max_results:
+                err(
+                    f"{label} decision {decision!r} allows at most {max_results} resulting gold "
+                    f"annotation(s), got {len(resulting_ids)}"
+                )
+
+        if decision == "merge":
+            merging_annotators = {
+                proposal_id_owner[pid] for pid in proposal_id_refs if pid in proposal_id_owner
+            }
+            if len(merging_annotators) < MIN_ANNOTATORS:
+                err(
+                    f"{label} decision 'merge' reconciles proposals from "
+                    f"{len(merging_annotators)} distinct annotator(s); a merge is agreement "
+                    f"between at least {MIN_ANNOTATORS} independent annotators, not a "
+                    "consolidation of one annotator's own proposals"
+                )
 
         if decision == "adjudicator_add":
-            if proposal_id_refs:
-                err(
-                    f"{label} decision 'adjudicator_add' must have an empty proposalIds — it "
-                    "explicitly has no proposal origin, and claiming one would misrepresent it"
-                )
             note = record.get("note") or record.get("rationale")
             if not isinstance(note, str) or not note.strip():
                 err(f"{label} decision 'adjudicator_add' requires a non-empty note or rationale")
 
     for ann_id, ann in annotation_records.items():
-        if ann_id in grounded_annotation_ids:
+        links = grounded_by_resolution.get(ann_id, 0)
+        if links > 1:
+            err(
+                f"annotations[].annotationId {ann_id!r} is claimed by {links} resolutions; each "
+                "gold annotation must have exactly one provenance record"
+            )
             continue
-        fingerprint = (ann.get("mechanismId"), ann.get("passageOrdinal"), ann.get("startChar"), ann.get("endChar"))
-        if fingerprint in proposal_fingerprints:
+        if links == 1:
             continue
-        err(
-            f"annotations[].annotationId {ann_id!r} has no machine-readable provenance: it does "
-            "not exactly restate any preserved proposal, and no resolution's resultingAnnotationId "
-            "names it — every final gold outcome must be traceable"
-        )
+        merged = _auto_merge_span(ann, proposal_records)
+        if merged is None:
+            err(
+                f"annotations[].annotationId {ann_id!r} has no machine-readable provenance: it is "
+                f"not an auto-merge agreed by at least {MIN_ANNOTATORS} independent annotators "
+                "(same mechanism, passage, pressure and voice, pairwise span IoU >= "
+                f"{AUTO_MERGE_MIN_IOU}), and no resolution names it — every final gold outcome "
+                "must be traceable"
+            )
+        elif (ann.get("startChar"), ann.get("endChar")) != merged:
+            err(
+                f"annotations[].annotationId {ann_id!r} claims an auto-merge but its span "
+                f"({ann.get('startChar')}, {ann.get('endChar')}) is not the protocol-defined "
+                f"intersection of the agreeing proposals {merged}; adjudicate instead"
+            )
 
     return report
 

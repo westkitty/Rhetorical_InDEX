@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rhetorical-index.example/schema/benchmark-document.json",
   "title": "Rhetorical InDEX benchmark annotation document",
-  "description": "One annotated article. Only documents with adjudicationStatus='adjudicated' are scored, AND only after passing benchmarks/scripts/validate_corpus.py \u2014 an adjudicated file that fails validation is a FATAL corpus-integrity error, never a silent skip. Files whose name begins with '_' are never loaded.",
+  "description": "One annotated article. Only documents with adjudicationStatus='adjudicated' are scored, AND only after passing benchmarks/scripts/validate_corpus.py \u2014 an adjudicated file that fails validation is a FATAL corpus-integrity error, never a silent skip. Files whose name begins with '_' are never loaded. SCHEMA/VALIDATOR BOUNDARY (stated honestly, not claimed as full parity): this schema expresses the STRUCTURAL contract \u2014 required fields, types, enums, and decision-specific proposalIds/resultingAnnotationIds cardinality. The following SEMANTIC checks are enforced only by validate_corpus.py, because JSON Schema cannot express cross-reference or content-dependent rules: every proposalId/resultingAnnotationId resolving to a real record; submissionId/proposalId/annotationId uniqueness across the document; annotatorIds agreeing with the annotators who actually submitted; excerpt round-tripping against passages[].text; taxonomyVersion matching the active taxonomy; mechanismId membership in the taxonomy and exclusion of cross-document mechanisms; 'merge' drawing on >= 2 DISTINCT annotators; the two-annotator auto-merge consensus rule (mechanism/passage/pressure/voice agreement, span IoU >= 0.8, gold span == intersection); and every gold annotation being grounded exactly once. A document that satisfies this schema is therefore NOT necessarily a valid corpus document.",
   "type": "object",
   "required": [
     "articleId",
@@ -57,8 +57,12 @@
     },
     "annotatorIds": {
       "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "description": "Adjudicated documents require at least two distinct independent annotators. Every id must correspond to exactly one annotatorSubmissions record (enforced in benchmarks/scripts/validate_corpus.py).",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "passages": {
@@ -305,30 +309,38 @@
     },
     "resolutions": {
       "type": "array",
-      "description": "B-04: adjudicator decisions linking original proposals to the final gold annotation, or explicitly recording an adjudicator-added finding that no proposal produced. Append-only; originals are never deleted. Every gold annotation must either exactly restate a preserved proposal or be named by a resolution's resultingAnnotationId — see benchmarks/ADJUDICATION.md §7b.",
+      "description": "B-04 / C-03: adjudicator decisions linking original proposals to the final gold annotations, or explicitly recording an adjudicator-added finding that no proposal produced. Append-only; originals are never deleted. Every gold annotation must either be a genuine two-annotator auto-merge (ADJUDICATION.md §2) or be named by exactly one resolution's resultingAnnotationIds — see ADJUDICATION.md §7b.",
       "items": {
         "type": "object",
         "required": [
           "decision",
           "adjudicatorId",
-          "proposalIds"
+          "proposalIds",
+          "resultingAnnotationIds"
         ],
         "additionalProperties": false,
         "properties": {
           "resolutionId": {
             "type": "string",
+            "minLength": 1,
             "description": "Unique across the document, if used."
           },
           "proposalIds": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
-            "description": "Every id must reference a real preserved proposal. Must be empty for decision=adjudicator_add."
+            "description": "Every id must reference a real preserved proposal. Cardinality is decision-specific — see the allOf blocks below."
           },
-          "resultingAnnotationId": {
-            "type": "string",
-            "description": "Required for uphold_a/uphold_b/merge/split/adjudicator_add; forbidden for drop."
+          "resultingAnnotationIds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "C-03: an array, because a 'split' produces MORE THAN ONE gold annotation and the previous singular resultingAnnotationId could not represent that. Cardinality is decision-specific."
           },
           "decision": {
             "enum": [
@@ -343,6 +355,7 @@
           },
           "adjudicatorId": {
             "type": "string",
+            "minLength": 1,
             "description": "Required and non-empty — a resolution is by definition an adjudicator's decision."
           },
           "note": {
@@ -353,18 +366,72 @@
             "description": "Alternative to note; required (as either) for decision=adjudicator_add."
           }
         },
-        "if": {
-          "properties": { "decision": { "const": "adjudicator_add" } },
-          "required": ["decision"]
-        },
-        "then": {
-          "properties": {
-            "proposalIds": {
-              "maxItems": 0,
-              "description": "adjudicator_add explicitly has no proposal origin."
+        "allOf": [
+          {
+            "if": {
+              "properties": { "decision": { "enum": ["uphold_a", "uphold_b"] } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "proposalIds": { "minItems": 1, "maxItems": 1 },
+                "resultingAnnotationIds": { "minItems": 1, "maxItems": 1 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "merge" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "proposalIds": { "minItems": 2 },
+                "resultingAnnotationIds": { "minItems": 1, "maxItems": 1 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "drop" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "proposalIds": { "minItems": 1 },
+                "resultingAnnotationIds": { "maxItems": 0 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "split" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "proposalIds": { "minItems": 1 },
+                "resultingAnnotationIds": { "minItems": 2 }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "adjudicator_add" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "proposalIds": { "maxItems": 0 },
+                "resultingAnnotationIds": { "minItems": 1, "maxItems": 1 }
+              },
+              "anyOf": [
+                { "required": ["note"] },
+                { "required": ["rationale"] }
+              ]
             }
           }
-        }
+        ]
       }
     }
   },

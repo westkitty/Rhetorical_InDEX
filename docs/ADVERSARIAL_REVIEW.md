@@ -575,3 +575,127 @@ malformed proposal types) were run as explicit adversarial probes, not just
 re-derived from the new unit tests — every case behaved exactly as required.
 The three defects above were found in this same pass. No further Critical or
 Major defect was found.
+
+---
+
+# Consensus and numeric-grammar closure (this commit)
+
+A further independent source review found three Major defects that every
+previous pass — including two adversarial sweeps over this exact code — had
+missed, plus an adjacent schema-parity gap.
+
+## C-01 — the comma grammar was too permissive
+
+The numeric body pattern was `\d[\d,]*`, accepting ANY arrangement of digits
+and commas, after which canonicalization stripped every comma. Structurally
+different source text therefore collapsed onto the same value:
+
+| Source | Canonicalized as | Same as |
+|---|---|---|
+| `1,2,3` | 123 | `123` |
+| `1,00` | 100 | `100` |
+| `12,34,567` | 1234567 | `1234567` |
+| `1,,000` | 1000 | `1000` |
+| `1234,567` | 1234567 | `1234567` |
+
+All of these established `same_proposition` with an unrelated clean integer.
+Comma-stripping is only meaning-preserving for genuine thousands grouping;
+anywhere else the comma is a separator, not decoration. This survived B-01
+and B-02 because both were about *arithmetic* and *representation* — neither
+questioned whether the lexer should have accepted the token in the first
+place.
+
+**Repair.** `_NUM_BODY` is now `(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?` —
+ungrouped digits, or correct thousands grouping, either optionally followed by
+a fraction. The grouped alternative is tried first so `1,234,567` matches
+whole rather than stranding after `1`. Malformed forms are no longer one
+numeric token: they split into separate numerals with the comma surviving as
+literal text, so they cannot be silently reflowed into a different clean
+integer either. Verified by exhaustive cross-product: **zero** collisions
+between 10 malformed forms and 9 clean integers.
+
+*Honest limitation:* two malformed forms can still equal each other when they
+reduce to the same token sequence (`1,00` and `1,0` both give `1 , 0`, because
+`00` and `0` are numerically equal — the same reason `007` == `7`). Neither
+can reach a clean integer, which is the invariant that actually gates a false
+Material Omission, so this is recorded rather than papered over.
+
+## C-02 — "auto-merge" was not consensus
+
+The grounding check accepted a gold annotation if it matched **any one**
+preserved proposal fingerprint. That is not agreement; it is evidence that a
+single annotator proposed it. Under that rule all of the following passed
+silently, each of which ADJUDICATION.md §3 explicitly escalates:
+
+- annotator A proposes X, annotator B proposes nothing, gold = X
+  (**presence disagreement**)
+- A says P2, B says P4 on the same span, gold = P2 (**pressure disagreement**)
+- A says `reporter`, B says `quoted_speaker`, gold = A (**voice disagreement**)
+
+The validator was, in effect, promoting one annotator's opinion to consensus
+gold and calling it §2 auto-merge.
+
+**Repair.** Proposals are now retained with their annotator, pressure and
+voice. `_auto_merge_span` implements the actual §2 contract: at least
+`MIN_ANNOTATORS` distinct annotators agreeing on mechanism, passage, pressure
+and voice, **every** pair clearing IoU ≥ 0.8, and the gold span equal to the
+intersection. Anything else falls through to "resolution required". The
+three-or-more-annotator policy is defined explicitly (agreeing set = all
+matching proposals; intersection over the whole set) rather than left
+ambiguous, and is tested.
+
+## C-03 — resolution decisions were under-constrained
+
+`decision: "merge"` with `proposalIds: []` grounded arbitrary gold with no
+proposal origin at all — a silent backdoor around `adjudicator_add`, which
+exists precisely to make that case explicit and attributable. Nothing
+constrained how many proposals or results any decision could carry, and
+`split` — which the protocol defines as producing *two* annotations — was
+represented by a **singular** `resultingAnnotationId` that structurally
+could not express it.
+
+**Repair.** `resultingAnnotationIds` is now an array; the singular key is
+rejected outright so an old-format record can never look grounded. Per-decision
+cardinality is enforced from one table (`RESOLUTION_CARDINALITY`), `merge`
+additionally requires proposals from ≥ 2 *distinct* annotators, and each gold
+annotation must be claimed by exactly one resolution. The real corpus is
+EMPTY, so this was migrated outright with no backwards-compatibility path —
+the safe moment to do it.
+
+## Schema parity
+
+`_schema.json` now carries `annotatorIds` `minItems: 2` / `uniqueItems`,
+per-decision `proposalIds` / `resultingAnnotationIds` cardinality as five
+`allOf` conditionals, `adjudicator_add`'s rationale requirement, and
+`additionalProperties: false` on structured records. A test asserts the
+schema's cardinality equals `RESOLUTION_CARDINALITY` field by field, so the
+two cannot drift.
+
+Parity is claimed for the **structural** contract only. The schema's own
+description now names the checks that remain Python-only — cross-reference
+resolution, id uniqueness, excerpt round-tripping, taxonomy membership,
+`merge`'s distinct-annotator rule, the auto-merge consensus computation, and
+exactly-once grounding — and states plainly that a schema-valid document is
+not necessarily a corpus-valid one.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| C-01 permissive `\d[\d,]*` grammar restored | **20 failures** |
+| C-02 any-single-proposal auto-merge restored | **6 failures** |
+| C-02 pressure dropped from auto-merge criteria | **2 failures** |
+| C-02 voice dropped from auto-merge criteria | **1 failure** |
+| C-03 `merge` accepts zero proposals | **2 failures** |
+| C-03 `split` accepts one result | **2 failures** |
+
+## Focused sweep
+
+Confined to the changed boundaries, as instructed. Auto-merge helper edge
+cases (degenerate spans, proposals with absent pressure/voice, one annotator
+listed twice, a third annotator whose span breaks the pairwise IoU bar) all
+fail closed to "adjudication required". Numeric identity re-verified: zero
+arbitrary-precision collisions at 30/50/100 digits across every scale word,
+huge presentation equivalents still match, and the new grammar introduces no
+backtracking pathology (100k-digit non-percent 0.005s; 20k-comma run 0.099s).
+No new Critical or Major defect was found in these boundaries.

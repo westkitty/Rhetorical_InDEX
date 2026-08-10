@@ -274,6 +274,113 @@ class A01ExactNumericIdentityTests(unittest.TestCase):
         self.assertLess(elapsed, 3.0, f"took {elapsed:.2f}s — regressed to quadratic behavior")
 
 
+class C01NumericCommaGrammarTests(unittest.TestCase):
+    """C-01: only genuine thousands grouping may have its commas stripped.
+
+    The old body pattern `\\d[\\d,]*` accepted any digit/comma arrangement and
+    then stripped every comma, so structurally different source text collapsed
+    onto the same number — "1,2,3" became 123, "1,00" became 100, "12,34,567"
+    became 1234567. A malformed or entirely different numeral could therefore
+    establish `same_proposition` with an unrelated clean integer.
+    """
+
+    MALFORMED_VS_CLEAN = (
+        ("digit-by-digit commas", "scores were 1,2,3", "scores were 123"),
+        ("two-digit group", "code 1,00", "code 100"),
+        ("lakh-style grouping", "value 12,34,567", "value 1234567"),
+        ("currency, digit-by-digit", "total $1,2,3", "total $123"),
+        ("percent, digit-by-digit", "rate 1,2,3%", "rate 123%"),
+        ("doubled comma", "count 1,,000", "count 1000"),
+        ("four-digit lead group", "n 1234,567", "n 1234567"),
+        ("leading comma", "x ,1000", "x 1000"),
+    )
+
+    WELL_FORMED_EQUIVALENT = (
+        ("thousands", "n 1,000", "n 1000"),
+        ("millions", "n 1,234,567", "n 1234567"),
+        ("currency vs scale word", "f $2,000,000", "f $2 million"),
+        ("percent", "r 12.0%", "r 12 percent"),
+        ("grouped with fraction", "d 1,234.50", "d 1234.5"),
+    )
+
+    def test_malformed_grouping_never_matches_a_clean_integer(self):
+        for label, malformed, clean in self.MALFORMED_VS_CLEAN:
+            with self.subTest(label):
+                self.assertFalse(
+                    propositions_are_identical(malformed, clean),
+                    f"{label}: {malformed!r} collapsed onto {clean!r}",
+                )
+
+    def test_well_formed_grouping_still_normalizes(self):
+        for label, a, b in self.WELL_FORMED_EQUIVALENT:
+            with self.subTest(label):
+                self.assertTrue(propositions_are_identical(a, b), f"{label}: {a!r} vs {b!r}")
+
+    def test_malformed_grouping_is_not_reflowed_into_one_clean_token(self):
+        """The comma must survive as literal text rather than being silently
+        dropped — otherwise a different reflowed integer could restore the same
+        false identity by another route."""
+        for malformed in ("1,2,3", "1,00", "12,34,567", "1,,000", "1234,567"):
+            with self.subTest(malformed):
+                key = canonical_identity_key(f"n {malformed}")
+                numeric = [t for t in key if t[0] != "text"]
+                commas = [t for t in key if t[0] == "text" and "," in t[1]]
+                self.assertGreater(len(numeric), 1, f"{malformed!r} became a single numeric token")
+                self.assertTrue(commas, f"{malformed!r} lost its comma entirely: {key}")
+
+    def test_no_malformed_form_collides_with_any_clean_integer(self):
+        """Exhaustive cross-product over the attack set: the security-relevant
+        invariant is that malformed text can never reach a CLEAN integer, which
+        is what would let it ground a false Material Omission."""
+        malformed = ("1,2,3", "1,00", "12,34,567", "1,,000", "1234,567", ",1000", "1,0", "0,1", "12,3", "1,2")
+        clean = ("1", "10", "100", "1000", "10000", "100000", "1234567", "0", "7")
+        for m in malformed:
+            for c in clean:
+                with self.subTest(malformed=m, clean=c):
+                    self.assertFalse(propositions_are_identical(f"n {m}", f"n {c}"))
+
+    def test_malformed_grouping_cannot_ground_an_omission_without_divergence(self):
+        """End to end, with detect_divergence forced to a no-op: the strict
+        grammar alone must refuse the false match."""
+        import services.comparison.claims as claims_module
+
+        original = claims_module.detect_divergence
+        claims_module.detect_divergence = lambda a, b: []
+        try:
+            comparison_set = ComparisonSet(
+                comparison_set_id="cs", target_article_id="art-sn",
+                member_article_ids=("art-tw", "art-pj"), provenance_kind="retrieved",
+                source_of_article={"art-tw": "techwire", "art-pj": "policy"},
+                dependencies=(SourceDependency(("techwire", "policy"), "independent_reporting", "High"),),
+            )
+            supporting = [
+                claim("f1", "the fund contains 1,2,3 units", "techwire", "art-tw"),
+                claim("f2", "the fund contains 1,2,3 units", "policy", "art-pj"),
+            ]
+            with self.assertRaises(OmissionRejection) as ctx:
+                evaluate_candidate_omission(
+                    comparison_set=comparison_set,
+                    candidate_proposition="the fund contains 123 units",
+                    supporting_claims=supporting,
+                    target_claims=[claim("ct", "the town budget passed", "sentinel", "art-sn")],
+                    dimension="Scale", target_published_at="2026-07-12T10:00:00Z",
+                    knowable_at="2026-07-10T09:00:00Z", rationale="x",
+                )
+            self.assertEqual(ctx.exception.gate, "presence_elsewhere")
+        finally:
+            claims_module.detect_divergence = original
+
+    def test_leading_zeros_remain_numeric_equality(self):
+        """Documented consequence, not a defect: leading zeros are presentation
+        only, so "007" == "7". This is why two malformed forms that reduce to
+        the same token sequence ("1,00" and "1,0" -> 1 , 0) compare equal to
+        each other — neither can reach a clean integer, which is the invariant
+        that actually matters."""
+        self.assertTrue(propositions_are_identical("n 007", "n 7"))
+        self.assertTrue(propositions_are_identical("n 1,00", "n 1,0"))
+        self.assertFalse(propositions_are_identical("n 1,00", "n 100"))
+
+
 class B01ArbitraryPrecisionScalingTests(unittest.TestCase):
     """B-01: Decimal scale multiplication must never round under the ambient
     context precision (28 significant digits by default), regardless of how
@@ -1146,7 +1253,13 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         )
         self.assertTrue(self._validate(doc).valid)
 
-    def test_one_finding_plus_one_zero_proposal_submission_is_valid(self):
+    def test_presence_disagreement_cannot_auto_merge(self):
+        """C-02: one annotator proposing a finding the other did NOT propose is
+        a presence disagreement (ADJUDICATION.md §3) and requires adjudication.
+
+        This previously passed: the grounding check accepted a gold annotation
+        that matched ANY ONE proposal fingerprint, which silently promoted a
+        single annotator's opinion to consensus gold."""
         annotation = self._annotation()
         doc = self._document(
             annotations=[annotation],
@@ -1155,7 +1268,26 @@ class M09CorpusIntegrityTests(unittest.TestCase):
                 self._submission("annotator-b", proposals=[]),
             ],
         )
-        self.assertTrue(self._validate(doc).valid)
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("no machine-readable provenance" in e for e in report.errors), report.errors)
+
+    def test_presence_disagreement_is_valid_once_adjudicated(self):
+        annotation = self._annotation()
+        doc = self._document(
+            annotations=[annotation],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[self._proposal("annotator-a", annotation)]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+            resolutions=[{
+                "decision": "uphold_a", "adjudicatorId": "adjudicator-c",
+                "proposalIds": ["p-annotator-a"],
+                "resultingAnnotationIds": [annotation["annotationId"]],
+            }],
+        )
+        report = self._validate(doc)
+        self.assertTrue(report.valid, report.errors)
 
     def test_unexplained_positive_gold_after_two_empty_submissions_is_rejected(self):
         """B-04: a gold annotation with no matching proposal and no resolution
@@ -1186,7 +1318,7 @@ class M09CorpusIntegrityTests(unittest.TestCase):
             resolutions=[{
                 "decision": "adjudicator_add",
                 "adjudicatorId": "adjudicator-c",
-                "resultingAnnotationId": annotation["annotationId"],
+                "resultingAnnotationIds": [annotation["annotationId"]],
                 "proposalIds": [],
                 "note": "Adjudicator independently identified this span during final review.",
             }],
@@ -1362,20 +1494,33 @@ class M09CorpusIntegrityTests(unittest.TestCase):
     def test_resolution_referencing_unknown_gold_annotation_is_rejected(self):
         doc = self._document(resolutions=[{
             "decision": "uphold_a", "adjudicatorId": "adjudicator-c",
-            "proposalIds": ["p-annotator-a"], "resultingAnnotationId": "ghost-annotation",
+            "proposalIds": ["p-annotator-a"], "resultingAnnotationIds": ["ghost-annotation"],
         }])
         report = self._validate(doc)
         self.assertFalse(report.valid)
-        self.assertTrue(any("does not reference an existing gold annotation" in e for e in report.errors))
+        self.assertTrue(any("references unknown gold annotation" in e for e in report.errors))
 
-    def test_drop_resolution_with_resulting_annotation_id_is_rejected(self):
+    def test_drop_resolution_with_a_resulting_annotation_is_rejected(self):
         doc = self._document(resolutions=[{
             "decision": "drop", "adjudicatorId": "adjudicator-c",
-            "proposalIds": ["p-annotator-b"], "resultingAnnotationId": "a1",
+            "proposalIds": ["p-annotator-b"], "resultingAnnotationIds": ["a1"],
         }])
         report = self._validate(doc)
         self.assertFalse(report.valid)
-        self.assertTrue(any("must not carry a resultingAnnotationId" in e for e in report.errors))
+        self.assertTrue(
+            any("allows at most 0 resulting gold" in e for e in report.errors), report.errors)
+
+    def test_removed_singular_resulting_annotation_id_is_rejected(self):
+        """C-03: the singular field cannot represent a `split`, which produces
+        more than one gold annotation. It is rejected outright rather than
+        silently ignored, so an old-format record can never look grounded."""
+        doc = self._document(resolutions=[{
+            "decision": "uphold_a", "adjudicatorId": "adjudicator-c",
+            "proposalIds": ["p-annotator-a"], "resultingAnnotationId": "a1",
+        }])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("removed singular" in e for e in report.errors), report.errors)
 
     def test_duplicate_resolution_id_is_rejected(self):
         doc = self._document(resolutions=[
@@ -1408,18 +1553,18 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         annotation = self._annotation()
         doc = self._document(annotations=[annotation], resolutions=[{
             "decision": "adjudicator_add", "adjudicatorId": "adjudicator-c",
-            "resultingAnnotationId": annotation["annotationId"],
+            "resultingAnnotationIds": [annotation["annotationId"]],
             "proposalIds": ["p-annotator-a"], "note": "should not claim a proposal origin",
         }])
         report = self._validate(doc)
         self.assertFalse(report.valid)
-        self.assertTrue(any("must have an empty proposalIds" in e for e in report.errors))
+        self.assertTrue(any("allows at most 0 proposalId" in e for e in report.errors), report.errors)
 
     def test_adjudicator_add_without_note_is_rejected(self):
         annotation = self._annotation()
         doc = self._document(annotations=[annotation], resolutions=[{
             "decision": "adjudicator_add", "adjudicatorId": "adjudicator-c",
-            "resultingAnnotationId": annotation["annotationId"], "proposalIds": [],
+            "resultingAnnotationIds": [annotation["annotationId"]], "proposalIds": [],
         }])
         report = self._validate(doc)
         self.assertFalse(report.valid)
@@ -1460,6 +1605,14 @@ class M09CorpusIntegrityTests(unittest.TestCase):
                     self._proposal("annotator-b", annotation_b, mechanismId="euphemism_dysphemism",
                                    pressure="P2", voiceClass="quoted_speaker")]),
             ],
+            # C-02: the annotators disagree on mechanism, pressure AND voice, so
+            # this is emphatically not an auto-merge — it needs an adjudicator
+            # decision, which is exactly what makes the disagreement recoverable.
+            resolutions=[{
+                "decision": "uphold_a", "adjudicatorId": "adjudicator-c",
+                "proposalIds": ["p-annotator-a"],
+                "resultingAnnotationIds": [annotation_a["annotationId"]],
+            }],
         )
         report = self._validate(doc)
         self.assertTrue(report.valid, report.errors)
@@ -1512,6 +1665,317 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         reports = validate_corpus(ROOT / "benchmarks" / "corpus")
         self.assertEqual([r for r in reports if r.scored], [],
                          "the repository benchmark corpus must remain EMPTY")
+
+
+class C02AutoMergeConsensusTests(unittest.TestCase):
+    """C-02: auto-merge without a resolution is TWO-ANNOTATOR CONSENSUS.
+
+    Gold matching one proposal fingerprint proves only that one annotator
+    proposed it. ADJUDICATION.md §2 requires agreement on mechanism, passage,
+    pressure and voice with span IoU >= 0.8, and §3 escalates everything else.
+    """
+
+    TEXT = "The council approved a draconian, reckless scheme on Tuesday."
+    SPAN = "draconian, reckless scheme"
+
+    def _p(self, who, **over):
+        start = self.TEXT.index(self.SPAN)
+        base = {
+            "proposalId": f"p-{who}", "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": start, "endChar": start + len(self.SPAN),
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def _a(self, **over):
+        start = self.TEXT.index(self.SPAN)
+        base = {
+            "annotationId": "a1", "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": start, "endChar": start + len(self.SPAN),
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def _doc(self, submissions, annotations, resolutions=None, annotator_ids=None):
+        doc = {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": annotator_ids or ["annotator-a", "annotator-b"],
+            "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.TEXT}],
+            "annotations": annotations,
+            "annotatorSubmissions": submissions,
+        }
+        if resolutions is not None:
+            doc["resolutions"] = resolutions
+        return doc
+
+    def _sub(self, who, proposals):
+        return {"submissionId": f"sub-{who}", "annotatorId": who, "proposals": proposals}
+
+    def _validate(self, document):
+        from validate_corpus import validate_document
+        return validate_document(document, path="t.json", expected_taxonomy=vocab.taxonomy_version())
+
+    def test_identical_proposals_from_two_annotators_auto_merge(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b")])],
+            [self._a()],
+        )
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_presence_disagreement_requires_adjudication(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [])],
+            [self._a()],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_pressure_disagreement_cannot_auto_merge(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a", pressure="P2")]),
+             self._sub("annotator-b", [self._p("annotator-b", pressure="P4")])],
+            [self._a(pressure="P2")],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_voice_disagreement_cannot_auto_merge(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a", voiceClass="reporter")]),
+             self._sub("annotator-b", [self._p("annotator-b", voiceClass="quoted_speaker")])],
+            [self._a()],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_mechanism_disagreement_cannot_auto_merge(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b", mechanismId="presupposition")])],
+            [self._a()],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_iou_above_threshold_merges_to_the_intersection(self):
+        end = self.TEXT.index(self.SPAN) + len(self.SPAN)
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b", endChar=end + 3)])],
+            [self._a()],  # gold == intersection == annotator-a's narrower span
+        )
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_gold_that_is_not_the_intersection_is_rejected(self):
+        end = self.TEXT.index(self.SPAN) + len(self.SPAN)
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b", endChar=end + 3)])],
+            [self._a(endChar=end + 3)],  # gold == the WIDER span, not the intersection
+        )
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("intersection" in e for e in report.errors), report.errors)
+
+    def test_iou_below_threshold_cannot_auto_merge(self):
+        end = self.TEXT.index(self.SPAN) + len(self.SPAN)
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b", endChar=end + 30)])],
+            [self._a()],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_only_one_preserved_proposal_cannot_auto_merge(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [])],
+            [self._a()],
+        )
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_three_annotator_consensus_uses_intersection_over_all(self):
+        """Explicit policy for >2 annotators: every matching proposal joins the
+        agreeing set, all pairs must clear the IoU bar, and the merged span is
+        the intersection over the whole set."""
+        start = self.TEXT.index(self.SPAN)
+        end = start + len(self.SPAN)
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("annotator-a")]),
+             self._sub("annotator-b", [self._p("annotator-b", endChar=end + 2)]),
+             self._sub("annotator-c", [self._p("annotator-c", startChar=start - 1)])],
+            [self._a()],  # intersection: max start, min end -> annotator-a's span
+            annotator_ids=["annotator-a", "annotator-b", "annotator-c"],
+        )
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_span_iou_helper_is_correct(self):
+        from validate_corpus import _span_iou
+
+        self.assertEqual(_span_iou((0, 10), (0, 10)), 1.0)
+        self.assertEqual(_span_iou((0, 10), (10, 20)), 0.0)   # touching, no overlap
+        self.assertEqual(_span_iou((0, 10), (20, 30)), 0.0)   # disjoint
+        self.assertAlmostEqual(_span_iou((0, 10), (0, 20)), 0.5)
+
+
+class C03ResolutionCardinalityTests(unittest.TestCase):
+    """C-03: each decision has a deterministic proposal/result cardinality.
+
+    Without this, `merge` with an empty `proposalIds` grounded arbitrary gold
+    with no proposal origin — a silent backdoor around `adjudicator_add`.
+    """
+
+    def _validate(self, document):
+        from validate_corpus import validate_document
+        return validate_document(document, path="t.json", expected_taxonomy=vocab.taxonomy_version())
+
+    TEXT = "The council approved a draconian, reckless scheme on Tuesday."
+    SPAN = "draconian, reckless scheme"
+
+    def _p(self, pid, **over):
+        start = self.TEXT.index(self.SPAN)
+        base = {
+            "proposalId": pid, "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": start, "endChar": start + len(self.SPAN),
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def _a(self, aid="a1", **over):
+        start = self.TEXT.index(self.SPAN)
+        base = {
+            "annotationId": aid, "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": start, "endChar": start + len(self.SPAN),
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def _doc(self, submissions, annotations, resolutions):
+        return {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": ["annotator-a", "annotator-b"],
+            "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.TEXT}],
+            "annotations": annotations,
+            "annotatorSubmissions": submissions,
+            "resolutions": resolutions,
+        }
+
+    def _sub(self, who, proposals):
+        return {"submissionId": f"sub-{who}", "annotatorId": who, "proposals": proposals}
+
+    def _both_empty(self):
+        return [self._sub("annotator-a", []), self._sub("annotator-b", [])]
+
+    def _one_each(self):
+        return [self._sub("annotator-a", [self._p("p1")]),
+                self._sub("annotator-b", [self._p("p2")])]
+
+    def test_merge_with_empty_proposal_ids_is_rejected(self):
+        doc = self._doc(self._both_empty(), [self._a()], [{
+            "decision": "merge", "adjudicatorId": "c",
+            "proposalIds": [], "resultingAnnotationIds": ["a1"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("requires at least 2 proposalId" in e for e in report.errors), report.errors)
+
+    def test_uphold_with_empty_proposal_ids_is_rejected(self):
+        doc = self._doc(self._both_empty(), [self._a()], [{
+            "decision": "uphold_a", "adjudicatorId": "c",
+            "proposalIds": [], "resultingAnnotationIds": ["a1"]}])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_drop_with_empty_proposal_ids_is_rejected(self):
+        doc = self._doc(self._both_empty(), [], [{
+            "decision": "drop", "adjudicatorId": "c",
+            "proposalIds": [], "resultingAnnotationIds": []}])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_merge_from_a_single_annotator_is_rejected(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("p1"), self._p("p2", startChar=4, endChar=11)]),
+             self._sub("annotator-b", [])],
+            [self._a()],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("distinct annotator" in e for e in report.errors), report.errors)
+
+    def test_valid_merge_from_two_annotators(self):
+        doc = self._doc(self._one_each(), [self._a()], [{
+            "decision": "merge", "adjudicatorId": "c",
+            "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_split_with_one_result_is_rejected(self):
+        doc = self._doc(self._one_each(), [self._a()], [{
+            "decision": "split", "adjudicatorId": "c",
+            "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("requires at least 2 resulting" in e for e in report.errors), report.errors)
+
+    def test_split_with_zero_results_is_rejected(self):
+        doc = self._doc(self._one_each(), [self._a()], [{
+            "decision": "split", "adjudicatorId": "c",
+            "proposalIds": ["p1"], "resultingAnnotationIds": []}])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_valid_split_produces_two_gold_annotations(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("p1")]), self._sub("annotator-b", [])],
+            [self._a(), self._a(aid="a2", startChar=4, endChar=11)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_valid_drop_grounds_nothing(self):
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("p1")]), self._sub("annotator-b", [])],
+            [],
+            [{"decision": "drop", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": []}])
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_valid_adjudicator_add(self):
+        doc = self._doc(self._both_empty(), [self._a()], [{
+            "decision": "adjudicator_add", "adjudicatorId": "c", "proposalIds": [],
+            "resultingAnnotationIds": ["a1"], "note": "adjudicator saw it on final review"}])
+        self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
+
+    def test_two_resolutions_cannot_claim_the_same_gold_annotation(self):
+        doc = self._doc(self._one_each(), [self._a()], [
+            {"decision": "uphold_a", "adjudicatorId": "c",
+             "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]},
+            {"decision": "uphold_b", "adjudicatorId": "c",
+             "proposalIds": ["p2"], "resultingAnnotationIds": ["a1"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("claimed by 2 resolutions" in e for e in report.errors), report.errors)
+
+    def test_duplicate_ids_within_one_resolution_are_rejected(self):
+        doc = self._doc(self._one_each(), [self._a(), self._a(aid="a2", startChar=4, endChar=11)], [{
+            "decision": "split", "adjudicatorId": "c",
+            "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a1"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("more than once" in e for e in report.errors), report.errors)
+
+    def test_cardinality_table_covers_every_gold_producing_decision(self):
+        from validate_corpus import RESOLUTION_CARDINALITY, VALID_RESOLUTION_DECISIONS
+
+        # `unresolvable` is rejected outright in an adjudicated document, so it
+        # deliberately has no cardinality entry.
+        self.assertEqual(
+            set(RESOLUTION_CARDINALITY) | {"unresolvable"}, VALID_RESOLUTION_DECISIONS)
 
 
 class B05SchemaParityTests(unittest.TestCase):
@@ -1592,3 +2056,64 @@ class B05SchemaParityTests(unittest.TestCase):
         )
         for field_name in required:
             self.assertIn(field_name, example, f"worked example is missing {field_name!r}")
+
+    # ---- C-03 / schema-parity additions ----
+
+    def _resolution_item(self):
+        return self.schema["properties"]["resolutions"]["items"]
+
+    def _conditional_for(self, decision):
+        for block in self._resolution_item()["allOf"]:
+            spec = block.get("if", {}).get("properties", {}).get("decision", {})
+            if spec.get("const") == decision or decision in spec.get("enum", []):
+                return block["then"]["properties"]
+        self.fail(f"no schema conditional for decision {decision!r}")
+
+    def test_schema_resolution_cardinality_matches_the_python_table(self):
+        """Every decision's proposalIds/resultingAnnotationIds bounds in the
+        schema must equal RESOLUTION_CARDINALITY, so the two contracts cannot
+        drift apart silently."""
+        from validate_corpus import RESOLUTION_CARDINALITY
+
+        for decision, (min_p, max_p, min_r, max_r) in RESOLUTION_CARDINALITY.items():
+            with self.subTest(decision):
+                then = self._conditional_for(decision)
+                proposals, results = then["proposalIds"], then["resultingAnnotationIds"]
+                self.assertEqual(proposals.get("minItems", 0), min_p, f"{decision} proposal minItems")
+                self.assertEqual(proposals.get("maxItems"), max_p, f"{decision} proposal maxItems")
+                self.assertEqual(results.get("minItems", 0), min_r, f"{decision} result minItems")
+                self.assertEqual(results.get("maxItems"), max_r, f"{decision} result maxItems")
+
+    def test_schema_requires_resulting_annotation_ids_array_not_the_singular_field(self):
+        item = self._resolution_item()
+        self.assertIn("resultingAnnotationIds", item["required"])
+        self.assertEqual(item["properties"]["resultingAnnotationIds"]["type"], "array")
+        self.assertNotIn(
+            "resultingAnnotationId", item["properties"],
+            "the removed singular field must not reappear — it cannot represent a split",
+        )
+
+    def test_schema_requires_two_unique_annotator_ids(self):
+        from validate_corpus import MIN_ANNOTATORS
+
+        annotator_ids = self.schema["properties"]["annotatorIds"]
+        self.assertEqual(annotator_ids["minItems"], MIN_ANNOTATORS)
+        self.assertTrue(annotator_ids["uniqueItems"])
+        self.assertEqual(annotator_ids["items"]["minLength"], 1)
+
+    def test_schema_adjudicator_add_requires_a_rationale(self):
+        for block in self._resolution_item()["allOf"]:
+            if block.get("if", {}).get("properties", {}).get("decision", {}).get("const") == "adjudicator_add":
+                required_one_of = {
+                    tuple(option["required"]) for option in block["then"]["anyOf"]
+                }
+                self.assertEqual(required_one_of, {("note",), ("rationale",)})
+                return
+        self.fail("no adjudicator_add conditional in the schema")
+
+    def test_schema_documents_the_python_only_semantic_boundary(self):
+        """Parity is claimed only for the STRUCTURAL contract. The schema must
+        say so rather than implying a schema-valid document is corpus-valid."""
+        description = self.schema["description"]
+        self.assertIn("SCHEMA/VALIDATOR BOUNDARY", description)
+        self.assertIn("NOT necessarily a valid corpus document", description)
