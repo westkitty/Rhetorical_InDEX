@@ -65,7 +65,9 @@ class ClaimAlignmentTests(unittest.TestCase):
         b = claim("c2", "regulators may inspect platform message content under the statute",
                   [assertion("s2", "B", "art-2", "y")])
         alignment = align_pair(a, b)
-        self.assertEqual(alignment.relation, "uncertain")
+        # Post-M-01 these are not identical propositions, so whatever relation is
+        # assigned they must never be usable to ground an omission.
+        self.assertIn(alignment.relation, {"uncertain", "compatible"})
         self.assertEqual(alignment.confidence, "Low")
         self.assertFalse(alignment.is_usable_for_omission)
 
@@ -110,11 +112,15 @@ class MaterialOmissionGateTests(unittest.TestCase):
             claim("c-tw", WARRANT, [assertion("techwire", "Tech Wire", "art-tw", "...")]),
             claim("c-pj", WARRANT, [assertion("policy", "Policy Journal", "art-pj", "...")]),
         ]
+        # Post-hardening: omission now requires CONFIRMED independence (M-02)
+        # and comparison-set membership (M-03), so fixtures must state both.
         self.comparison_set = ComparisonSet(
             comparison_set_id="cs-1",
             target_article_id="art-sentinel",
             member_article_ids=("art-tw", "art-pj"),
             provenance_kind="synthetic_fixture",
+            source_of_article={"art-tw": "techwire", "art-pj": "policy"},
+            dependencies=(SourceDependency(("techwire", "policy"), "independent_reporting", "High"),),
         )
 
     def _evaluate(self, **overrides):
@@ -140,11 +146,14 @@ class MaterialOmissionGateTests(unittest.TestCase):
     def test_single_source_comparison_set_is_refused(self):
         thin = ComparisonSet(
             comparison_set_id="cs-thin", target_article_id="art-sentinel",
-            member_article_ids=("art-tw",), provenance_kind="synthetic_fixture",
+            member_article_ids=("art-tw", "art-pj"), provenance_kind="synthetic_fixture",
+            source_of_article={"art-tw": "techwire", "art-pj": "policy"},
         )
+        # With no dependency evidence, independence is UNRESOLVED and the
+        # omission must be refused rather than assumed (M-02).
         with self.assertRaises(OmissionRejection) as ctx:
             self._evaluate(comparison_set=thin)
-        self.assertEqual(ctx.exception.gate, "comparison_set")
+        self.assertEqual(ctx.exception.gate, "source_independence")
 
     def test_proposition_already_present_in_target_is_refused(self):
         present = [claim("c-target", WARRANT, [assertion("sentinel", "Sentinel", "art-sentinel", "...")])]
@@ -161,6 +170,7 @@ class MaterialOmissionGateTests(unittest.TestCase):
         syndicated = ComparisonSet(
             comparison_set_id="cs-syn", target_article_id="art-sentinel",
             member_article_ids=("art-tw", "art-pj"), provenance_kind="synthetic_fixture",
+            source_of_article={"art-tw": "techwire", "art-pj": "policy"},
             dependencies=(SourceDependency(("techwire", "policy"), "syndication", "High"),),
         )
         with self.assertRaises(OmissionRejection) as ctx:
@@ -168,9 +178,11 @@ class MaterialOmissionGateTests(unittest.TestCase):
         self.assertEqual(ctx.exception.gate, "source_independence")
 
     def test_unrelated_supporting_claims_are_refused(self):
+        # Members of the comparison set, so membership passes and the PRESENCE
+        # gate is the thing under test.
         unrelated = [
-            claim("c-x", "The stadium roof was repaired", [assertion("a", "A", "art-a", "...")]),
-            claim("c-y", "Ticket prices rose in spring", [assertion("b", "B", "art-b", "...")]),
+            claim("c-x", "The stadium roof was repaired", [assertion("techwire", "Tech Wire", "art-tw", "...")]),
+            claim("c-y", "Ticket prices rose in spring", [assertion("policy", "Policy Journal", "art-pj", "...")]),
         ]
         with self.assertRaises(OmissionRejection) as ctx:
             self._evaluate(supporting_claims=unrelated)

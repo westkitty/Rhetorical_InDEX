@@ -81,6 +81,108 @@ def independent_source_count(
     return len({find(source_id) for source_id in unique})
 
 
+@dataclass(frozen=True)
+class IndependenceAssessment:
+    """Tri-state independence: confirmed / dependent / unresolved.
+
+    Review finding M-02: counting distinct source ids as independent origins
+    silently converts *absence of dependency data* into *evidence of
+    independence*. It is not. A pair is only confirmed independent when an
+    explicit `independent_reporting` link asserts it; otherwise it is
+    unresolved, and unresolved must never satisfy a hard corroboration gate.
+    """
+
+    source_ids: tuple[str, ...]
+    origin_count: int
+    confirmed_independent_pairs: tuple[tuple[str, str], ...]
+    dependent_pairs: tuple[tuple[str, str], ...]
+    unresolved_pairs: tuple[tuple[str, str], ...]
+
+    @property
+    def confirmed_independent_count(self) -> int:
+        """Sources provable to be mutually independent.
+
+        Returns the size of the largest set of sources in which EVERY pair is
+        explicitly confirmed independent. Anything unresolved is excluded, so
+        this number can only be earned, never assumed.
+        """
+        if len(self.source_ids) < 2:
+            return len(self.source_ids)
+        confirmed = {frozenset(p) for p in self.confirmed_independent_pairs}
+        best = 1
+        # Source sets here are tiny (a comparison set of articles); exhaustive
+        # clique search is both adequate and deterministic.
+        from itertools import combinations
+        for size in range(len(self.source_ids), 1, -1):
+            for group in combinations(sorted(self.source_ids), size):
+                if all(frozenset(pair) in confirmed for pair in combinations(group, 2)):
+                    return size
+            if size <= best:
+                break
+        return best
+
+    @property
+    def has_unresolved(self) -> bool:
+        return bool(self.unresolved_pairs)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "sourceIds": list(self.source_ids),
+            "originCount": self.origin_count,
+            "confirmedIndependentCount": self.confirmed_independent_count,
+            "confirmedIndependentPairs": [list(p) for p in self.confirmed_independent_pairs],
+            "dependentPairs": [list(p) for p in self.dependent_pairs],
+            "unresolvedPairs": [list(p) for p in self.unresolved_pairs],
+            "note": (
+                "Independence is never inferred from the absence of dependency data. "
+                "Unresolved pairs are reported as unresolved and do not count toward "
+                "confirmed independence."
+            ),
+        }
+
+
+def assess_independence(
+    source_ids: Sequence[str], dependencies: Iterable[SourceDependency]
+) -> IndependenceAssessment:
+    """Classify every source pair as confirmed-independent, dependent, or unresolved."""
+    from itertools import combinations
+
+    unique = tuple(dict.fromkeys(source_ids))
+    dependency_list = list(dependencies)
+
+    confirmed: list[tuple[str, str]] = []
+    dependent: list[tuple[str, str]] = []
+    unresolved: list[tuple[str, str]] = []
+
+    def _lookup(a: str, b: str) -> SourceDependency | None:
+        for dependency in dependency_list:
+            if set(dependency.source_pair) == {a, b}:
+                return dependency
+        return None
+
+    for a, b in combinations(unique, 2):
+        dependency = _lookup(a, b)
+        if dependency is None:
+            unresolved.append((a, b))
+        elif dependency.collapses_origins:
+            dependent.append((a, b))
+        elif dependency.relationship_type == "independent_reporting" and \
+                vocab.confidence_rank(dependency.confidence) >= 2:
+            confirmed.append((a, b))
+        else:
+            # `unknown`, or independent_reporting asserted only at Low
+            # confidence, is not good enough to be called independence.
+            unresolved.append((a, b))
+
+    return IndependenceAssessment(
+        source_ids=unique,
+        origin_count=independent_source_count(unique, dependency_list),
+        confirmed_independent_pairs=tuple(confirmed),
+        dependent_pairs=tuple(dependent),
+        unresolved_pairs=tuple(unresolved),
+    )
+
+
 def describe_independence(
     source_ids: Sequence[str], dependencies: Iterable[SourceDependency]
 ) -> dict[str, Any]:

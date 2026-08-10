@@ -27,14 +27,44 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Iterable, Sequence
 
 from services.rhetoric import vocabulary as vocab
 
 from .claims import Claim, ClaimAlignment, align_pair
-from .dependence import SourceDependency, independent_source_count
+from .dependence import (
+    IndependenceAssessment,
+    SourceDependency,
+    assess_independence,
+    independent_source_count,
+)
 
 MIN_SUPPORTING_SOURCES = 2
+
+
+def parse_instant(value: Any, *, field: str) -> datetime:
+    """Strict timezone-aware ISO-8601 parsing (review finding M-04).
+
+    String comparison of timestamps is unsafe across offsets:
+    ``2026-07-10T09:00:00-05:00`` is 14:00Z and therefore LATER than
+    ``2026-07-10T13:00:00Z``, yet compares lexically earlier. Naive timestamps
+    are rejected rather than assumed to be UTC — guessing a timezone is exactly
+    the kind of silent assumption this gate exists to prevent.
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise OmissionRejection("chronology", f"{field} must be a non-empty ISO-8601 string")
+    text = value.strip()
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00") if text.endswith("Z") else text)
+    except ValueError as exc:
+        raise OmissionRejection("chronology", f"{field} is not valid ISO-8601: {value!r} ({exc})") from exc
+    if parsed.tzinfo is None or parsed.tzinfo.utcoffset(parsed) is None:
+        raise OmissionRejection(
+            "chronology",
+            f"{field} is timezone-naive ({value!r}); an explicit offset or Z is required",
+        )
+    return parsed.astimezone(timezone.utc)
 
 
 class OmissionRejection(ValueError):
@@ -148,6 +178,40 @@ def evaluate_candidate_omission(
     """Evaluate one candidate omission against every gate. Raises on refusal."""
     notes: list[str] = []
 
+    # Gate 0 (M-03) — every supporting assertion must actually belong to this
+    # ComparisonSet. Without this, a set over A/B can be "grounded" by claims
+    # injected from unrelated articles X/Y.
+    members = set(comparison_set.member_article_ids)
+    for claim in supporting_claims:
+        for assertion in claim.source_assertions:
+            if assertion.article_id == comparison_set.target_article_id:
+                raise OmissionRejection(
+                    "comparison_set_membership",
+                    f"supporting claim {claim.claim_id!r} cites the target article "
+                    f"{assertion.article_id!r}; the target cannot corroborate its own omission",
+                )
+            if assertion.article_id not in members:
+                raise OmissionRejection(
+                    "comparison_set_membership",
+                    f"supporting claim {claim.claim_id!r} cites article {assertion.article_id!r}, "
+                    f"which is not a member of comparison set {comparison_set.comparison_set_id!r}",
+                )
+            expected_source = comparison_set.source_of_article.get(assertion.article_id)
+            if expected_source is not None and expected_source != assertion.source_id:
+                raise OmissionRejection(
+                    "comparison_set_membership",
+                    f"article {assertion.article_id!r} is mapped to source {expected_source!r} "
+                    f"but the assertion claims source {assertion.source_id!r}",
+                )
+    for claim in target_claims:
+        for assertion in claim.source_assertions:
+            if assertion.article_id != comparison_set.target_article_id:
+                raise OmissionRejection(
+                    "comparison_set_membership",
+                    f"target claim {claim.claim_id!r} cites article {assertion.article_id!r}, "
+                    f"which is not the target article {comparison_set.target_article_id!r}",
+                )
+
     # Gate 1 — a real comparison set must exist.
     if comparison_set.peer_count < MIN_SUPPORTING_SOURCES:
         raise OmissionRejection(
@@ -236,26 +300,34 @@ def evaluate_candidate_omission(
             )
 
     # Gate 4 — later developments are not omissions.
-    if knowable_at > target_published_at:
+    knowable_instant = parse_instant(knowable_at, field="knowableAt")
+    published_instant = parse_instant(target_published_at, field="targetPublishedAt")
+    if knowable_instant > published_instant:
         raise OmissionRejection(
             "chronology",
-            f"fact became knowable at {knowable_at}, after target publication "
-            f"at {target_published_at}; this is a later development, not an omission",
+            f"fact became knowable at {knowable_instant.isoformat()}, after target publication "
+            f"at {published_instant.isoformat()}; this is a later development, not an omission",
         )
 
     # Gate 5 — syndicated duplicates are not independent corroboration.
-    independent = independent_source_count(supporting_source_ids, comparison_set.dependencies)
-    if independent < MIN_SUPPORTING_SOURCES:
+    assessment: IndependenceAssessment = assess_independence(
+        supporting_source_ids, comparison_set.dependencies
+    )
+    if assessment.dependent_pairs:
         raise OmissionRejection(
             "source_independence",
-            f"{len(supporting_source_ids)} supporting sources reduce to {independent} "
-            "independent origin(s) once syndication/shared-source links are applied",
+            f"supporting sources include dependent pairs {[list(p) for p in assessment.dependent_pairs]}; "
+            "syndicated or shared-origin reports are not independent corroboration",
         )
-    if independent < len(supporting_source_ids):
-        notes.append(
-            f"{len(supporting_source_ids)} supporting sources reduce to {independent} "
-            "independent origins; corroboration is weaker than the raw count suggests."
+    if assessment.confirmed_independent_count < MIN_SUPPORTING_SOURCES:
+        raise OmissionRejection(
+            "source_independence",
+            f"only {assessment.confirmed_independent_count} source(s) are CONFIRMED mutually "
+            f"independent (need {MIN_SUPPORTING_SOURCES}); unresolved pairs "
+            f"{[list(p) for p in assessment.unresolved_pairs]} are not evidence of independence. "
+            "Independence must be asserted explicitly, never inferred from missing data",
         )
+    independent = assessment.confirmed_independent_count
 
     # Confidence is capped by the weakest alignment in the grounding chain.
     weakest_alignment = _cap_confidence(*(a.confidence for a in presence_alignments))

@@ -16,8 +16,12 @@ from dataclasses import dataclass
 
 from .document import Passage
 
-_OPEN_QUOTES = "\"“‟"
-_CLOSE_QUOTES = "\"”"
+# O-10: curly single quotes are quotation marks; the right single mark is ALSO
+# the apostrophe. Because the scanner only looks for a closing mark once a
+# quote is open, a bare apostrophe in "council's" can never open a region and
+# is therefore never mistaken for quoted speech.
+_OPEN_QUOTES = "\"“‟‘"
+_CLOSE_QUOTES = "\"”’"
 _ATTRIBUTION = re.compile(
     r"\b(?:said|says|told|stated|according to|wrote|argued|claimed|added|noted|testified)\b",
     re.IGNORECASE,

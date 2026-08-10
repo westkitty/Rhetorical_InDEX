@@ -250,6 +250,66 @@ def describe(divergences: Iterable[Divergence]) -> str:
     return "; ".join(f"{d.kind}: {d.detail}" for d in items)
 
 
+def canonical_proposition(text: str) -> str:
+    """Normalize a proposition for EXACT identity comparison.
+
+    Used by the propositional-identity gate (review finding M-01). Normalizes
+    only presentation-level variation that cannot change meaning:
+
+      * case, unicode form, whitespace, terminal punctuation
+      * numeric surface form — ``12%`` / ``12 percent`` -> ``«percent:12»``,
+        ``$2 million`` / ``$2,000,000`` -> ``«currency:2000000»``,
+        ``1,000`` / ``1000`` -> ``«num:1000»``
+
+    Word ORDER is deliberately preserved, because order carries semantic role:
+    "injured 12 and killed 40" and "injured 40 and killed 12" contain identical
+    tokens and opposite meanings. Any bag-of-words comparison is blind to that,
+    which is exactly how M-01 let contradictions ground an omission.
+    """
+    import unicodedata
+
+    text = unicodedata.normalize("NFC", text)
+
+    # Canonicalize numerics before lowercasing so scale words match reliably.
+    def _currency(match: re.Match) -> str:
+        value = float(_strip_commas(match.group("value")))
+        scale = match.group("scale")
+        if scale:
+            value *= _SCALE[scale.lower()]
+        return f" «currency:{value:g}» "
+
+    def _percent(match: re.Match) -> str:
+        return f" «percent:{float(_strip_commas(match.group('value'))):g}» "
+
+    def _plain(match: re.Match) -> str:
+        value = float(_strip_commas(match.group("value")))
+        scale = match.group("scale")
+        if scale:
+            value *= _SCALE[scale.lower()]
+        return f" «num:{value:g}» "
+
+    text = _NUM_CURRENCY.sub(_currency, text)
+    text = _NUM_PERCENT.sub(_percent, text)
+    text = _NUM_PLAIN.sub(_plain, text)
+
+    text = text.lower()
+    text = re.sub(r"[‘’]", "'", text)
+    text = re.sub(r"[“”]", '"', text)
+    text = re.sub(r"[.,;:!?]+\s*$", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def propositions_are_identical(a: str, b: str) -> bool:
+    """Whether two propositions are the SAME proposition.
+
+    This is the only affirmative identity signal in the system. It is
+    deliberately strict: absence of detected divergence is NOT evidence of
+    identity, so nothing else may assert `same_proposition`.
+    """
+    return canonical_proposition(a) == canonical_proposition(b)
+
+
 def supported_checks() -> dict[str, Any]:
     """Inspectable description of what this module can and cannot catch."""
     return {

@@ -229,3 +229,97 @@ genuine-omission positive control still passes.
   `test_equivalent_value_written_differently_fails_closed`.
 - **P4 + Low confidence is not reachable** in the current heuristic provider
   (`Z-35`, UNVERIFIED). Recorded rather than forced with contrived input.
+
+---
+
+# Pre-calibration hardening pass
+
+A post-merge source audit raised 15 Major (M-01 … M-15) and 11 Moderate
+(O-01 … O-11) findings. All were reproduced with executable tests before repair.
+
+## The central defect: M-01
+
+`align_pair` treated *high lexical overlap with no detected divergence* as
+`same_proposition`, which was usable to ground a Material Omission. Because
+Jaccard is a bag of words, it cannot see semantic role — five of six
+contradictory pairs were usable, including:
+
+| A | B | Old result |
+|---|---|---|
+| "…treatment **caused** infertility…" | "…treatment **prevented** infertility…" | `same_proposition`, usable |
+| "injured **12** and killed **40**" | "injured **40** and killed **12**" | `same_proposition`, usable |
+| "moved **from Tuesday to Thursday**" | "moved **from Thursday to Tuesday**" | `same_proposition`, usable |
+| "the **company** sued the **regulator**" | "the **regulator** sued the **company**" | `same_proposition`, usable |
+| "platforms **must** retain metadata" | "platforms **may** retain metadata" | `same_proposition`, usable |
+
+Extending an antonym list could never fix this: the number and time cases have
+*identical token sets*.
+
+**Repair.** `same_proposition` now requires **exact identity after
+presentation-level normalization** (`divergence.canonical_proposition`): case,
+unicode, whitespace, terminal punctuation and numeric surface form only. Word
+order is preserved because order carries role. Everything else is at most
+`compatible` and is never usable. Divergence detection still runs, but is no
+longer load-bearing for identity — it downgrades further, never upgrades.
+
+Cost: paraphrase no longer grounds omissions. Accepted deliberately.
+
+## All findings
+
+| ID | Status | Repair |
+|---|---|---|
+| M-01 | CLOSED | Exact normalized propositional identity; divergence demoted to a downgrade-only signal |
+| M-02 | CLOSED | Tri-state `assess_independence`; omission requires CONFIRMED mutual independence |
+| M-03 | CLOSED | Supporting/target claims must belong to the exact ComparisonSet; source/article mapping enforced |
+| M-04 | CLOSED | `parse_instant` — timezone-aware ISO-8601, naive and malformed rejected |
+| M-05 | CLOSED | `reportable_state(confidence, applies)`; only `applies=="yes"` can confirm |
+| M-06 | CLOSED | Criteria must be verbatim members of the mechanism's taxonomy record; strict array/number parsing; one canonical semantic validator |
+| M-07 | CLOSED | Relation confidence caps claim state |
+| M-08 | CLOSED | Corroboration counts distinct evidence items, never relation rows |
+| M-09 | CLOSED | `benchmarks/scripts/validate_corpus.py`; invalid adjudicated files are FATAL |
+| M-10 | CLOSED | Taxonomy corrected (quoted speech is not an exclusion) + version bump to `1.1.0-alpha0` |
+| M-11 | CLOSED | `voiceClass` now blocks auto-merge |
+| M-12 | CLOSED | `annotatorSubmissions[]` / `annotations[]` / `resolutions[]` preserve original positions |
+| M-13 | CLOSED | Parity claim rescoped to *controlled vocabulary*; domain-shape divergence documented |
+| M-14 | CLOSED | Pressure scorer reconciled with the taxonomy rubric; every example is a golden test |
+| M-15 | CLOSED | Level 2 derives voice from quotation structure instead of hardcoding `reporter` |
+| O-01 | CLOSED | Bounded genuine-binary exclusion |
+| O-02 | CLOSED | Change-of-state presupposition path was dead; provider now fires the taxonomy criterion that names it |
+| O-03 | CLOSED | Level 2 irregular participles + temporal-`by` parity |
+| O-04 | CLOSED | Zero findings reports no peak, not P1 |
+| O-05 | CLOSED | Maximum-cardinality matching; order-independent metrics |
+| O-06 | CLOSED | Run id covers taxonomy + provider version |
+| O-07 | CLOSED | Article identity separated from content identity |
+| O-08 | CLOSED | Batch status tracks passage outcomes, not finding count |
+| O-09 | CLOSED | Provider faults attributed by call site, not filename |
+| O-10 | CLOSED | Curly single quotes handled; apostrophes unaffected |
+| O-11 | CLOSED | Exclusion signals are candidate-local (enclosing sentence) |
+| QA infra | CLOSED | `runtime_qa.py` portable browser discovery; accurate failure message |
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| M-01 identity gate accepts high overlap | **9 failures** |
+| M-02 unknown counted as independent | **4 failures** |
+| M-03 comparison-set membership disabled | **1 failure** |
+| M-04 string chronology restored | **1 failure + 1 error** |
+| M-05 uncertain may confirm | **5 failures** |
+| M-06 arbitrary criteria accepted | **3 failures** |
+| M-09 corpus span round-trip disabled | **2 failures** |
+| M-09 stale-taxonomy rejection disabled | **1 failure** |
+| M-09 voiceClass requirement disabled | **2 failures** |
+| M-09 two-annotator requirement disabled | **1 failure** |
+
+The first run of the corpus mutations (before the validator had test coverage)
+left the suite green. That gap was found by mutation testing, not by review, and
+16 corpus-integrity tests were added in response.
+
+## Second sweep
+
+Attacked after the repairs, as if by someone else: normalization collapse
+(only terminal punctuation, which is in scope), omission provenance (0 of 5
+contradictory pairs could credit a source), span integrity under hostile HTML,
+coverage honesty under partial failure, taxonomy/implementation drift, benchmark
+order-independence, calibration language, artifact reproducibility, and network
+/ secret introduction. **No new Critical or Major defect was found.**

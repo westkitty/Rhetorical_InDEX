@@ -17,7 +17,13 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from services.comparison import Claim, ComparisonSet, SourceAssertion, align_pair  # noqa: E402
+from services.comparison import (  # noqa: E402
+    Claim,
+    ComparisonSet,
+    SourceAssertion,
+    SourceDependency,
+    align_pair,
+)
 from services.comparison.divergence import detect_divergence  # noqa: E402
 from services.comparison.omission import (  # noqa: E402
     OmissionRejection,
@@ -172,17 +178,19 @@ class AlignmentClosureTests(unittest.TestCase):
             "only same_proposition may ground an omission",
         )
 
-    def test_equivalent_value_written_differently_fails_closed(self):
-        """Accepted conservative false negative.
+    def test_equivalent_value_written_differently_is_now_recognized(self):
+        """Superseded by the M-01 identity gate — and improved.
 
-        `$2 million` and `$2,000,000` are the same fact and correctly produce NO
-        divergence, but token overlap falls short of `same_proposition`, so the
-        pair cannot ground an omission. Refusing a true statement is acceptable;
-        asserting a false one is not.
+        Previously this pair was an accepted conservative FALSE NEGATIVE: same
+        fact, no divergence, but token overlap fell below the old 0.80
+        `same_proposition` threshold. Canonical numeric normalization now makes
+        `$2 million` and `$2,000,000` normalize to the same proposition, so the
+        pair is correctly recognized as identical rather than merely refused.
         """
         al = self._align("the fund holds $2 million", "the fund holds $2,000,000")
         self.assertEqual(al.divergences, (), "no conflict should be detected")
-        self.assertFalse(al.is_usable_for_omission, "must fail closed, not over-assert")
+        self.assertEqual(al.relation, "same_proposition")
+        self.assertTrue(al.is_usable_for_omission)
 
     def test_unrelated_claims_remain_unrelated(self):
         al = self._align("the council approved the housing budget", "ticket prices rose at the stadium")
@@ -196,7 +204,13 @@ class FalseOmissionClosureTests(unittest.TestCase):
     TARGET = [claim("ct", "the stadium roof was repaired in autumn", "sentinel", "art-sn")]
 
     def _comparison_set(self):
-        return ComparisonSet("cs-1", "art-sn", ("art-tw", "art-pj"), "retrieved")
+        # Post-hardening: membership mapping (M-03) and CONFIRMED independence
+        # (M-02) are both required before an omission can be grounded.
+        return ComparisonSet(
+            "cs-1", "art-sn", ("art-tw", "art-pj"), "retrieved",
+            source_of_article={"art-tw": "techwire", "art-pj": "policy"},
+            dependencies=(SourceDependency(("techwire", "policy"), "independent_reporting", "High"),),
+        )
 
     def _evaluate(self, candidate: str, peer: str, dimension="Scale"):
         return evaluate_candidate_omission(

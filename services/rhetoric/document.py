@@ -229,7 +229,12 @@ def segment(raw_text: str, *, article_id: str | None = None, **metadata: Any) ->
         raise ValueError("cannot segment text into any non-empty passage")
 
     content_hash = compute_content_hash(classified)
-    resolved_article_id = article_id or f"art-{content_hash[:16]}"
+    resolved_article_id = article_id or derive_article_id(
+        content_hash,
+        publisher=metadata.get("publisher"),
+        source_id=(metadata.get("provenance") or {}).get("sourceId"),
+        url=metadata.get("url"),
+    )
 
     passages = tuple(
         Passage(
@@ -252,6 +257,35 @@ def segment(raw_text: str, *, article_id: str | None = None, **metadata: Any) ->
         provenance=provenance,
         **metadata,
     )
+
+
+def derive_article_id(
+    content_hash: str,
+    *,
+    publisher: str | None = None,
+    source_id: str | None = None,
+    url: str | None = None,
+) -> str:
+    """Article identity, which is NOT the same thing as content identity.
+
+    Review finding O-07: a purely content-derived id gave two different
+    publishers carrying identical syndicated copy the SAME article id. For
+    cross-document comparison that is actively dangerous — it would let one
+    article appear to corroborate itself.
+
+    * No provenance supplied (a bare local paste): fall back to content
+      identity, which is the honest answer for a source-less document.
+    * Any provenance supplied: fold it into the id so two publications of the
+      same text remain distinct articles.
+
+    ``content_hash`` remains separately available on the Article for genuine
+    duplicate-text detection.
+    """
+    provenance = "|".join(part for part in (source_id, publisher, url) if part)
+    if not provenance:
+        return f"art-{content_hash[:16]}"
+    digest = hashlib.sha256(f"{content_hash}|{provenance}".encode("utf-8")).hexdigest()
+    return f"art-{digest[:16]}"
 
 
 def compute_content_hash(classified: Iterable[tuple[str, str]]) -> str:

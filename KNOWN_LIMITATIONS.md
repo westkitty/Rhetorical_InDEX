@@ -53,49 +53,58 @@ an empty result that could be misread as "none found".
 
 ## Specific weaknesses
 
-### Claim alignment is primarily lexical, with bounded divergence guards
-`services/comparison/claims.align_pair` scores similarity with content-token
-Jaccard overlap. On top of that, `services/comparison/divergence.py` applies
-**deterministic, bounded, high-value conflict checks** before any high-overlap
-pair may be treated as agreement:
+### Claim alignment: identity is exact, everything else fails closed
 
-- **numeric** — percent, currency, clock time and scaled integers, with
-  normalization so `12%` == `12 percent`, `1,000` == `1000`, `$2 million` ==
-  `$2,000,000`
-- **temporal** — weekday, month + day, year
-- **polarity** — a small explicit antonym list (direction, benefit, approval,
-  permission, stance, safety, legality, presence, gain, sequence)
-- **negation** — explicit negation markers
+`services/comparison/claims.align_pair` no longer treats high lexical overlap as
+evidence of propositional identity. **Absence of detected divergence is not
+affirmative evidence that two propositions are the same** — a bag-of-words score
+cannot see semantic role, so "injured 12 and killed 40" scored a perfect 1.00
+against "injured 40 and killed 12".
 
-Any detected conflict forces `uncertain` / Low confidence and is **not usable
-for Material Omission**. Explicit negation yields `contradictory`.
+`same_proposition` — the ONLY relation that can ground a Material Omission —
+now requires **exact identity after presentation-level normalization**
+(`services/comparison/divergence.canonical_proposition`): case, unicode form,
+whitespace, terminal punctuation, and numeric surface form (`12%` == `12
+percent`, `1,000` == `1000`, `$2 million` == `$2,000,000`). Word order is
+deliberately preserved, because order carries role.
 
-**This is not general contradiction detection and not a semantic entailment
-engine.** It will still miss:
+Everything else — however similar — is at most `compatible` and is **never
+usable for omission**. Bounded numeric / temporal / polarity / negation
+divergence checks (`divergence.py`) still run and downgrade a pair further to
+`uncertain` or `contradictory`, and they surface conflicts for display, but they
+are no longer load-bearing for identity.
 
-- paraphrase with little lexical overlap (aligns as `unrelated`)
-- antonyms outside the bounded pair list
-- unit conversions (miles vs kilometres)
-- contradictions requiring world knowledge
-- numeric conflicts expressed only in prose ("doubled" vs "halved")
+**Consequences, stated plainly:**
 
-The design bias is **fail-closed**: an undetected divergence stays `uncertain`,
-never `compatible`. Nothing an undetected conflict can do will turn it into
-positive evidence of agreement.
+- Paraphrase is not recognized. "The council backed the plan" and "The council
+  supported the plan" are different propositions to this system.
+- Any true statement worded differently by two sources will fail to ground an
+  omission. That is a deliberate, large class of false negatives.
+- This is NOT semantic entailment and NOT general contradiction detection.
 
-The same bias produces **conservative false negatives**, which are accepted
-deliberately. `"the fund holds $2 million"` and `"the fund holds $2,000,000"`
-assert the identical fact and are correctly found to have *no conflict*, but
-their token overlap (0.60) falls below the `same_proposition` threshold, so the
-pair is not usable to ground an omission. Refusing a true statement is a cost we
-take; asserting a false one is not.
+Refusing a true omission is an acceptable cost. Asserting a false one is not.
 
-Separately, **only `same_proposition` may ground a Material Omission**. The
-specificity relations (`more_specific`, `less_specific`) are excluded because
-they are token-count comparisons, not entailment checks — and the direction is
-counter-intuitive: `align_pair(candidate, peer)` reports `more_specific` when
-the *candidate* exceeds the peer, which is exactly when the peer does **not**
-establish it.
+### Source independence is tri-state and must be earned
+
+`assess_independence` classifies every source pair as **confirmed independent**,
+**dependent**, or **unresolved**. Material Omission requires *confirmed* mutual
+independence between at least two supporting sources.
+
+- No dependency data at all -> unresolved -> **refused**
+- `unknown` relationship -> unresolved -> **refused**
+- `independent_reporting` at Low confidence -> unresolved -> **refused**
+- `independent_reporting` at Medium/High -> confirmed
+- syndication / quotation / citation / shared source -> dependent -> **refused**
+
+Absence of evidence of dependence is not evidence of independence. In practice
+this means an omission cannot be produced at all until someone has explicitly
+recorded the source-dependence relationships — which is correct, and which is
+why the synthetic fixture now carries them.
+
+Bounded semantics: `quotation` and `citation` collapse two sources into one
+origin *for corroboration purposes*, because a source repeating another's
+reporting is not a second witness. They do not assert anything broader about the
+outlets themselves.
 
 ### Confidence may still read as factual confidence
 "Confidence: High" means *the detector is confident this rhetorical mechanism is
@@ -123,7 +132,7 @@ from plain text. It will mis-type unusual formatting. Three known mis-typings
 were found and fixed across adversarial review passes (caption keywords,
 unbalanced-quote fragments read as headings); others likely remain.
 
-### Pressure/confidence: P4 with Low confidence is not reachable
+### Pressure/confidence: P4 with Low confidence is still not reachable
 Pressure and confidence are structurally independent (`score_confidence` takes
 no pressure argument) and the shipped heuristic pipeline now reaches P4+Medium,
 P3+Medium, P2+High, P1+Low and P1+Medium. It does **not** reach P4+Low: the

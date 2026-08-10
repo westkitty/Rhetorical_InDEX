@@ -17,7 +17,13 @@ from typing import Any, Iterable, Sequence
 
 from services.rhetoric import vocabulary as vocab
 
-from .divergence import describe, detect_divergence, has_negation_conflict
+from .divergence import (
+    canonical_proposition,
+    describe,
+    detect_divergence,
+    has_negation_conflict,
+    propositions_are_identical,
+)
 
 _WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'-]*")
 _STOPWORDS = frozenset(
@@ -190,6 +196,22 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
         f"{claim_a.claim_id}|{claim_b.claim_id}".encode()
     ).hexdigest()[:16]
 
+    # M-01: `same_proposition` requires EXACT normalized identity, never merely
+    # high overlap with no detected conflict. Bag-of-words overlap cannot see
+    # semantic role, so "injured 12 and killed 40" scores 1.00 against
+    # "injured 40 and killed 12". Absence of detected divergence is not
+    # affirmative evidence of propositional identity.
+    if propositions_are_identical(text_a, text_b):
+        return ClaimAlignment(
+            alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
+            relation="same_proposition", confidence="Medium", overlap_score=overlap,
+            rationale=(
+                "propositions are identical after presentation-level normalization "
+                "(case, whitespace, punctuation, numeric surface form)"
+            ),
+            divergences=divergence_labels,
+        )
+
     if overlap < 0.20:
         return ClaimAlignment(
             alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
@@ -237,10 +259,11 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
     if overlap >= 0.80:
         return ClaimAlignment(
             alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
-            relation="same_proposition", confidence="Medium", overlap_score=overlap,
+            relation="compatible", confidence="Low", overlap_score=overlap,
             rationale=(
-                f"content-token overlap {overlap:.2f} indicates the same proposition, "
-                "with no numeric, temporal, polarity or negation conflict detected"
+                f"content-token overlap {overlap:.2f} is high but the propositions are "
+                "not identical; word order and semantic role may differ, so this is "
+                "not evidence of propositional identity"
             ),
             divergences=divergence_labels,
         )

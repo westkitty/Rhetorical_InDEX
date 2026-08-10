@@ -20,6 +20,7 @@ Every score returns a factor trace so the finding drawer can show *why* —
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -55,21 +56,50 @@ def _clamp_rank(rank: int) -> int:
 # Pressure — mechanism-specific, rubric-governed
 # --------------------------------------------------------------------------
 
+# Review finding M-14: the scorer disagreed with the taxonomy's own worked
+# examples. The taxonomy rubric is authoritative, and it grades loaded language
+# by DOMINANCE, not by the intensity of a single word:
+#   P1 "Single mildly emotive modifier"
+#   P2 "Sustained use of evaluative epithets throughout a paragraph"
+#   P3 "Highly charged framing words that directly steer moral interpretation"
+#   P4 "Dominant inflammatory or DEHUMANIZING terminology DOMINATING sentence structure"
+# A severe term such as "draconian" is highly charged (P3); it only reaches P4
+# when it dominates or dehumanizes.
+_DEHUMANIZING = {
+    "vermin", "parasite", "parasites", "infestation", "infest", "subhuman",
+    "savage", "savages", "animals", "scum", "filth", "cockroaches", "barbaric",
+    "monstrous", "evil",
+}
+_DOMINANT_DENSITY = 0.35
+
+
 def _pressure_loaded_language(features: dict[str, Any]) -> Score:
     factors: list[str] = []
     peak = features.get("peak_tier", "mild")
     count = int(features.get("term_count", 1))
+    terms = {str(t).lower() for t in features.get("terms", [])}
 
-    base = {"mild": 1, "noun": 2, "verb": 2, "strong": 3, "severe": 4}.get(peak, 1)
+    base = {"mild": 1, "noun": 2, "verb": 2, "strong": 3, "severe": 3}.get(peak, 1)
     factors.append(f"peak evaluative tier: {peak} (base {_PRESSURE_BY_RANK[base]})")
 
-    if count >= 2 and base < 4:
+    if count >= 2 and base < 3:
         base += 1
-        factors.append(f"{count} evaluative terms stacked in one span (+1)")
+        factors.append(f"sustained evaluative loading: {count} terms in one span (+1)")
+
+    dehumanizing = terms & _DEHUMANIZING
+    density = float(features.get("passage_density", 0.0))
+    if dehumanizing:
+        base = 4
+        factors.append(f"dehumanizing terminology {sorted(dehumanizing)} (rubric P4)")
+    elif density >= _DOMINANT_DENSITY and count >= 2:
+        base = max(base, 4)
+        factors.append(
+            f"evaluative terms dominate the passage (density {density:.2f} >= {_DOMINANT_DENSITY}) (rubric P4)"
+        )
 
     if features.get("technical_context"):
         base -= 1
-        factors.append("passage contains technical/legal or physical-event context (-1)")
+        factors.append("same-sentence technical/legal or physical-event context (-1)")
 
     if features.get("passage_type") == "heading" and base < 4:
         base += 1
@@ -113,9 +143,21 @@ def _pressure_agent_suppression(features: dict[str, Any]) -> Score:
     return Score(_PRESSURE_BY_RANK[_clamp_rank(base)], tuple(factors))
 
 
+# M-14: the taxonomy grades false dilemma by what the REJECTED branch threatens:
+#   P3 "Forcing acceptance of a radical policy by framing the only alternative as total collapse"
+#   P4 "Totalizing binary trap framing opposition as destruction"
+_CATASTROPHIC_BRANCH = re.compile(
+    r"\b(?:surrender|collapse|destroy(?:ed|ing)?|destruction|ruin|perish|die|death|"
+    r"annihilat\w*|obliterat\w*|lose\s+everything|cease\s+to\s+exist|"
+    r"criminal\s+syndicates?|anarchy|lawlessness|invasion|catastrophe)\b",
+    re.IGNORECASE,
+)
+
+
 def _pressure_false_dilemma(features: dict[str, Any]) -> Score:
     factors: list[str] = []
     construction = features.get("construction", "either_or")
+    excerpt = str(features.get("excerpt", ""))
 
     if construction == "closed_binary_phrase":
         base = 3
@@ -127,9 +169,13 @@ def _pressure_false_dilemma(features: dict[str, Any]) -> Score:
             base += 1
             factors.append("binary framing spans an extended clause, dominating the sentence (+1)")
 
+    if _CATASTROPHIC_BRANCH.search(excerpt):
+        base = max(base, 4)
+        factors.append("the rejected branch is framed as destruction, not merely a worse outcome (rubric P4)")
+
     if features.get("alternatives_listed_nearby"):
         base -= 1
-        factors.append("surrounding text explicitly acknowledges other options (-1)")
+        factors.append("same-sentence text explicitly acknowledges other options (-1)")
 
     return Score(_PRESSURE_BY_RANK[_clamp_rank(base)], tuple(factors))
 
@@ -224,12 +270,22 @@ def score_confidence(
     return Score(value, tuple(factors))
 
 
-def reportable_state(confidence: str) -> str:
+def reportable_state(confidence: str, applies: str = "yes") -> str:
     """Two reporting thresholds (implementation plan §24.1).
 
     Candidates stay visible so recall is preserved, but only higher-confidence
     findings are allowed to inflate headline density statistics.
+
+    Review finding M-05: an explicitly `uncertain` verdict may NEVER become
+    `confirmed`, whatever its numeric confidence. "The detector is unsure this
+    mechanism applies" and "this finding is confirmed" cannot both be true, and
+    capping confidence to Medium was not enough because Medium mapped straight
+    to confirmed. Presence-uncertainty now gates the state directly.
     """
     if confidence not in vocab.CONFIDENCE:
         raise ValueError(f"unknown confidence: {confidence!r}")
+    if applies not in {"yes", "no", "uncertain"}:
+        raise ValueError(f"unknown applies value: {applies!r}")
+    if applies != "yes":
+        return "candidate"
     return "confirmed" if vocab.confidence_rank(confidence) >= 2 else "candidate"

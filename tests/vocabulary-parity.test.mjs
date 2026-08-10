@@ -66,7 +66,7 @@ test('Python detector_contract runtime vocabulary matches the canonical schema v
   assert.deepEqual(py.INTRINSIC_ALPHA_SLICE, [...schema.properties.intrinsicAlphaSlice.enum].sort());
 });
 
-test('TypeScript and Python agree with each other, not merely with the schema', () => {
+test('TypeScript and Python VOCABULARY agree with each other (not domain object shapes)', () => {
   const py = pythonRuntimeVocabulary();
   assert.deepEqual(extractTsUnion('PressureLevel'), py.PRESSURE);
   assert.deepEqual(extractTsUnion('ConfidenceLevel'), py.CONFIDENCE);

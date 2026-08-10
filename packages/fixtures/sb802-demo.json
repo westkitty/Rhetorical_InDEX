@@ -207,7 +207,7 @@
       "triggeredCriteria": [
         "Contains strongly evaluative adjectives (\"draconian\", \"reckless\")."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z",
@@ -234,7 +234,7 @@
       "triggeredCriteria": [
         "Replaces neutral legislative terms (\"bill\", \"proposal\") with dysphemistic term \"scheme\"."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -257,7 +257,7 @@
       "triggeredCriteria": [
         "Presupposes that statutory audit requirements inherently constitute the covert theft (\"siphoning\") of individual freedoms."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -280,7 +280,7 @@
       "triggeredCriteria": [
         "Attributes malicious, duplicitous motive (\"cynical veil\") to legislative sponsors."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -304,7 +304,7 @@
         "Asserts as absolute fact that inspections occur without judicial warrants.",
         "Contradicted directly by statutory text Section 4(b) requiring a magistrate order for message content."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z",
@@ -331,7 +331,7 @@
       "triggeredCriteria": [
         "Presupposes factively that officials \"allowed\" a collapse before establishing that any collapse occurred."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -354,7 +354,7 @@
       "triggeredCriteria": [
         "Invokes catastrophic existential imagery (\"cease to exist... overnight\") without empirical basis."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -377,7 +377,7 @@
       "triggeredCriteria": [
         "Forces a complex regulatory policy into an artificial binary choice between total monitoring or total digital exile."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"
@@ -400,7 +400,7 @@
       "triggeredCriteria": [
         "Extrapolates a broad conclusion about an entire commission from a single unverified memorandum."
       ],
-      "taxonomyVersion": "1.0.0-alpha0",
+      "taxonomyVersion": "1.1.0-alpha0",
       "detectorVersion": "intrinsic-heuristic-v1.0",
       "analysisRunId": "run-synthetic-demo-802",
       "timestamp": "2026-07-12T10:36:00Z"

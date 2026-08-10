@@ -200,15 +200,27 @@ class AnalysisRun:
 
 
 def make_run_id(
-    *, content_hash: str, detector_version: str, provider_id: str, salt: str = ""
+    *,
+    content_hash: str,
+    detector_version: str,
+    provider_id: str,
+    taxonomy_version: str,
+    provider_version: str,
+    salt: str = "",
 ) -> str:
-    """Deterministic run id.
+    """Deterministic run id covering every semantically relevant analysis input.
 
-    Derived from inputs rather than a clock or RNG so the same article analyzed
-    by the same detector build is reproducible in tests and in the benchmark
-    harness. ``salt`` distinguishes deliberate repeat runs.
+    Review finding O-06: taxonomy version and provider version were absent, so
+    two runs whose results could legitimately differ — different taxonomy
+    definitions, different provider build — shared one identity. Run ids (and
+    the finding ids derived from them) must change when the analysis inputs
+    change, or cached/compared results silently conflate different analyses.
+
+    Still derived purely from inputs: no clock, no RNG, fully reproducible.
     """
-    payload = f"{content_hash}|{detector_version}|{provider_id}|{salt}"
+    payload = "|".join(
+        (content_hash, detector_version, taxonomy_version, provider_id, provider_version, salt)
+    )
     return f"run-{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:20]}"
 
 

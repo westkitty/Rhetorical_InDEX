@@ -1,6 +1,6 @@
 # Annotation Guide — Alpha-0, four-mechanism slice
 
-Taxonomy version: `1.0.0-alpha0`. Mechanisms in scope: **Loaded language,
+Taxonomy version: `1.1.0-alpha0`. Mechanisms in scope: **Loaded language,
 Presupposition, Agent suppression, False dilemma**. Ignore everything else; do
 not annotate mechanisms outside this slice even when you can see them.
 

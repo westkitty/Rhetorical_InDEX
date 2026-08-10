@@ -39,6 +39,9 @@ function extractFunctionSource(source, signatureStart) {
 
 const validateSrc = extractFunctionSource(compiled, 'function validateLocalPreviewCandidate(');
 const fnv1aSrc = extractFunctionSource(compiled, 'function fnv1a(');
+// M-15 added real voice classification to the Local Preview path.
+const quotedRegionsSrc = extractFunctionSource(compiled, 'function localQuotedRegions(');
+const classifyVoiceSrc = extractFunctionSource(compiled, 'function classifyLocalVoice(');
 const localPreviewFindingsSrc = extractFunctionSource(compiled, 'function localPreviewFindings(');
 
 const vocabulary = Object.fromEntries(
@@ -54,7 +57,10 @@ const sandbox = {
   console,
 };
 vm.createContext(sandbox);
-vm.runInContext(`${validateSrc}\n${fnv1aSrc}\n${localPreviewFindingsSrc}`, sandbox);
+vm.runInContext(
+  [validateSrc, fnv1aSrc, quotedRegionsSrc, classifyVoiceSrc, localPreviewFindingsSrc].join('\n'),
+  sandbox,
+);
 
 const sentinelArticle = fixture.event.articles.find((a) => a.id === 'art-sentinel-802');
 const testParagraphs = [

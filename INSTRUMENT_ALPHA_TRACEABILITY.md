@@ -177,7 +177,7 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | X-01 | TS unions match schema.json | `TypeScript pressure/confidence/voice unions match...` | PASS |
 | X-02 | TS MechanismId matches taxonomy | `TypeScript MechanismId union matches...` | PASS |
 | X-03 | Python runtime vocabulary matches schema.json | `Python detector_contract runtime vocabulary matches...` | PASS |
-| X-04 | TS and Python agree with each other | `TypeScript and Python agree with each other...` | PASS |
+| X-04 | TS and Python **controlled vocabulary** agree with each other (NOT domain object shapes — see M-13) | `TypeScript and Python agree with each other...` | PASS |
 | X-05 | Drift is detected | Injected rogue enum value → both suites failed, then reverted | PASS |
 | X-06 | Level 2 output satisfies the Python contract | `tests/local-preview-contract.test.mjs` | PASS |
 
@@ -252,11 +252,81 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | Z-34 | Every QA row carries exactly one primary status | same checker rejects multi-status rows | PASS |
 | Z-35 | P4 + Low confidence reachable in the shipped heuristic | Not constructible without contrived input; documented in `KNOWN_LIMITATIONS.md` | UNVERIFIED |
 
+## Pre-calibration hardening
+
+| ID | Requirement | Verification | Status |
+|---|---|---|---|
+| H-01 | Absence of divergence is not propositional identity | `test_no_role_swap_can_ground_an_omission` (11 swap classes) | PASS |
+| H-02 | `same_proposition` requires exact normalized identity | `test_identity_requires_exact_normalized_match` | PASS |
+| H-03 | Presentation-equivalent values still recognized | `test_presentation_equivalence_is_still_recognized` | PASS |
+| H-04 | High overlap without identity is never usable | `test_high_overlap_without_identity_is_never_usable` | PASS |
+| H-05 | Absent dependency data is unresolved, not independent | `test_absent_dependency_data_is_unresolved_not_independent` | PASS |
+| H-06 | `unknown` dependence is unresolved | `test_unknown_link_is_unresolved` | PASS |
+| H-07 | Low-confidence independence claim is not confirmed | `test_low_confidence_independence_claim_is_not_confirmed` | PASS |
+| H-08 | Confirmed independent reporting counts | `test_confirmed_independent_reporting_counts` | PASS |
+| H-09 | Syndication collapses origins | `test_syndication_is_dependent` | PASS |
+| H-10 | Partial dependence graph fails closed | `test_partial_graph_fails_closed` | PASS |
+| H-11 | Omission refused without confirmed independence | `test_unconfirmed_independence_is_refused` | PASS |
+| H-12 | Supporting claims must belong to the comparison set | `test_foreign_supporting_article_is_refused` | PASS |
+| H-13 | Target article cannot corroborate its own omission | `test_target_article_cannot_corroborate_itself` | PASS |
+| H-14 | Source/article mapping conflicts rejected | `test_source_article_mismatch_is_refused` | PASS |
+| H-15 | Target claims must belong to the target article | `test_foreign_target_claim_is_refused` | PASS |
+| H-16 | Chronology compares instants, not strings | `test_chronology_uses_instants_not_strings` | PASS |
+| H-17 | Same instant in different offsets accepted | `test_same_instant_in_different_offsets_is_accepted` | PASS |
+| H-18 | Naive timestamps rejected | `test_naive_timestamp_is_refused` | PASS |
+| H-19 | Malformed timestamps rejected | `test_malformed_timestamp_is_refused` | PASS |
+| H-20 | Uncertain verdict is never confirmed | `test_uncertain_verdict_is_always_candidate` | PASS |
+| H-21 | `applies=yes` can still be confirmed | `test_yes_verdict_can_still_be_confirmed` | PASS |
+| H-22 | Invented criteria rejected | `test_invented_criterion_is_rejected` | PASS |
+| H-23 | Criteria from another mechanism rejected | `test_criterion_from_another_mechanism_is_rejected` | PASS |
+| H-24 | Exclusion criterion in positive list rejected | `test_exclusion_criterion_in_positive_list_is_rejected` | PASS |
+| H-25 | Every shipped finding cites only taxonomy criteria | `test_every_shipped_finding_cites_only_taxonomy_criteria` | PASS |
+| H-26 | Model response arrays are real arrays | `test_string_where_array_expected_is_rejected` | PASS |
+| H-27 | Model numeric edge cases rejected (bool/NaN/Inf/range) | `test_numeric_edge_cases_are_rejected` | PASS |
+| H-28 | Unknown enum / extra properties rejected | `test_unknown_applies_and_extra_properties_are_rejected` | PASS |
+| H-29 | Low-confidence relation cannot promote claim state | `test_low_confidence_relation_cannot_promote_to_direct_support` | PASS |
+| H-30 | Low-confidence contradiction is contested only | `test_low_confidence_contradiction_is_contested_not_contradicted` | PASS |
+| H-31 | Duplicate relations to one item do not corroborate | `test_duplicate_relations_to_one_item_do_not_corroborate` | PASS |
+| H-32 | Two distinct usable items corroborate | `test_two_distinct_items_corroborate` | PASS |
+| H-33 | Corpus: excerpt must round-trip | `test_excerpt_must_round_trip_against_its_passage` | PASS |
+| H-34 | Corpus: stale taxonomy version rejected | `test_stale_taxonomy_version_is_rejected` | PASS |
+| H-35 | Corpus: span bounds validated | `test_span_bounds_are_validated` | PASS |
+| H-36 | Corpus: boolean coordinates rejected | `test_boolean_coordinates_are_rejected` | PASS |
+| H-37 | Corpus: unknown/cross-document mechanisms rejected | `test_unknown_and_cross_document_mechanisms_are_rejected` | PASS |
+| H-38 | Corpus: voiceClass required | `test_missing_voice_class_is_rejected` | PASS |
+| H-39 | Corpus: duplicate ids/ordinals rejected | `test_duplicate_annotation_ids_and_passage_ordinals_are_rejected` | PASS |
+| H-40 | Corpus: two independent annotators required | `test_single_annotator_document_cannot_be_adjudicated` | PASS |
+| H-41 | Corpus: original submissions preserved | `test_original_submissions_must_be_preserved_from_two_annotators` | PASS |
+| H-42 | Corpus: unresolved `unresolvable` cannot be adjudicated | `test_unresolved_unresolvable_cannot_be_adjudicated` | PASS |
+| H-43 | Corpus: invalid adjudicated file is fatal, not skipped | `test_invalid_adjudicated_document_is_fatal_not_skipped` | PASS |
+| H-44 | Corpus: non-adjudicated files ignored, not errors | `test_non_adjudicated_documents_are_ignored_not_errors` | PASS |
+| H-45 | Repository corpus remains EMPTY | `test_repository_corpus_remains_empty_and_valid` | PASS |
+| H-46 | Quoted loading detected and attributed to speaker | `test_quoted_loading_is_detected_and_attributed_to_the_speaker` | PASS |
+| H-47 | Taxonomy no longer excludes quoted speech | `test_taxonomy_no_longer_excludes_quoted_speech` | PASS |
+| H-48 | Annotation guide matches taxonomy version | `test_annotation_guide_matches_the_taxonomy_version` | PASS |
+| H-49 | Taxonomy pressure examples are executable goldens | `test_taxonomy_examples_agree_with_the_scorer` | PASS |
+| H-50 | Genuine binary is not a false dilemma | `test_o01_genuine_binary_is_not_a_false_dilemma` | PASS |
+| H-51 | Change-of-state presupposition path is live | `test_o02_change_of_state_presupposition_is_live` | PASS |
+| H-52 | Run id changes with taxonomy/provider version | `test_o06_run_id_changes_with_taxonomy_and_provider_version` | PASS |
+| H-53 | Article identity separates content from source | `test_o07_identical_text_from_different_publishers_gets_distinct_article_ids` | PASS |
+| H-54 | Batch with a successful zero-finding passage is partial | `test_o08_batch_with_a_successful_zero_finding_passage_is_partial` | PASS |
+| H-55 | Provider vs internal faults distinguished | `test_o09_provider_faults_and_internal_faults_are_distinguished` | PASS |
+| H-56 | Curly single quotes are quoted speech | `test_o10_curly_single_quotes_are_quoted_speech` | PASS |
+| H-57 | Apostrophes are not quotation | `test_o10_apostrophes_are_not_quotation` | PASS |
+| H-58 | Exclusions are candidate-local | `test_o11_exclusions_are_candidate_local_not_whole_passage` | PASS |
+| H-59 | Benchmark matching is maximum-cardinality | `test_maximum_cardinality_beats_greedy` | PASS |
+| H-60 | Benchmark matching is order-independent | `test_matching_is_deterministic` | PASS |
+| H-61 | Level 2 quoted rhetoric is not outlet voice | `tests/local-preview-voice.test.mjs` | PASS |
+| H-62 | Level 2 catches "Mistakes were made" | `tests/local-preview-voice.test.mjs` | PASS |
+| H-63 | Level 2 temporal `by` does not suppress findings | `tests/local-preview-voice.test.mjs` | PASS |
+| H-64 | Zero findings shows no peak pressure | `tests/local-preview-voice.test.mjs` | PASS |
+| H-65 | `qa:runtime` fails with an actionable message, not a Linux path | Executed: exits 2 with install instructions | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 166 |
+| PASS | 231 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

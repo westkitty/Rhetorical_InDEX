@@ -322,10 +322,13 @@
   }
 
   function calculateMetrics(article: Article, findings: Finding[]) {
-    const peak = findings.reduce((max, finding) => Math.max(max, pressureNumber(finding.pressure)), 1);
+    // O-04: with no findings there is NO peak. Seeding the reduce at 1 made an
+    // empty scan report "P1", and P1 means light pressure was detected — not
+    // that nothing was found.
+    const peak = findings.reduce((max, finding) => Math.max(max, pressureNumber(finding.pressure)), 0);
     const distribution = [1, 2, 3, 4].map((level) => findings.filter((finding) => pressureNumber(finding.pressure) === level).length);
     return {
-      peakPressure: `P${peak}` as PressureLevel,
+      peakPressure: (peak > 0 ? `P${peak}` : null) as PressureLevel | null,
       confirmedDensity: calculateCoverage(article, findings, 'confirmed'),
       candidateDensity: calculateCoverage(article, findings, 'candidate'),
       distribution,
@@ -337,7 +340,7 @@
     const confirmed = state.findings.filter((finding) => finding.state === 'confirmed').length;
     const candidates = state.findings.filter((finding) => finding.state === 'candidate').length;
     el('profile').innerHTML = `
-      <div class="profile-card"><span>Peak pressure</span><strong>${metrics.peakPressure}</strong><small>Pressure, not factuality</small></div>
+      <div class="profile-card"><span>Peak pressure</span><strong>${metrics.peakPressure ?? '—'}</strong><small>${metrics.peakPressure ? 'Pressure, not factuality' : 'No findings detected'}</small></div>
       <div class="profile-card"><span>Confirmed density</span><strong>${metrics.confirmedDensity}%</strong><small>${confirmed} confirmed findings</small></div>
       <div class="profile-card"><span>Candidate density</span><strong>${metrics.candidateDensity}%</strong><small>${candidates} candidates remain visible</small></div>
       <div class="profile-card"><span>P1–P4 findings</span><strong>${metrics.distribution.join(' · ')}</strong><small>Counts, not a master score</small></div>
@@ -696,6 +699,37 @@
     return chunks;
   }
 
+  /** Quoted regions of a paragraph. Only an OPENING mark starts a region, so a
+   *  bare apostrophe in "council's" can never be read as quoted speech. */
+  function localQuotedRegions(text: string): { start: number; end: number; balanced: boolean }[] {
+    const open = '"\u201C\u201F\u2018';
+    const close = '"\u201D\u2019';
+    const regions: { start: number; end: number; balanced: boolean }[] = [];
+    let openIndex: number | null = null;
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      if (openIndex === null) {
+        if (open.includes(char)) openIndex = i;
+      } else if (close.includes(char)) {
+        regions.push({ start: openIndex, end: i + 1, balanced: true });
+        openIndex = null;
+      }
+    }
+    if (openIndex !== null) regions.push({ start: openIndex, end: text.length, balanced: false });
+    return regions;
+  }
+
+  /** M-15: whose rhetoric is this? Never invents a named speaker. */
+  function classifyLocalVoice(paragraph: string, startChar: number, endChar: number): VoiceClass {
+    const regions = localQuotedRegions(paragraph);
+    const inside = regions.filter((r) => r.start <= startChar && endChar <= r.end);
+    if (inside.length) return inside[0].balanced ? 'quoted_speaker' : 'uncertain';
+    const straddles = regions.some((r) => r.start < endChar && startChar < r.end);
+    if (straddles) return 'uncertain';
+    if (regions.some((r) => !r.balanced)) return 'uncertain';
+    return 'reporter';
+  }
+
   interface LocalPreviewResult {
     findings: Finding[];
     rejectedCount: number;
@@ -711,7 +745,11 @@
       const text = paragraph.slice(startChar, endChar);
       const taxonomy = TAXONOMY.get(mechanism);
       if (!taxonomy || !text.trim()) return;
-      const voiceClass: VoiceClass = 'reporter';
+      // M-15: every Local Preview finding used to be labelled `reporter`,
+      // which attributed quoted rhetoric to the publication. Voice is now
+      // derived from quotation structure. Conceptually mirrors Level 3's
+      // voice.classify without creating a cross-language dependency.
+      const voiceClass: VoiceClass = classifyLocalVoice(paragraph, startChar, endChar);
       try {
         // Reject-not-repair boundary: mirrors services/api/detector_contract.py so
         // heuristic Local Preview candidates cannot enter application state without
@@ -755,7 +793,15 @@
     const loaded = /\b(?:draconian|reckless|outrageous|catastrophic|devastating|disastrous|brutal|shameful|cynical|heroic)\b/gi;
     const dilemmaPatterns = [/\beither\b[^.!?]{0,120}\bor\b[^.!?]{0,120}/gi, /\b(?:no alternative|only two (?:choices|options)|with us or against us)\b/gi];
     const presuppPatterns = [/\b(?:refused|failed) to explain why\b[^.!?]*/gi, /\b(?:still|again|finally|continues? to)\b[^.!?]*/gi];
-    const passive = /\b(?:was|were|is|are|been|be)\s+[a-z]+(?:ed|en)\b[^.!?]{0,70}/gi;
+    // O-03: bring Level 2 in line with the Level 3 repairs. Irregular past
+    // participles ("Mistakes were made") were invisible to an ed/en-only
+    // pattern, and any "by" — including "by three weeks" — wrongly counted as a
+    // named agent. This is a bounded parity fix, NOT an exact port: the two
+    // implementations remain separate and Level 2 stays unbenchmarked.
+    const irregularParticiples = 'made|done|sent|built|held|told|brought|thought|found|kept|left|lost|met|paid|sold|spent|won|cut|hit|hurt|set|shut|spread|cost|put|read|said';
+    const passive = new RegExp(`\\b(?:was|were|is|are|been|be|being|got)\\s+(?:\\w+ly\\s+)?(?:\\w+(?:ed|en|wn|ht|pt)|(?:${irregularParticiples}))\\b[^.!?]{0,70}`, 'gi');
+    const nonAgentAfterBy = /\bby\s+(?:\d|(?:the\s+|a\s+|an\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|yesterday|noon|midnight|morning|afternoon|evening|night|default|law|one|two|three|four|five|six|seven|eight|nine|ten|several)\b)/i;
+    const namedAgentAfterBy = /\bby\s+(?:the\s+|a\s+|an\s+|its\s+|their\s+)?[A-Za-z]/i;
 
     article.paragraphs.forEach((paragraph, paragraphIndex) => {
       let match: RegExpExecArray | null;
@@ -773,7 +819,9 @@
       });
       passive.lastIndex = 0;
       while ((match = passive.exec(paragraph)) !== null) {
-        if (/\bby\b/i.test(match[0])) continue;
+        const sentenceEnd = paragraph.slice(match.index).search(/[.!?]/);
+        const localWindow = paragraph.slice(match.index, match.index + (sentenceEnd < 0 ? match[0].length + 40 : sentenceEnd));
+        if (namedAgentAfterBy.test(localWindow) && !nonAgentAfterBy.test(localWindow)) continue;
         add(paragraphIndex, match.index, match.index + match[0].length, 'agent_suppression', 'P2', 'Low', 'Candidate passive construction does not name an actor inside the detected span.');
       }
     });

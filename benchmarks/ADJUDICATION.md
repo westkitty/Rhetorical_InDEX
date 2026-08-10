@@ -18,6 +18,15 @@ Two annotations merge without adjudication when **all** hold:
 - same `passageOrdinal`
 - span IoU ≥ 0.8
 - same `pressure`
+- **same `voiceClass`**
+- **same `reviewerConfidence` band is NOT required** (confidence is a per-annotator
+  epistemic report, not a property of the span, and is preserved rather than merged)
+
+Review finding M-11: `voiceClass` was previously absent from the auto-merge
+conditions while §3 simultaneously listed voice disagreement as grounds for
+escalation — the protocol contradicted itself, and auto-merge would have
+silently discarded a voice disagreement. Voice now blocks automatic merge.
+Anything not in this list escalates.
 
 The merged span takes the **intersection** of the two spans (the text both
 annotators agreed carries the mechanism). Record both original spans in
@@ -73,10 +82,25 @@ annotators are not seeing the same thing.
 
 ## 7. Preservation rule
 
-Adjudication **never deletes** the original annotator positions. `disagreements[]`
-is append-only and survives into the scored document. Inter-annotator agreement
-is a headline property of the corpus and must remain computable from the files
-themselves after the fact.
+Adjudication **never deletes** the original annotator positions.
+
+Review finding M-12: a free-text `disagreements[]` note was too lossy to
+reconstruct what each annotator actually proposed, so the protocol's promise
+that agreement stays computable was not true. The format now separates:
+
+| Field | Contains |
+|---|---|
+| `annotatorSubmissions[]` | every annotator's ORIGINAL structured proposal — mechanism, passage, span, excerpt, pressure, confidence, voice — preserved verbatim |
+| `annotations[]` | the adjudicated GOLD result |
+| `resolutions[]` | which proposals produced which gold annotation, and the adjudicator's decision |
+
+`annotatorSubmissions[]` is append-only and is **never** overwritten by
+adjudication. This makes presence, mechanism, span, pressure and voice agreement
+all computable from the file itself after the fact.
+
+`benchmarks/scripts/validate_corpus.py` enforces that adjudicated documents
+carry submissions from at least two distinct annotators and that every preserved
+proposal round-trips against its passage.
 
 ## 8. Promotion checklist
 

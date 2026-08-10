@@ -90,13 +90,38 @@ def validate_verdict(verdict: Any, *, mechanism_id: str, passage_id: str) -> Non
             f"certainty out of range: {certainty!r}", stage=stage, passage_id=passage_id
         )
 
+    record = vocab.mechanism(mechanism_id)
+    allowed_positive = set(record["positiveCriteria"])
+    allowed_exclusion = set(record["exclusionCriteria"])
+
+    triggered = list(getattr(verdict, "criteria_triggered", ()) or [])
     if applies in {"yes", "uncertain"}:
         # A positive or partially positive verdict MUST carry its own evidence.
         # This is where fabrication would otherwise creep in.
-        _require_nonempty_string_list(
-            list(getattr(verdict, "criteria_triggered", ()) or []),
-            "criteriaTriggered",
-            stage,
+        _require_nonempty_string_list(triggered, "criteriaTriggered", stage)
+
+    # Review finding M-06: it is not enough for criteria to be non-empty
+    # strings. They must be VERBATIM members of this mechanism's taxonomy
+    # record. Otherwise a provider can invent a plausible-sounding criterion,
+    # or borrow one from a different mechanism, and the finding drawer will
+    # show a user a justification the taxonomy never authorized.
+    # No fuzzy matching, no auto-repair — unknown criteria are rejected.
+    for criterion in triggered:
+        if criterion not in allowed_positive:
+            if criterion in allowed_exclusion:
+                raise DetectorRejection(
+                    f"criteriaTriggered contains an EXCLUSION criterion for {mechanism_id!r}: "
+                    f"{criterion!r}",
+                    stage=stage, passage_id=passage_id,
+                )
+            raise DetectorRejection(
+                f"criteriaTriggered contains a criterion that is not a positive criterion of "
+                f"{mechanism_id!r}: {criterion!r}",
+                stage=stage, passage_id=passage_id,
+            )
+    if len(set(triggered)) != len(triggered):
+        raise DetectorRejection(
+            "criteriaTriggered contains duplicate criteria", stage=stage, passage_id=passage_id
         )
 
     failed = getattr(verdict, "criteria_failed", ()) or ()
@@ -107,6 +132,16 @@ def validate_verdict(verdict: Any, *, mechanism_id: str, passage_id: str) -> Non
             raise DetectorRejection(
                 "criteriaFailed entries must be non-empty strings", stage=stage, passage_id=passage_id
             )
+        if item not in allowed_exclusion:
+            raise DetectorRejection(
+                f"criteriaFailed contains a criterion that is not an exclusion criterion of "
+                f"{mechanism_id!r}: {item!r}",
+                stage=stage, passage_id=passage_id,
+            )
+    if len(set(failed)) != len(failed):
+        raise DetectorRejection(
+            "criteriaFailed contains duplicate criteria", stage=stage, passage_id=passage_id
+        )
 
     neighbors = getattr(verdict, "nearest_neighbor_overlap", ()) or ()
     known = vocab.mechanism_ids()

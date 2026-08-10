@@ -137,6 +137,22 @@ _DILEMMA_PHRASE = re.compile(
     r"(?:must|will)\s+(?:either\s+)?choose\s+between)\b[^.!?]{0,120}",
     re.IGNORECASE,
 )
+# Taxonomy exclusion: "Situations with genuine logical or legal binary states".
+# Bounded and inspectable — this is a stop-list of genuinely exhaustive binaries,
+# not a claim to understand logic. Anything outside it is still evaluated.
+_GENUINE_BINARY = re.compile(
+    r"\b(?:"
+    r"guilty\s+or\s+not\s+guilty|not\s+guilty\s+or\s+guilty|"
+    r"(?:pass(?:es|ed)?|fail(?:s|ed)?)\s+or\s+(?:fail(?:s|ed)?|pass(?:es|ed)?)|"
+    r"(?:alive|dead)\s+or\s+(?:dead|alive)|"
+    r"(?:true|false)\s+or\s+(?:false|true)|"
+    r"(?:convicted|acquitted)\s+or\s+(?:acquitted|convicted)|"
+    r"(?:eligible|ineligible)\s+or\s+(?:ineligible|eligible)|"
+    r"(?P<word>\w+)\s+or\s+not\s+(?P=word)"
+    r")\b",
+    re.IGNORECASE,
+)
+
 _DILEMMA_ALTERNATIVES = re.compile(
     r"\b(?:ranging\s+from|among\s+them|alternatives\s+include|other\s+options|"
     r"a\s+range\s+of|several\s+proposals|middle\s+ground|compromise)\b",
@@ -170,6 +186,16 @@ def _word_span(text: str, match: re.Match) -> tuple[int, int]:
 
 def _passage_word_count(text: str) -> int:
     return len(_WORD.findall(text)) or 1
+
+
+def _enclosing_sentence(text: str, start: int, end: int) -> str:
+    """The sentence containing [start, end). Used to keep exclusion tests local."""
+    left = 0
+    for match in re.finditer(r"[.!?]\s+", text[:start]):
+        left = match.end()
+    right_match = re.search(r"[.!?](?:\s|$)", text[end:])
+    right = end + right_match.end() if right_match else len(text)
+    return text[left:right]
 
 
 def _sentence_bounded_window(text: str, start: int, desired_end: int) -> str:
@@ -207,7 +233,6 @@ def loaded_language(passage: Passage) -> list[Candidate]:
         return []
 
     density = len(hits) / _passage_word_count(text)
-    technical = bool(_TECHNICAL_CONTEXT.search(text))
 
     # Merge adjacent hits separated only by punctuation/conjunction into one
     # span, so "draconian, reckless scheme" is one Finding rather than three.
@@ -222,6 +247,10 @@ def loaded_language(passage: Passage) -> list[Candidate]:
 
     out: list[Candidate] = []
     for start, end, terms, tiers in merged:
+        # O-11: candidate-local exclusion scope. A "Category 4 storm" in an
+        # unrelated sentence must not weaken an evaluative term elsewhere in the
+        # same paragraph.
+        technical = bool(_TECHNICAL_CONTEXT.search(_enclosing_sentence(text, start, end)))
         out.append(
             Candidate(
                 passage_id=passage.passage_id,
@@ -344,7 +373,6 @@ def agent_suppression(passage: Passage) -> list[Candidate]:
 
 def false_dilemma(passage: Passage) -> list[Candidate]:
     text = passage.text
-    alternatives_present = bool(_DILEMMA_ALTERNATIVES.search(text))
     out: list[Candidate] = []
     seen: set[tuple[int, int]] = set()
 
@@ -354,6 +382,18 @@ def false_dilemma(passage: Passage) -> list[Candidate]:
             if (start, end) in seen:
                 continue
             seen.add((start, end))
+            span_text = text[start:end]
+            # O-01: a genuinely exhaustive binary is a taxonomy exclusion, not a
+            # false dilemma. Checked against the span itself, not the passage.
+            if _GENUINE_BINARY.search(span_text):
+                continue
+            # O-11: exclusion signals must be CANDIDATE-LOCAL. Searching the whole
+            # passage let an unrelated sentence ("officials discussed a middle
+            # ground compromise on parking") weaken a dilemma in a different
+            # sentence. Scope the test to the span's own sentence.
+            alternatives_present = bool(
+                _DILEMMA_ALTERNATIVES.search(_enclosing_sentence(text, start, end))
+            )
             out.append(
                 Candidate(
                     passage_id=passage.passage_id,
@@ -367,7 +407,8 @@ def false_dilemma(passage: Passage) -> list[Candidate]:
                         # The taxonomy's exclusion criterion: surrounding text
                         # that explicitly lists other options defeats the claim.
                         "alternatives_listed_nearby": alternatives_present,
-                        "span_words": len(_WORD.findall(text[start:end])),
+                        "span_words": len(_WORD.findall(span_text)),
+                        "excerpt": span_text,
                         "passage_type": passage.passage_type,
                     },
                 )

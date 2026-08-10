@@ -24,17 +24,46 @@ sys.path.insert(0, str(ROOT))
 from benchmarks.scripts.evaluate import evaluate, load_corpus  # noqa: E402
 
 
+PASSAGE_TEXT = "The council approved a draconian, reckless scheme on Tuesday."
+_GOLD_SPAN = "draconian, reckless scheme"
+
+
 def document(annotations, *, status="adjudicated", article_id="bench-t1"):
+    """A document that satisfies the corpus validator (M-09).
+
+    Adjudicated documents now require two independent annotators and preserved
+    original submissions, so these fixtures carry both.
+    """
     return {
         "articleId": article_id,
         "genre": "straight_news",
-        "taxonomyVersion": "1.0.0-alpha0",
+        "taxonomyVersion": "1.1.0-alpha0",
         "adjudicationStatus": status,
+        "annotatorIds": ["annotator-a", "annotator-b"],
         "passages": [
-            {"ordinal": 0, "passageType": "paragraph",
-             "text": "The council approved a draconian, reckless scheme on Tuesday."},
+            {"ordinal": 0, "passageType": "paragraph", "text": PASSAGE_TEXT},
         ],
         "annotations": annotations,
+        "annotatorSubmissions": [
+            {"proposalId": f"p-{index}-{who}", "annotatorId": who,
+             "mechanismId": ann["mechanismId"], "passageOrdinal": ann["passageOrdinal"],
+             "startChar": ann["startChar"], "endChar": ann["endChar"], "excerpt": ann["excerpt"],
+             "pressure": ann["pressure"], "reviewerConfidence": ann["reviewerConfidence"],
+             "voiceClass": ann.get("voiceClass", "reporter")}
+            for index, ann in enumerate(annotations)
+            for who in ("annotator-a", "annotator-b")
+        ] or [
+            # Hard-negative documents still need preserved independent
+            # submissions; both annotators proposed the same span and it was
+            # dropped during adjudication.
+            {"proposalId": f"p-empty-{who}", "annotatorId": who,
+             "mechanismId": "loaded_language", "passageOrdinal": 0,
+             "startChar": PASSAGE_TEXT.index(_GOLD_SPAN),
+             "endChar": PASSAGE_TEXT.index(_GOLD_SPAN) + len(_GOLD_SPAN),
+             "excerpt": _GOLD_SPAN,
+             "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter"}
+            for who in ("annotator-a", "annotator-b")
+        ],
     }
 
 

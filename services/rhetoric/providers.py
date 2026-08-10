@@ -165,9 +165,10 @@ class HeuristicDetectorProvider(DetectorProvider):
             if features.get("technical_context"):
                 failed.append(exclusions[0])
                 certainty -= 0.2
-            if context.voice_class == "quoted_speaker":
-                failed.append(exclusions[1])
-                certainty -= 0.1
+            # M-10: quoted speech is NOT an exclusion. Rhetoric inside a
+            # quotation is still rhetoric; `voiceClass` records whose it is.
+            # Detection certainty is unaffected by who said it — only the
+            # attribution changes.
             # Certainty rises with the number of INDEPENDENTLY satisfied positive
             # criteria — evidence that the classification is right. It must NOT
             # rise with rhetorical tier: severity is pressure evidence, not
@@ -191,6 +192,13 @@ class HeuristicDetectorProvider(DetectorProvider):
                     triggered.append(positive[1])
                     certainty += 0.2
             else:
+                # O-02: the change-of-state path was dead — the generator emitted
+                # candidates the provider could never confirm, so every one
+                # deterministically resolved to applies="no". The taxonomy's first
+                # positive criterion explicitly names "change-of-state verbs", so
+                # the provider, not the generator, was wrong. It fires at reduced
+                # certainty because bare change-of-state markers are weak evidence.
+                triggered.append(positive[0])
                 certainty -= 0.15
                 neighbors.append("epistemic_overstatement")
 
@@ -325,25 +333,69 @@ class ModelDetectorProvider(DetectorProvider):
             "responseSchema": self.RESPONSE_SCHEMA,
         }
 
+    @staticmethod
+    def _string_array(value: Any, field: str) -> tuple[str, ...]:
+        """Require a real JSON array of strings.
+
+        Review finding M-06: `tuple("abc")` silently yields `('a','b','c')`, so a
+        model returning a bare string where an array was specified produced a
+        tuple of characters that then looked like several criteria. Strings are
+        rejected outright rather than coerced.
+        """
+        if isinstance(value, (str, bytes)):
+            raise ValueError(f"model response {field} must be an array, not a string")
+        if not isinstance(value, list):
+            raise ValueError(f"model response {field} must be an array")
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError(f"model response {field} entries must be strings")
+            if not item.strip():
+                raise ValueError(f"model response {field} entries must be non-empty")
+        return tuple(value)
+
     def parse_response(self, payload: str | dict[str, Any]) -> Verdict:
-        """Parse and shape a model response. Malformed input raises."""
+        """Parse and shape a model response. Malformed input raises.
+
+        This is a SHAPE check only. Semantic validation — criteria membership in
+        the taxonomy record, known neighbour mechanisms, cross-document
+        prohibition — happens in exactly one place, `validation.validate_verdict`,
+        which every provider's output passes through. Keeping semantics in a
+        single validator prevents the two-subtly-different-validators problem.
+        """
         data = json.loads(payload) if isinstance(payload, str) else payload
         if not isinstance(data, dict):
             raise ValueError("model response must be a JSON object")
         for required in ("applies", "criteriaTriggered", "criteriaFailed", "certainty"):
             if required not in data:
                 raise ValueError(f"model response missing required field: {required}")
+
+        # The advertised schema sets additionalProperties=false; honour it here
+        # rather than advertising a contract the parser does not enforce.
+        allowed = set(self.RESPONSE_SCHEMA["properties"])
+        unexpected = set(data) - allowed
+        if unexpected:
+            raise ValueError(f"model response has unexpected properties: {sorted(unexpected)}")
+
+        if data["applies"] not in {"yes", "no", "uncertain"}:
+            raise ValueError(f"model response applies must be yes/no/uncertain, got {data['applies']!r}")
+
         certainty = data["certainty"]
-        if not isinstance(certainty, (int, float)) or isinstance(certainty, bool):
+        if isinstance(certainty, bool) or not isinstance(certainty, (int, float)):
             raise ValueError("model response certainty must be numeric")
-        if not 0.0 <= float(certainty) <= 1.0:
+        certainty = float(certainty)
+        if certainty != certainty or certainty in (float("inf"), float("-inf")):
+            raise ValueError("model response certainty must be finite")
+        if not 0.0 <= certainty <= 1.0:
             raise ValueError("model response certainty out of range")
+
         return Verdict(
             applies=str(data["applies"]),
-            criteria_triggered=tuple(data["criteriaTriggered"]),
-            criteria_failed=tuple(data["criteriaFailed"]),
-            nearest_neighbor_overlap=tuple(data.get("nearestNeighborOverlap", ())),
-            certainty=float(certainty),
+            criteria_triggered=self._string_array(data["criteriaTriggered"], "criteriaTriggered"),
+            criteria_failed=self._string_array(data["criteriaFailed"], "criteriaFailed"),
+            nearest_neighbor_overlap=self._string_array(
+                data.get("nearestNeighborOverlap", []), "nearestNeighborOverlap"
+            ),
+            certainty=certainty,
             provider_id=self.provider_id,
             raw=data,
         )

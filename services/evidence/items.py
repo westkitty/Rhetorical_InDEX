@@ -168,27 +168,61 @@ def claim_state_for(
     supporting = [r for r in relations if r.relation_type == _SUPPORTS]
     contradicting = [r for r in relations if r.relation_type == _CONTRADICTS]
 
-    def has_authenticated_direct(rels: Sequence[EvidenceRelation]) -> bool:
+    def usable(relation: EvidenceRelation) -> bool:
+        """Whether a relation is strong enough to move claim state.
+
+        Review finding M-07: the relation between evidence and proposition is
+        ITSELF epistemic evidence. A Low-confidence link to an authenticated
+        document says "we are not sure this document is even about this claim",
+        which cannot license `supported_by_direct_evidence`. Weak links are
+        retained for display but may not promote state.
+        """
+        return vocab.confidence_rank(relation.confidence) >= 2
+
+    def authenticated_direct(rels: Sequence[EvidenceRelation]) -> list[EvidenceRelation]:
+        out = []
         for relation in rels:
             item = evidence_by_id.get(relation.evidence_id)
             if item is None:
                 continue
             if item.directness == "direct" and item.authenticity_state == "verified":
-                return True
-        return False
+                out.append(relation)
+        return out
 
+    def distinct_items(rels: Sequence[EvidenceRelation]) -> set[str]:
+        """Review finding M-08: corroboration counts EVIDENCE ITEMS, never relation rows.
+
+        Two relations pointing at the same document are one piece of evidence
+        cited twice. Counting rows would let duplicated bookkeeping manufacture
+        corroboration out of a single source.
+        """
+        return {r.evidence_id for r in rels if r.evidence_id in evidence_by_id}
+
+    strong_supporting = [r for r in supporting if usable(r)]
+    strong_contradicting = [r for r in contradicting if usable(r)]
+
+    # Contradiction is never outvoted by supporting volume.
+    if strong_supporting and strong_contradicting:
+        return "contested"
     if supporting and contradicting:
         return "contested"
 
+    if strong_contradicting:
+        return "contradicted_by_evidence" if authenticated_direct(strong_contradicting) else "contested"
     if contradicting:
-        return "contradicted_by_evidence" if has_authenticated_direct(contradicting) else "contested"
+        # Only weak contradiction: not confident enough to assert contradiction,
+        # but not clean either.
+        return "contested"
 
-    if has_authenticated_direct(supporting):
+    if authenticated_direct(strong_supporting):
         return "supported_by_direct_evidence"
 
-    if len(supporting) >= 2:
+    if len(distinct_items(strong_supporting)) >= 2:
         # Corroborated is explicitly weaker than direct support, and repetition
-        # alone never promotes it further.
+        # alone never promotes it further. Independence between the items is NOT
+        # represented in the current model, so this is the ceiling: the state
+        # says "several distinct items agree", not "several independent sources
+        # agree". See KNOWN_LIMITATIONS.
         return "corroborated"
 
     return "unverified"

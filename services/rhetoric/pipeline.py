@@ -124,6 +124,8 @@ def analyze_article(
             content_hash=article.content_hash,
             detector_version=DETECTOR_VERSION,
             provider_id=active_provider.provider_id,
+            taxonomy_version=vocab.taxonomy_version(),
+            provider_version=active_provider.version,
             salt=run_salt,
         ),
         article_id=article.article_id,
@@ -145,6 +147,7 @@ def analyze_article(
         }
         batch_findings: list[Finding] = []
         batch_failed = False
+        batch_succeeded = 0
 
         for passage_id in batch:
             passage = article.passage(passage_id)
@@ -166,17 +169,16 @@ def analyze_article(
                 batch_failed = True
                 continue
             except Exception as exc:  # noqa: BLE001 - deliberate service boundary
-                # A provider bug must not destroy the whole analysis. The
-                # failure is recorded (never swallowed): it appears in
-                # run.failures, marks the passage failed, and downgrades the run
-                # to partial/failed so no consumer can mistake this for a clean
-                # scan. Losing one passage honestly beats losing the run.
+                # A defect must not destroy the whole analysis, but its origin
+                # must stay honest. O-09: everything used to be labelled
+                # `provider_error`, which blamed the provider for scoring,
+                # validation and taxonomy defects in our own code.
                 run.failed_passage_ids.append(passage_id)
                 run.failures.append(
                     DetectorFailure(
                         passage_id=passage_id,
-                        stage="provider_error",
-                        reason=f"{type(exc).__name__}: {exc}",
+                        stage=_failure_stage(exc),
+                        reason=_failure_reason(exc),
                     )
                 )
                 batch_failed = True
@@ -184,11 +186,17 @@ def analyze_article(
 
             batch_findings.extend(passage_findings)
             run.processed_passage_ids.append(passage_id)
+            batch_succeeded += 1
 
         collected.extend(batch_findings)
         batch_record["findingCount"] = len(batch_findings)
+        batch_record["succeededPassages"] = batch_succeeded
+        # O-08: status reflects PASSAGE outcomes, not finding count. A passage
+        # that was analyzed and legitimately produced zero findings succeeded;
+        # treating an empty batch as failed reported analysis loss that never
+        # happened.
         if batch_failed:
-            batch_record["status"] = "partial" if batch_findings else "failed"
+            batch_record["status"] = "partial" if batch_succeeded else "failed"
         run.batches.append(batch_record)
 
     findings = tuple(dedupe_findings(collected))
@@ -202,6 +210,31 @@ def analyze_article(
         )
 
     return AnalysisResult(run=run, article=article, findings=findings)
+
+
+class ProviderInvocationError(Exception):
+    """Wraps any exception raised INSIDE a provider's own verify() call.
+
+    O-09: failure provenance is decided by WHERE the exception was raised, not
+    by guessing from a filename — providers are frequently defined outside
+    services/rhetoric. Only the provider call is wrapped, so anything raised by
+    our own scoring, validation or taxonomy code stays attributable to us.
+    """
+
+    def __init__(self, original: BaseException) -> None:
+        super().__init__(str(original))
+        self.original = original
+
+
+def _failure_stage(exc: BaseException) -> str:
+    if isinstance(exc, ProviderInvocationError):
+        return "provider_error"
+    return "internal_error"
+
+
+def _failure_reason(exc: BaseException) -> str:
+    original = exc.original if isinstance(exc, ProviderInvocationError) else exc
+    return f"{type(original).__name__}: {original}"
 
 
 def _analyze_passage(
@@ -235,7 +268,12 @@ def _analyze_passage(
             )
             continue
 
-        verdict: Verdict = provider.verify(ctx)
+        try:
+            verdict: Verdict = provider.verify(ctx)
+        except ProviderUnavailable:
+            raise
+        except Exception as exc:  # noqa: BLE001 - attribute provider faults precisely
+            raise ProviderInvocationError(exc) from exc
 
         try:
             validate_verdict(
@@ -333,7 +371,7 @@ def _analyze_passage(
                 occurrence_index=resolved.occurrence_index,
                 pressure=pressure.value,
                 confidence=confidence_value,
-                state=scoring.reportable_state(confidence_value),
+                state=scoring.reportable_state(confidence_value, verdict.applies),
                 voice_class=ctx.voice_class,
                 triggered_criteria=tuple(verdict.criteria_triggered),
                 failed_criteria=tuple(verdict.criteria_failed),

@@ -26,6 +26,9 @@ from services.rhetoric import analyze_article, vocabulary as vocab  # noqa: E402
 from services.rhetoric.document import article_from_passages  # noqa: E402
 from services.rhetoric.pipeline import IMPLEMENTED_MECHANISMS  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from validate_corpus import CorpusIntegrityError, assert_corpus_valid  # noqa: E402
+
 # A predicted span counts as a span-level match when IoU meets this threshold.
 SPAN_IOU_THRESHOLD = 0.5
 
@@ -101,6 +104,34 @@ class MechanismMetrics:
         }
 
 
+def maximum_matching(pairs: dict[int, list[int]]) -> dict[int, int]:
+    """Deterministic maximum-cardinality bipartite matching (Hopcroft-Karp-lite).
+
+    Review finding O-05: greedy first-best matching made TP/FP/FN depend on
+    prediction iteration order — one prediction could claim the only gold span a
+    second prediction could have matched, turning two true positives into one TP
+    plus an FP and an FN. Metrics that move with iteration order are not metrics.
+
+    `pairs` maps prediction index -> eligible gold indices, pre-sorted by
+    descending IoU then ascending index so ties resolve deterministically.
+    """
+    match_gold: dict[int, int] = {}
+
+    def augment(pred: int, seen: set[int]) -> bool:
+        for gold in pairs.get(pred, ()):
+            if gold in seen:
+                continue
+            seen.add(gold)
+            if gold not in match_gold or augment(match_gold[gold], seen):
+                match_gold[gold] = pred
+                return True
+        return False
+
+    for pred in sorted(pairs):
+        augment(pred, set())
+    return {pred: gold for gold, pred in match_gold.items()}
+
+
 def _iou(a_start: int, a_end: int, b_start: int, b_end: int) -> float:
     overlap = max(0, min(a_end, b_end) - max(a_start, b_start))
     union = max(a_end, b_end) - min(a_start, b_start)
@@ -108,7 +139,16 @@ def _iou(a_start: int, a_end: int, b_start: int, b_end: int) -> float:
 
 
 def load_corpus(corpus_dir: Path) -> list[dict[str, Any]]:
-    """Load adjudicated annotation documents. Only status='adjudicated' counts."""
+    """Load adjudicated annotation documents, VALIDATING them first.
+
+    Review finding M-09: `adjudicationStatus == "adjudicated"` used to be
+    sufficient, so a malformed gold file would silently produce metrics. Every
+    adjudicated document is now validated, and an invalid one raises
+    CorpusIntegrityError rather than being quietly skipped — a corpus that is
+    broken must look broken, not small.
+    """
+    assert_corpus_valid(corpus_dir)
+
     documents: list[dict[str, Any]] = []
     for path in sorted(corpus_dir.glob("*.json")):
         if path.name.startswith("_"):
@@ -133,14 +173,15 @@ def evaluate(documents: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
         gold = [a for a in document["annotations"] if a["mechanismId"] in metrics]
         predicted = [f for f in result.findings if f.mechanism_id in metrics]
-        matched_gold: set[int] = set()
 
-        for finding in predicted:
+        # Build eligibility, then solve for MAXIMUM cardinality rather than
+        # taking greedy first-best (O-05).
+        eligible: dict[int, list[int]] = {}
+        iou_by_pair: dict[tuple[int, int], float] = {}
+        for pred_index, finding in enumerate(predicted):
             passage_ordinal = article.passage(finding.passage_id).ordinal
-            best_index, best_iou = None, 0.0
-            for index, annotation in enumerate(gold):
-                if index in matched_gold:
-                    continue
+            options: list[tuple[float, int]] = []
+            for gold_index, annotation in enumerate(gold):
                 if annotation["mechanismId"] != finding.mechanism_id:
                     continue
                 if annotation["passageOrdinal"] != passage_ordinal:
@@ -149,12 +190,22 @@ def evaluate(documents: Sequence[dict[str, Any]]) -> dict[str, Any]:
                     finding.start_char, finding.end_char,
                     annotation["startChar"], annotation["endChar"],
                 )
-                if score > best_iou:
-                    best_index, best_iou = index, score
+                if score >= SPAN_IOU_THRESHOLD:
+                    options.append((score, gold_index))
+                    iou_by_pair[(pred_index, gold_index)] = score
+            # Descending IoU, then ascending gold index: deterministic tie-break.
+            options.sort(key=lambda item: (-item[0], item[1]))
+            eligible[pred_index] = [gold_index for _, gold_index in options]
+
+        matching = maximum_matching(eligible)
+        matched_gold: set[int] = set(matching.values())
+
+        for pred_index, finding in enumerate(predicted):
+            best_index = matching.get(pred_index)
+            best_iou = iou_by_pair.get((pred_index, best_index), 0.0) if best_index is not None else 0.0
 
             bucket = metrics[finding.mechanism_id]
-            if best_index is not None and best_iou >= SPAN_IOU_THRESHOLD:
-                matched_gold.add(best_index)
+            if best_index is not None:
                 annotation = gold[best_index]
                 bucket.true_positives += 1
                 bucket.span_ious.append(best_iou)
@@ -171,6 +222,7 @@ def evaluate(documents: Sequence[dict[str, Any]]) -> dict[str, Any]:
             else:
                 bucket.false_positives += 1
                 # Record what the detector confused this span with, if anything.
+                passage_ordinal = article.passage(finding.passage_id).ordinal
                 overlapping = [
                     a["mechanismId"] for a in gold
                     if a["passageOrdinal"] == passage_ordinal
@@ -209,7 +261,11 @@ def main() -> int:
         print(f"BENCHMARK STATUS: MISSING — no corpus directory at {corpus_dir}", file=sys.stderr)
         return 2
 
-    documents = load_corpus(corpus_dir)
+    try:
+        documents = load_corpus(corpus_dir)
+    except CorpusIntegrityError as exc:
+        print(f"CORPUS INTEGRITY FAILURE\n{exc}", file=sys.stderr)
+        return 3
     if not documents:
         payload = {
             "benchmarkStatus": "EMPTY",

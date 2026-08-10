@@ -148,7 +148,8 @@ interface AnalysisRun {
   timestamp: string;
   stage: ScanStage;
   findingsCount: number;
-  peakPressure: PressureLevel;
+  /** null when there are no findings: absence of pressure is not P1 (O-04). */
+  peakPressure: PressureLevel | null;
   confirmedDensity: number;
   candidateDensity: number;
   processedParagraphs: number[];

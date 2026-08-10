@@ -138,9 +138,16 @@ class ScoringIndependenceTests(unittest.TestCase):
     """Pressure and confidence must be able to vary independently."""
 
     def test_high_pressure_can_carry_low_confidence(self):
+        # Post-M-14 the rubric grades by dominance, so P4 requires dominant
+        # density or dehumanizing vocabulary rather than one severe word.
         pressure = scoring.score_pressure(
             "loaded_language",
-            {"peak_tier": "severe", "term_count": 3, "tiers": ["severe", "strong", "strong"]},
+            {
+                "peak_tier": "severe", "term_count": 3,
+                "tiers": ["severe", "strong", "strong"],
+                "terms": ["draconian", "reckless", "brutal"],
+                "passage_density": 0.5,
+            },
         )
         confidence = scoring.score_confidence(
             generator="grammatical.presupp_change_of_state_v1",

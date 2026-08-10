@@ -67,6 +67,17 @@ TypeScript side. `tests/python/test_vocabulary_parity.py` checks Python's
 runtime values; the Node suite additionally asserts TypeScript and Python agree
 *with each other*, not merely with the file.
 
+**Scope of that claim (review finding M-13).** What is verified is the
+**controlled vocabulary** — pressure, confidence, voice, mechanism ids, families
+and the intrinsic slice. It is **not** domain-object shape parity. The Level 2
+TypeScript UI model (`Finding.id`, `.span`, `.mechanism`) and the Level 3 Python
+envelope (`findingId`, `passageId`, `mechanismId`, `startChar`, `endChar`) are
+deliberately different objects serving different layers, and nothing tests them
+against each other. They do not need to agree while Level 3 is not reachable
+from the browser; when a Level 3 service boundary is built, that boundary needs
+its own versioned JSON Schema for the serialized envelope, validated on the
+Python side and generated or checked on the TypeScript side.
+
 The 12-mechanism id list lives only in `taxonomy.json` and is deliberately not
 duplicated into `schema.json`.
 

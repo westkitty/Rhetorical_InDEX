@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-alpha0",
+  "version": "1.1.0-alpha0",
   "mechanisms": [
     {
       "id": "loaded_language",
@@ -13,7 +13,7 @@
       ],
       "exclusionCriteria": [
         "Standard technical or legal terms with precise definitions (e.g., \"felony\", \"non-compliance\").",
-        "Direct verbatim quotes from an external actor where the emotional tone belongs strictly to the quoted speaker.",
+        "Ordinary descriptive or idiomatic wording with no evaluative substitution. (Quoted speech is NOT an exclusion: rhetoric inside a quotation is still rhetoric. Record it and set voiceClass=quoted_speaker so the finding says WHOSE rhetoric it is rather than erasing the mechanism.)",
         "Factual descriptions of extreme physical events (e.g., \"catastrophic earthquake\")."
       ],
       "pressureRubric": {
@@ -46,7 +46,7 @@
           "whyNot": "Uses neutral descriptive terms without emotional preloading."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "euphemism_dysphemism",
@@ -87,7 +87,7 @@
           "whyNot": "Directly states the real-world action."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "presupposition",
@@ -129,7 +129,7 @@
           "whyNot": "Frames the breach as a question subject to investigation."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "epistemic_overstatement",
@@ -171,7 +171,7 @@
           "whyNot": "Uses proper attribution and appropriate evidentiary framing."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "agent_suppression",
@@ -213,7 +213,7 @@
           "whyNot": "Explicitly identifies the acting agents and chain of authority."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "appeal_to_fear",
@@ -255,7 +255,7 @@
           "whyNot": "States the argument neutrally with specific hypothetical outcomes."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "false_dilemma",
@@ -297,7 +297,7 @@
           "whyNot": "Acknowledges the spectrum of policy options."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "hasty_generalization",
@@ -338,7 +338,7 @@
           "whyNot": "Distinguishes isolated acts from the broader group behavior."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "causal_overclaim",
@@ -380,7 +380,7 @@
           "whyNot": "Reflects multi-factorial causality accurately."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "headline_body_mismatch",
@@ -421,7 +421,7 @@
           "whyNot": "Headline accurately matches the body content."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "selective_quotation",
@@ -463,7 +463,7 @@
           "whyNot": "Preserves the conditional nature of the statement."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     },
     {
       "id": "material_omission",
@@ -506,7 +506,7 @@
           "whyNot": "Includes the essential baseline denominator."
         }
       ],
-      "version": "1.0.0-alpha0"
+      "version": "1.1.0-alpha0"
     }
   ]
 }

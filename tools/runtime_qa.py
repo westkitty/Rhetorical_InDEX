@@ -5,13 +5,24 @@ import http.server
 import json
 import socket
 import socketserver
+import os
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright
+except ModuleNotFoundError:  # pragma: no cover - environment-dependent
+    sys.stderr.write(
+        "runtime QA requires Playwright, which is not installed.\n"
+        "  python3 -m pip install playwright\n"
+        "  python3 -m playwright install chromium\n"
+        "Runtime browser QA stays UNVERIFIED until this is available; it is never\n"
+        "reported as PASS on the basis of a previous run.\n"
+    )
+    raise SystemExit(2)
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "apps" / "web" / "dist"
@@ -134,13 +145,49 @@ def run_context(browser, html, width, height, mobile=False, suffix="desktop"):
     return results
 
 
+def _launch_options(playwright) -> dict:
+    """Resolve a Chromium in a platform-portable way.
+
+    The executable path was previously hardcoded to `/usr/bin/chromium`, which
+    is Linux-only and silently wrong on macOS. Prefer Playwright's own managed
+    browser; fall back to an explicit override or a discovered system binary,
+    and say so clearly when none is available.
+    """
+    options: dict = {"headless": True, "args": ["--no-sandbox"]}
+    override = os.environ.get("RHETORIC_CHROMIUM_PATH")
+    if override:
+        if not Path(override).exists():
+            raise SystemExit(f"RHETORIC_CHROMIUM_PATH does not exist: {override}")
+        options["executable_path"] = override
+        return options
+    try:
+        # Playwright-managed browser: the portable, preferred path.
+        playwright.chromium.executable_path  # noqa: B018 - raises if unavailable
+        return options
+    except Exception:  # pragma: no cover - environment-dependent
+        pass
+    for candidate in (
+        "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ):
+        if Path(candidate).exists():
+            options["executable_path"] = candidate
+            return options
+    raise SystemExit(
+        "No Chromium available. Install the Playwright browser:\n"
+        "  python3 -m playwright install chromium\n"
+        "or set RHETORIC_CHROMIUM_PATH to an existing Chromium/Chrome binary."
+    )
+
+
 def main():
     if not (DIST / "index.html").exists():
         raise SystemExit("Build apps/web/dist/index.html before runtime QA")
     html = (DIST / "index.html").read_text()
     all_results = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+        browser = p.chromium.launch(**_launch_options(p))
         all_results += run_context(browser, html, 1440, 1000, mobile=False, suffix="desktop")
         all_results += run_context(browser, html, 768, 1024, mobile=True, suffix="tablet-portrait")
         all_results += run_context(browser, html, 1024, 768, mobile=True, suffix="tablet-landscape")

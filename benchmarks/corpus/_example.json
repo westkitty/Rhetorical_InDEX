@@ -2,7 +2,7 @@
   "articleId": "bench-example-0001",
   "genre": "straight_news",
   "sourceNote": "Synthetic text authored for this example. Not a real article. Excluded from scoring by the leading underscore in the filename.",
-  "taxonomyVersion": "1.0.0-alpha0",
+  "taxonomyVersion": "1.1.0-alpha0",
   "adjudicationStatus": "adjudicated",
   "annotatorIds": [
     "annotator-example-a",
