@@ -153,7 +153,7 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | B-09 | Pressure agreement measured separately from detection | `test_pressure_disagreement_is_measured_separately_from_detection` | PASS |
 | B-10 | No aggregate hides a failing mechanism | `test_no_aggregate_hides_a_failing_mechanism` | PASS |
 | B-11 | Worked example excerpts round-trip | `test_worked_example_excerpts_round_trip` | PASS |
-| B-12 | **Detector calibration measured** | Requires human annotation | **UNVERIFIED** |
+| B-12 | **Detector calibration measured** | Requires human annotation | UNVERIFIED |
 
 ## Security
 
@@ -193,33 +193,81 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 
 ## Accessibility and runtime — see `tests/prototype-parity/PARITY_MATRIX.md`
 
-| ID | Requirement | Status |
-|---|---|---|
-| Y-01 | One accessible article representation | PASS (`artifact.test.mjs`) |
-| Y-02 | Overlay `aria-hidden` | PASS |
-| Y-03 | Keyboard route through findings | UNVERIFIED |
-| Y-04 | Visible focus | UNVERIFIED |
-| Y-05 | Dialog naming | UNVERIFIED |
-| Y-06 | Initial focus on open | UNVERIFIED |
-| Y-07 | Tab focus trap | UNVERIFIED |
-| Y-08 | Shift+Tab trap | UNVERIFIED |
-| Y-09 | Escape closes | UNVERIFIED |
-| Y-10 | Focus restoration | UNVERIFIED |
-| Y-11 | Non-color mechanism meaning | UNVERIFIED |
-| Y-12 | Textual pressure/confidence | PASS (rendered as text, `artifact.test.mjs` structure) |
-| Y-13 | Minimum touch targets | UNVERIFIED |
-| Y-14 | Reduced Motion | UNVERIFIED |
-| Y-15 | Status/error announcements | UNVERIFIED |
-| Y-16 | Screen-reader session | UNVERIFIED |
+| ID | Requirement | Verification | Status |
+|---|---|---|---|
+| Y-01 | One accessible article representation | `tests/artifact.test.mjs` | PASS |
+| Y-02 | Overlay `aria-hidden` | Executed | PASS |
+| Y-03 | Keyboard route through findings | Runtime browser check required | UNVERIFIED |
+| Y-04 | Visible focus | Runtime browser check required | UNVERIFIED |
+| Y-05 | Dialog naming | Runtime browser check required | UNVERIFIED |
+| Y-06 | Initial focus on open | Runtime browser check required | UNVERIFIED |
+| Y-07 | Tab focus trap | Runtime browser check required | UNVERIFIED |
+| Y-08 | Shift+Tab trap | Runtime browser check required | UNVERIFIED |
+| Y-09 | Escape closes | Runtime browser check required | UNVERIFIED |
+| Y-10 | Focus restoration | Runtime browser check required | UNVERIFIED |
+| Y-11 | Non-color mechanism meaning | Runtime browser check required | UNVERIFIED |
+| Y-12 | Textual pressure/confidence | Rendered as text; `tests/artifact.test.mjs` structure | PASS |
+| Y-13 | Minimum touch targets | Runtime browser check required | UNVERIFIED |
+| Y-14 | Reduced Motion | Runtime browser check required | UNVERIFIED |
+| Y-15 | Status/error announcements | Runtime browser check required | UNVERIFIED |
+| Y-16 | Screen-reader session | Runtime browser check required | UNVERIFIED |
+
+## Independent pre-merge review closure
+
+| ID | Requirement | Verification | Status |
+|---|---|---|---|
+| Z-01 | Numeric conflict blocks agreement | `test_numeric_conflict_is_not_usable_and_not_compatible` | PASS |
+| Z-02 | Numeric formatting variants remain equivalent | `test_numeric_formatting_equivalence_still_aligns`, `test_thousands_separator_is_equivalent` | PASS |
+| Z-03 | Currency scale conflict detected | `test_currency_scale_conflict_detected` | PASS |
+| Z-04 | Clock-time conflict detected | `test_clock_time_conflict_detected` | PASS |
+| Z-05 | Weekday conflict blocks agreement | `test_date_conflict_is_not_usable` | PASS |
+| Z-06 | Same weekday is not a conflict | `test_same_weekday_is_not_a_conflict` | PASS |
+| Z-07 | Calendar-date conflict detected | `test_calendar_date_conflict_detected` | PASS |
+| Z-08 | Year conflict detected | `test_year_conflict_detected` | PASS |
+| Z-09 | Antonym/polarity conflict blocks agreement | `test_polarity_pairs_detected`, `test_antonym_conflict_is_not_usable` | PASS |
+| Z-10 | Direction conflict blocks agreement | `test_direction_conflict_is_not_usable` | PASS |
+| Z-11 | Approval conflict blocks agreement | `test_approval_conflict_is_not_usable` | PASS |
+| Z-12 | Permission conflict blocks agreement | `test_permission_conflict_is_not_usable` | PASS |
+| Z-13 | Explicit negation remains contradictory | `test_explicit_negation_remains_contradictory` | PASS |
+| Z-14 | One-sided detail is not a conflict | `test_one_sided_detail_is_not_a_conflict` | PASS |
+| Z-15 | Ordinary rewording produces no false conflict | `test_no_divergence_on_ordinary_rewording` | PASS |
+| Z-16 | Identical claims still align and remain usable | `test_identical_claims_still_align_and_remain_usable` | PASS |
+| Z-17 | Only `same_proposition` may ground an omission | `test_specificity_relations_are_not_usable_for_omission`, `test_ordinary_compatible_wording_without_conflict_is_still_not_omission_grounds` | PASS |
+| Z-18 | Numeric conflict cannot produce a Material Omission | `test_numeric_conflict_cannot_produce_a_material_omission` | PASS |
+| Z-19 | Antonym conflict cannot produce a Material Omission | `test_antonym_conflict_cannot_produce_a_material_omission` | PASS |
+| Z-20 | Date conflict cannot produce a Material Omission | `test_date_conflict_cannot_produce_a_material_omission` | PASS |
+| Z-21 | No source credited with a claim it did not make | `test_no_source_is_ever_credited_with_a_claim_it_did_not_make` | PASS |
+| Z-22 | Genuine omission still accepted after the fix | `test_genuine_omission_is_still_accepted` | PASS |
+| Z-23 | Grounding alignments are divergence-free (invariant) | `evaluate_candidate_omission` invariant; asserted in `test_genuine_omission_is_still_accepted` | PASS |
+| Z-24 | Temporal/measurement `by` does not name an agent | `test_temporal_and_measurement_by_phrases_do_not_name_an_agent` | PASS |
+| Z-25 | Real named agents still excluded | `test_real_named_agents_are_still_excluded` | PASS |
+| Z-26 | Unbalanced quote is not classified as a heading | `test_unbalanced_opening_quote_is_not_a_heading`, `test_unbalanced_curly_quote_is_not_a_heading` | PASS |
+| Z-27 | Unbalanced quote never attributed to the outlet | `test_unbalanced_quote_never_attributes_to_the_outlet` | PASS |
+| Z-28 | Quoted material in a heading belongs to the speaker | `test_quoted_material_inside_a_heading_belongs_to_the_speaker` | PASS |
+| Z-29 | Ordinary heading remains outlet headline voice | `test_ordinary_heading_is_still_outlet_headline_voice` | PASS |
+| Z-30 | High pressure with non-High confidence is reachable | `test_high_pressure_with_non_high_confidence_is_reachable` | PASS |
+| Z-31 | Low pressure with High confidence is reachable | `test_low_pressure_with_high_confidence_is_reachable` | PASS |
+| Z-32 | Provider does not raise certainty for rhetorical tier | `test_provider_does_not_raise_certainty_for_rhetorical_tier` | PASS |
+| Z-33 | QA matrix summaries match their rows | `tools/check_traceability.py`; `test_all_qa_matrices_are_internally_consistent` | PASS |
+| Z-34 | Every QA row carries exactly one primary status | same checker rejects multi-status rows | PASS |
+| Z-35 | P4 + Low confidence reachable in the shipped heuristic | Not constructible without contrived input; documented in `KNOWN_LIMITATIONS.md` | UNVERIFIED |
 
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 106 |
+| PASS | 166 |
 | FAIL | 0 |
-| UNVERIFIED | 16 |
+| UNVERIFIED | 15 |
 | N/A | 0 |
 
-Every UNVERIFIED row is either browser-runtime dependent (15) or requires human
-annotation (1, B-12). None is unverified through omission.
+**These totals are machine-verified**, not hand-counted: `tools/check_traceability.py`
+parses every ID-prefixed row, counts statuses, compares them to this summary and
+exits non-zero on any drift. It also rejects rows carrying more than one primary
+status, so structural presence can never be silently counted as an executed PASS.
+The check runs in the test suite as
+`test_all_qa_matrices_are_internally_consistent`.
+
+Every UNVERIFIED row is browser-runtime dependent (13), requires human annotation
+(B-12), or is an acknowledged heuristic limitation (Z-35). None is unverified
+through omission.

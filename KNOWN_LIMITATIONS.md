@@ -42,7 +42,7 @@ an empty result that could be misread as "none found".
 | Pressure / confidence separation | Implemented, tested |
 | Coverage accounting, partial states | Implemented, tested |
 | Long-document batching | Implemented, tested to 601 passages |
-| Claim alignment | **Lexical baseline only** — see below |
+| Claim alignment | Lexical baseline **plus bounded numeric/temporal/polarity/negation divergence guards** — see below |
 | Material omission | Architecture + gates implemented; no real comparison data |
 | Evidence model | Architecture only; no retrieval, no authentication |
 | Source dependence | Model implemented; no real dependency data |
@@ -53,12 +53,49 @@ an empty result that could be misread as "none found".
 
 ## Specific weaknesses
 
-### Claim alignment is lexical, not semantic
-`services/comparison/claims.align_pair` uses content-token Jaccard overlap. It
-will fail on paraphrase with low lexical overlap, and it cannot distinguish
-propositions that share vocabulary but differ in meaning. It is honest about
-this — it returns `uncertain` in the ambiguous band and `uncertain` is barred
-from grounding an omission — but it is a baseline, not understanding.
+### Claim alignment is primarily lexical, with bounded divergence guards
+`services/comparison/claims.align_pair` scores similarity with content-token
+Jaccard overlap. On top of that, `services/comparison/divergence.py` applies
+**deterministic, bounded, high-value conflict checks** before any high-overlap
+pair may be treated as agreement:
+
+- **numeric** — percent, currency, clock time and scaled integers, with
+  normalization so `12%` == `12 percent`, `1,000` == `1000`, `$2 million` ==
+  `$2,000,000`
+- **temporal** — weekday, month + day, year
+- **polarity** — a small explicit antonym list (direction, benefit, approval,
+  permission, stance, safety, legality, presence, gain, sequence)
+- **negation** — explicit negation markers
+
+Any detected conflict forces `uncertain` / Low confidence and is **not usable
+for Material Omission**. Explicit negation yields `contradictory`.
+
+**This is not general contradiction detection and not a semantic entailment
+engine.** It will still miss:
+
+- paraphrase with little lexical overlap (aligns as `unrelated`)
+- antonyms outside the bounded pair list
+- unit conversions (miles vs kilometres)
+- contradictions requiring world knowledge
+- numeric conflicts expressed only in prose ("doubled" vs "halved")
+
+The design bias is **fail-closed**: an undetected divergence stays `uncertain`,
+never `compatible`. Nothing an undetected conflict can do will turn it into
+positive evidence of agreement.
+
+The same bias produces **conservative false negatives**, which are accepted
+deliberately. `"the fund holds $2 million"` and `"the fund holds $2,000,000"`
+assert the identical fact and are correctly found to have *no conflict*, but
+their token overlap (0.60) falls below the `same_proposition` threshold, so the
+pair is not usable to ground an omission. Refusing a true statement is a cost we
+take; asserting a false one is not.
+
+Separately, **only `same_proposition` may ground a Material Omission**. The
+specificity relations (`more_specific`, `less_specific`) are excluded because
+they are token-count comparisons, not entailment checks — and the direction is
+counter-intuitive: `align_pair(candidate, peer)` reports `more_specific` when
+the *candidate* exceeds the peer, which is exactly when the peer does **not**
+establish it.
 
 ### Confidence may still read as factual confidence
 "Confidence: High" means *the detector is confident this rhetorical mechanism is
@@ -82,15 +119,33 @@ synthetic fixtures. Behavior against real coverage is unmeasured.
 
 ### Segmentation is heuristic
 Passage typing (heading / blockquote / list item / caption) infers structure
-from plain text. It will mis-type unusual formatting. Two known mis-typings were
-found and fixed during adversarial review; others likely remain.
+from plain text. It will mis-type unusual formatting. Three known mis-typings
+were found and fixed across adversarial review passes (caption keywords,
+unbalanced-quote fragments read as headings); others likely remain.
+
+### Pressure/confidence: P4 with Low confidence is not reachable
+Pressure and confidence are structurally independent (`score_confidence` takes
+no pressure argument) and the shipped heuristic pipeline now reaches P4+Medium,
+P3+Medium, P2+High, P1+Low and P1+Medium. It does **not** reach P4+Low: the
+generators that produce P4 pressure are the same lexical matches the provider is
+most certain about. This is a property of the current heuristic provider, not of
+the model; a future provider with genuinely uncertain high-pressure detections
+would produce it. Recorded as `Z-35` (UNVERIFIED) rather than forced with
+contrived input.
+
+### The `by`-agent test is a bounded stop-list
+Agent-suppression exclusion distinguishes real agents ("by the department") from
+temporal, duration and measurement adjuncts ("by Tuesday", "by three weeks", "by
+20 percent") using an explicit non-agent stop-list plus a numeric guard. An
+unusual non-agent noun outside that list will still read as a named agent and
+over-exclude. Bounded and inspectable by design, not a parser.
 
 ## Verification gaps in this environment
 
 Playwright and Chromium are unavailable on this host, so **no runtime browser
 check was executed in this pass**. Consequently:
 
-- 21 of 32 prototype-parity rows are `UNVERIFIED` (`tests/prototype-parity/PARITY_MATRIX.md`)
+- 23 of 32 prototype-parity rows are `UNVERIFIED` (`tests/prototype-parity/PARITY_MATRIX.md`)
 - accessibility behaviors (focus trap, focus restoration, Escape, keyboard route)
   are source-supported but **runtime-unverified**
 - responsive/touch behavior is **runtime-unverified**

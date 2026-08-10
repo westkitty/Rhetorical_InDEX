@@ -17,6 +17,8 @@ from typing import Any, Iterable, Sequence
 
 from services.rhetoric import vocabulary as vocab
 
+from .divergence import describe, detect_divergence, has_negation_conflict
+
 _WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'-]*")
 _STOPWORDS = frozenset(
     """a an the and or but if then than that this these those of in on at to for from by with
@@ -24,7 +26,6 @@ _STOPWORDS = frozenset(
     could must has have had do does did not no nor it its as such about after before during
     while when where which who whom whose what how why""".split()
 )
-_NEGATION = re.compile(r"\b(?:not|no|never|without|denies|denied|rejects|rejected|refutes|refuted|contrary)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,7 @@ class ClaimAlignment:
     confidence: str
     overlap_score: float
     rationale: str
+    divergences: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.relation not in vocab.ALIGNMENT_RELATION:
@@ -116,15 +118,24 @@ class ClaimAlignment:
 
     @property
     def is_usable_for_omission(self) -> bool:
-        """Only a confident same/compatible/specificity relation may ground an omission.
+        """Only `same_proposition` may ground a Material Omission.
 
-        `uncertain`, `unrelated` and Low-confidence alignments are explicitly
-        NOT usable. This is the guard that stops a weak lexical match from
-        becoming a confident cross-document assertion.
+        Narrowed from the previous {same_proposition, compatible, more_specific,
+        less_specific} after review finding M-01, which showed bare `compatible`
+        letting contradictory peer claims satisfy the presence gate.
+
+        The specificity relations are excluded deliberately, and the direction
+        matters: `align_pair(probe, peer)` returns `more_specific` when the
+        *probe* (the candidate proposition) carries more content than the peer —
+        precisely the case where the peer does NOT establish the candidate. The
+        mirror case, `less_specific`, is arguably defensible but requires a real
+        containment/entailment check rather than a token-count comparison, so it
+        stays excluded until such a check exists. Omission gating fails closed.
         """
         return (
-            self.relation in {"same_proposition", "compatible", "more_specific", "less_specific"}
+            self.relation == "same_proposition"
             and vocab.confidence_rank(self.confidence) >= 2
+            and not self.divergences
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -136,6 +147,8 @@ class ClaimAlignment:
             "confidence": self.confidence,
             "overlapScore": round(self.overlap_score, 4),
             "rationale": self.rationale,
+            "divergences": list(self.divergences),
+            "usableForOmission": self.is_usable_for_omission,
         }
 
 
@@ -154,18 +167,24 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
 def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
     """Deterministic, conservative alignment of two claims.
 
-    This is a lexical baseline, NOT semantic understanding. It is honest about
-    that: anything short of strong overlap returns `uncertain`, and negation
-    mismatch returns `contradictory` only when overlap is otherwise high enough
-    that the two claims are plausibly about the same thing.
+    A lexical baseline plus bounded factual-divergence guards. It is NOT
+    semantic understanding: anything short of strong overlap returns
+    `uncertain`, and — since review finding M-01 — any detected numeric,
+    temporal or polarity conflict blocks a high-overlap pair from being treated
+    as agreement, no matter how similar the wording.
+
+    The governing rule is that unresolved contradiction may never become
+    evidentiary support. When a conflict is detected but cannot be adjudicated,
+    the answer is `uncertain`, not `compatible`.
     """
-    tokens_a = content_tokens(claim_a.normalized_proposition)
-    tokens_b = content_tokens(claim_b.normalized_proposition)
+    text_a = claim_a.normalized_proposition
+    text_b = claim_b.normalized_proposition
+    tokens_a = content_tokens(text_a)
+    tokens_b = content_tokens(text_b)
     overlap = _jaccard(tokens_a, tokens_b)
 
-    neg_a = bool(_NEGATION.search(claim_a.normalized_proposition))
-    neg_b = bool(_NEGATION.search(claim_b.normalized_proposition))
-    polarity_differs = neg_a != neg_b
+    divergences = detect_divergence(text_a, text_b)
+    divergence_labels = tuple(f"{d.kind}: {d.detail}" for d in divergences)
 
     alignment_id = "align-" + hashlib.sha256(
         f"{claim_a.claim_id}|{claim_b.claim_id}".encode()
@@ -176,6 +195,7 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
             alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
             relation="unrelated", confidence="Medium", overlap_score=overlap,
             rationale=f"content-token overlap {overlap:.2f} is below the relatedness floor",
+            divergences=divergence_labels,
         )
 
     if overlap < 0.45:
@@ -186,9 +206,12 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
                 f"content-token overlap {overlap:.2f} is ambiguous; a lexical baseline "
                 "cannot establish propositional identity at this level"
             ),
+            divergences=divergence_labels,
         )
 
-    if polarity_differs:
+    # From here overlap is high. Divergence checks run BEFORE any agreement
+    # relation can be assigned — this is the M-01 guard.
+    if has_negation_conflict(divergences):
         return ClaimAlignment(
             alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
             relation="contradictory", confidence="Low", overlap_score=overlap,
@@ -196,13 +219,30 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
                 f"high overlap ({overlap:.2f}) with differing negation polarity; "
                 "flagged for review rather than treated as agreement"
             ),
+            divergences=divergence_labels,
+        )
+
+    if divergences:
+        return ClaimAlignment(
+            alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
+            relation="uncertain", confidence="Low", overlap_score=overlap,
+            rationale=(
+                f"high overlap ({overlap:.2f}) masks a factual conflict "
+                f"({describe(divergences)}); shared vocabulary is not agreement, and the "
+                "conflict cannot be adjudicated lexically"
+            ),
+            divergences=divergence_labels,
         )
 
     if overlap >= 0.80:
         return ClaimAlignment(
             alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
             relation="same_proposition", confidence="Medium", overlap_score=overlap,
-            rationale=f"content-token overlap {overlap:.2f} indicates the same proposition",
+            rationale=(
+                f"content-token overlap {overlap:.2f} indicates the same proposition, "
+                "with no numeric, temporal, polarity or negation conflict detected"
+            ),
+            divergences=divergence_labels,
         )
 
     # Strict superset of content tokens reads as a specificity relation.
@@ -217,6 +257,7 @@ def align_pair(claim_a: Claim, claim_b: Claim) -> ClaimAlignment:
         alignment_id=alignment_id, claim_a=claim_a.claim_id, claim_b=claim_b.claim_id,
         relation=relation, confidence="Medium", overlap_score=overlap,
         rationale=f"content-token overlap {overlap:.2f} with {relation} token coverage",
+        divergences=divergence_labels,
     )
 
 

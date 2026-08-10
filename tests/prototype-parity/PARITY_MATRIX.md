@@ -4,10 +4,11 @@ The root `Rhetorical_InDEX.html` Experience Prototype is the behavioral gold
 standard. This matrix records, per behavior, whether `apps/web` has been proven
 to match it.
 
-**Status vocabulary is strict.** `PASS` requires executed evidence in this
-environment. Implementation being present is NOT evidence and never yields
-`PASS`. Where a check needs a browser this environment does not have,
-the status is `UNVERIFIED` — not `PASS`, and not `FAIL`.
+**Status vocabulary is strict, and every row carries exactly ONE primary
+status.** `PASS` requires executed evidence in this environment. Implementation
+being present is NOT evidence and never yields `PASS` — structural presence is
+recorded in the Evidence column only. Where a check needs a browser this
+environment does not have, the status is `UNVERIFIED` — not `PASS`, not `FAIL`.
 
 ## Environment for this pass
 
@@ -40,7 +41,7 @@ therefore **not executed in this pass**.
 | P-12 | Pressure profile is decomposable, no master score | PASS | `test_profile_is_decomposable_and_has_no_master_score`, `test_profile_exposes_no_single_summarizing_number` |
 | P-13 | Compare / Framing Switcher | UNVERIFIED | Requires runtime interaction |
 | P-14 | Event Record | UNVERIFIED | Requires runtime interaction |
-| P-15 | Compare unavailable for single-document scans | PASS (source), UNVERIFIED (runtime) | Gate present in `app.ts`; behavior last observed in the prior review session, not re-executed here |
+| P-15 | Compare unavailable for single-document scans | UNVERIFIED | Structural: gate present in `app.ts`. Runtime behavior last observed in a prior session and NOT re-executed here. |
 | P-16 | Keyboard route through findings | UNVERIFIED | Requires runtime interaction |
 | P-17 | Drawer focus trap | UNVERIFIED | Requires runtime focus behavior |
 | P-18 | Focus restoration after drawer close | UNVERIFIED | Requires runtime focus behavior |
@@ -52,8 +53,8 @@ therefore **not executed in this pass**.
 | P-24 | Resize / orientation re-clamp | UNVERIFIED | Requires layout runtime |
 | P-25 | Sticky header clearance at tablet widths | UNVERIFIED | Requires layout runtime |
 | P-26 | No horizontal overflow | UNVERIFIED | Requires layout runtime |
-| P-27 | Reduced Motion honored | UNVERIFIED (runtime); PASS (present in CSS + explicit setting) | `tests/source-contract.test.mjs` structural guard only |
-| P-28 | Non-color mechanism identification (Pattern Mode) | UNVERIFIED (runtime); PASS (present) | Structural guard only |
+| P-27 | Reduced Motion honored | UNVERIFIED | Structural: present in CSS and as an explicit setting (`tests/source-contract.test.mjs` presence guard). Runtime behavior unexecuted. |
+| P-28 | Non-color mechanism identification (Pattern Mode) | UNVERIFIED | Structural: Pattern Mode present (presence guard only). Runtime behavior unexecuted. |
 | P-29 | Artifact makes no network requests | PASS | `tests/security.test.mjs` — no `fetch`/XHR/WebSocket/EventSource/sendBeacon in artifact |
 | P-30 | Hostile article text cannot inject markup | PASS | `tests/security.test.mjs` — real compiled `esc` exercised against 6 payloads |
 | P-31 | Artifact makes no calibration/benchmark claim | PASS | `tests/security.test.mjs` overclaiming-language assertions |
@@ -63,12 +64,14 @@ therefore **not executed in this pass**.
 
 | Status | Count |
 |---|---:|
-| PASS | 11 |
+| PASS | 9 |
 | FAIL | 0 |
-| UNVERIFIED | 21 |
+| UNVERIFIED | 23 |
 
-**No row is marked PASS on the basis of code inspection alone.** The 21
+**No row is marked PASS on the basis of code inspection alone.** The 23
 UNVERIFIED rows are not known failures; they are unmeasured in this environment.
+Counts are machine-verified by `tools/check_traceability.py`, which also rejects
+any row carrying more than one primary status.
 
 ## To convert UNVERIFIED to PASS
 

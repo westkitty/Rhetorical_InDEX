@@ -168,9 +168,18 @@ class HeuristicDetectorProvider(DetectorProvider):
             if context.voice_class == "quoted_speaker":
                 failed.append(exclusions[1])
                 certainty -= 0.1
+            # Certainty rises with the number of INDEPENDENTLY satisfied positive
+            # criteria — evidence that the classification is right. It must NOT
+            # rise with rhetorical tier: severity is pressure evidence, not
+            # detection evidence, and coupling them collapsed high-pressure
+            # findings toward High confidence (review finding O-03).
+            if len(triggered) >= 2:
+                certainty += 0.15
             if features.get("peak_tier") in {"severe", "strong"}:
-                certainty += 0.2
+                # Strong evaluative terms overlap the appeal-to-fear boundary,
+                # which is a source of confusion, not confidence.
                 neighbors.append("appeal_to_fear")
+                certainty -= 0.05
 
         elif mechanism_id == "presupposition":
             if features.get("embeds_disputed_premise"):

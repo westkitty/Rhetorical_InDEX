@@ -5,10 +5,10 @@
   "artifact_path": "apps/web/dist/index.html",
   "current_baseline": {
     "identity": "apps/web/dist/index.html sha256 1a5ebc364fb0f53ac8845b1b7e9ddeac202a13f0020ac0458e263e7bef267812",
-    "last_verified": "2026-08-09T21:30:00Z",
+    "last_verified": "2026-08-09T22:30:00Z",
     "state": "current-baseline"
   },
-  "last_updated": "2026-08-09T21:30:00Z",
+  "last_updated": "2026-08-09T22:30:00Z",
   "linked_parent_state": null,
   "project_id": "rhetorical-index-instrument-alpha-web",
   "project_name": "Rhetorical InDEX Instrument Alpha Web",
@@ -18,7 +18,7 @@
     "Instrument Alpha web application only",
     "The root standalone Rhetorical_InDEX.html remains the golden Experience Prototype and is not governed or replaced by this subsystem state"
   ],
-  "state_revision": 4
+  "state_revision": 5
 }
 -->
 
@@ -28,7 +28,7 @@
 - **Purpose:** Govern the additive Instrument Alpha web application while preserving the root standalone Experience Prototype as the golden behavioral reference.
 - **Project type:** Dependency-light TypeScript web application with embedded synthetic fixtures and offline local-preview analysis.
 - **Primary root or artifact:** `apps/web` / `apps/web/dist/index.html`
-- **Target environment:** Modern browser; Chromium directly verified in this release.
+- **Target environment:** Modern browser. Chromium was directly verified in an earlier release only; not re-executed since.
 - **Canonical authority:** Explicit user decisions, the root implementation plan, and verified prototype behavior.
 - **Governed scope:** Instrument Alpha web application only.
 - **Explicitly not governed:** Root `Rhetorical_InDEX.html`, future live URL ingestion, production comparison/evidence infrastructure, and unrelated repository systems.
@@ -36,11 +36,11 @@
 ## 2. Current Baseline
 
 - **Primary artifact:** `apps/web/dist/index.html`
-- **Baseline state:** `current-baseline` with Chromium verification in the inspected scope.
-- **Source/build identity:** SHA-256 `8b3086f56998b9f74a3533de8db93195ab2cb308bca6d715d15842b1f3d61a3a`.
+- **Baseline state:** `current-baseline`. Chromium verification is **stale** (collected against artifact `8b3086f5…`); see the artifact-identity note before section 5.
+- **Source/build identity:** SHA-256 `1a5ebc364fb0f53ac8845b1b7e9ddeac202a13f0020ac0458e263e7bef267812` (see Revision 5).
 - **Active default user route:** Scanner with explicit synthetic fixture; pasted text switches to Local Preview — Unbenchmarked.
 - **Delivery state:** Self-contained HTML exists inside the additive overlay package.
-- **Last verified baseline:** 2026-08-09T19:00:00Z.
+- **Last verified baseline:** 2026-08-09T22:30:00Z (deterministic suites only; no browser run).
 
 ## 3. Artifact Contract
 
@@ -515,3 +515,15 @@ Add stable `DEC-###` entries for source locks, routes, naming, packaging, style,
 - **Validation NOT performed:** Chromium/Playwright runtime QA was **not executed** in this pass (Playwright unavailable on this host). All browser-runtime, responsive, touch and focus-management rows remain **UNVERIFIED** — see `tests/prototype-parity/PARITY_MATRIX.md` (11 PASS / 0 FAIL / 21 UNVERIFIED). `qa/runtime-results.json` and `qa/screens/*.png` are **stale**: produced against artifact `8b3086f5…`, superseded by `1a5ebc36…`. They are retained as historical evidence only.
 - **Calibration status:** **UNCALIBRATED.** `benchmarks/corpus/` contains zero adjudicated documents; `benchmarks/scripts/evaluate.py` reports `EMPTY`. No accuracy figure exists for any detector level and none is stated anywhere.
 - **Summary:** Build the Level 3 Instrument Alpha detector pipeline, comparison/evidence architecture and benchmark machinery beside the verified prototype, with strict validation, coverage honesty and adversarial regression coverage.
+
+### Revision 5 — 2026-08-09T22:30:00Z — Independent pre-merge review closure
+
+- **Artifact/source identity:** `apps/web/dist/index.html` sha256 `1a5ebc364fb0f53ac8845b1b7e9ddeac202a13f0020ac0458e263e7bef267812` (unchanged — this pass touched no web source).
+- **Scope of change:** `services/comparison/` (new `divergence.py`; `claims.py`, `omission.py`), `services/rhetoric/` (`candidates.py`, `document.py`, `voice.py`, `providers.py`), `tools/check_traceability.py`, tests and QA documentation. No web/UI change, no new features, no new mechanisms, no networking.
+- **New evidence:** typecheck PASS; build PASS and reproducible (two clean builds, identical hash); **29/29 Node**; **207/207 Python** (was 160); benchmark still reports `EMPTY`; `tools/check_traceability.py` PASS on both QA matrices. Ten mutations — including allowing `compatible` to ground an omission, disabling the divergence gate, and reinstating tier-derived certainty — each produced test failures and were reverted.
+- **Newly verified behavior:** `Z-01` … `Z-34` (see `INSTRUMENT_ALPHA_TRACEABILITY.md`).
+- **Newly known failure:** None. The Major blocker M-01 is closed: contradictory peer claims can no longer establish presence for a Material Omission, and no source can be credited with a proposition it did not assert.
+- **Superseded rule:** `is_usable_for_omission` narrowed to `same_proposition` only (was `{same_proposition, compatible, more_specific, less_specific}`). Deliberately conservative; rationale recorded in `KNOWN_LIMITATIONS.md`.
+- **Validation NOT performed:** Chromium/Playwright runtime QA — Playwright remains unavailable on this host. Prototype parity is now **9 PASS / 0 FAIL / 23 UNVERIFIED** after removing dual-status rows that had been counted as PASS on structural presence. `qa/runtime-results.json` and `qa/screens/*.png` remain **stale**.
+- **Calibration status:** **UNCALIBRATED**, unchanged. `benchmarks/corpus/` holds zero adjudicated documents.
+- **Summary:** Close the independent pre-merge review — add deterministic factual-divergence guards so unresolved contradiction can never become evidentiary support, narrow Material Omission eligibility, decouple confidence from rhetorical pressure, and machine-verify every QA total.

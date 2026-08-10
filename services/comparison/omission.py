@@ -171,9 +171,17 @@ def evaluate_candidate_omission(
     presence_alignments: list[ClaimAlignment] = []
     supporting_source_ids: list[str] = []
     supporting_article_ids: list[str] = []
+    conflicting: list[str] = []
 
     for claim in supporting_claims:
         alignment = align_pair(probe, claim)
+        if alignment.divergences:
+            # A supporting claim that factually contradicts the candidate can
+            # never be evidence FOR it. Recorded so the refusal is explainable.
+            conflicting.append(
+                f"{claim.claim_id}: {'; '.join(alignment.divergences)}"
+            )
+            continue
         if alignment.is_usable_for_omission:
             presence_alignments.append(alignment)
             for assertion in claim.source_assertions:
@@ -181,10 +189,25 @@ def evaluate_candidate_omission(
                 supporting_article_ids.append(assertion.article_id)
 
     if not presence_alignments:
-        raise OmissionRejection(
-            "presence_elsewhere",
-            "no comparison claim aligned to the candidate proposition with usable confidence",
-        )
+        reason = "no comparison claim aligned to the candidate proposition with usable confidence"
+        if conflicting:
+            reason += (
+                "; supporting claims factually diverge from the candidate proposition "
+                f"({' | '.join(conflicting)}) and cannot establish it"
+            )
+        raise OmissionRejection("presence_elsewhere", reason)
+
+    # Invariant (M-01): every accepted grounding alignment must be free of
+    # detected factual divergence AND usable. Belt-and-braces: if a future edit
+    # loosens is_usable_for_omission, this still refuses to emit an omission
+    # whose supporting sources contradict the proposition being asserted.
+    for alignment in presence_alignments:
+        if alignment.divergences or not alignment.is_usable_for_omission:
+            raise OmissionRejection(
+                "presence_elsewhere",
+                "internal invariant violated: a grounding alignment was not a "
+                "divergence-free, usable match for the candidate proposition",
+            )
 
     supporting_source_ids = list(dict.fromkeys(supporting_source_ids))
     supporting_article_ids = list(dict.fromkeys(supporting_article_ids))

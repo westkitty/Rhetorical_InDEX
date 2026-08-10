@@ -85,7 +85,37 @@ _PASSIVE = re.compile(
     r"(?P<tail>[^.!?]{0,80})",
     re.IGNORECASE,
 )
-_BY_AGENT = re.compile(r"\bby\s+(?:the\s+|a\s+|an\s+)?[A-Za-z]", re.IGNORECASE)
+# "by X" only names an agent when X can act. Temporal deadlines, durations and
+# measurements ("by Tuesday", "by three weeks", "by 20 percent", "by 5 p.m.")
+# are adjuncts, not actors — treating them as named agents silently suppressed
+# genuine agent-suppression findings (review finding N-03).
+#
+# Bounded and inspectable by design: this is a stop-list of non-agent heads plus
+# a numeric guard, not a semantic parser. Limitation: an unusual non-agent noun
+# outside the stop-list will still read as an agent and over-exclude.
+_NON_AGENT_HEAD = (
+    r"(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"today|tomorrow|yesterday|tonight|noon|midnight|morning|afternoon|evening|night|"
+    r"january|february|march|april|may|june|july|august|september|october|november|december|"
+    r"now|then|default|law|statute|contract|design|chance|accident|mistake|"
+    r"comparison|contrast|definition|necessity|means|way|hand|foot|car|train|plane|mail|phone|email)"
+)
+_BY_AGENT = re.compile(
+    r"\bby\s+"
+    r"(?!\d)"                                  # by 20 percent / by 2030
+    rf"(?!{_NON_AGENT_HEAD}\b)"                # by Tuesday / by noon / by law
+    r"(?:the\s+|a\s+|an\s+|its\s+|their\s+|his\s+|her\s+)?"
+    rf"(?!{_NON_AGENT_HEAD}\b)"                # by the morning
+    r"(?!\d)"
+    r"[A-Za-z]",
+    re.IGNORECASE,
+)
+# Durations: "by three weeks", "by two days" — number words + time unit.
+_BY_DURATION = re.compile(
+    r"\bby\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|several|many|\d+)\s+"
+    r"(?:second|minute|hour|day|week|month|year|percent|point|dollar|pound|euro)s?\b",
+    re.IGNORECASE,
+)
 _NOMINALIZATION = re.compile(
     r"\b(?:the\s+)?(?:occurrence|implementation|elimination|reduction|termination|"
     r"cancellation|displacement|escalation|deterioration|loss)\s+of\s+\w+",
@@ -269,8 +299,9 @@ def agent_suppression(passage: Passage) -> list[Candidate]:
         # sentence suppress a genuinely agentless clause in this one, which
         # silently loses exactly the rhetoric this mechanism exists to catch.
         window = _sentence_bounded_window(text, match.start(), match.end() + 40)
-        if _BY_AGENT.search(window):
+        if _BY_AGENT.search(window) and not _BY_DURATION.search(window):
             # "was announced by the department" names its actor: not suppression.
+            # "was delayed by three weeks" does not — that is a duration.
             continue
         out.append(
             Candidate(

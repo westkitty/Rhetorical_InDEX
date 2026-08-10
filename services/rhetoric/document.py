@@ -132,6 +132,20 @@ class Article:
         }
 
 
+def _quote_marks_balanced(text: str) -> bool:
+    """Whether quotation marks in `text` pair up.
+
+    Curly marks are counted directionally; straight double quotes are counted by
+    parity. An unbalanced result means quoted material is present but its extent
+    is unresolved, which must block heading classification (see O-04).
+    """
+    if text.count("“") != text.count("”"):
+        return False
+    if text.count('"') % 2 != 0:
+        return False
+    return True
+
+
 def _classify_line_block(block: str) -> tuple[str, str]:
     """Return (passage_type, cleaned_text) for one raw block."""
     stripped = block.strip()
@@ -158,7 +172,19 @@ def _classify_line_block(block: str) -> tuple[str, str]:
         # A short line with no terminal sentence punctuation reads as a heading.
         # Bounded by word count so that a genuine short sentence fragment inside
         # prose is not silently promoted to a heading.
-        if len(stripped) <= 120 and not _SENTENCE_END.search(stripped) and 0 < len(stripped.split()) <= 14:
+        #
+        # A line carrying an UNBALANCED quotation mark is excluded (review
+        # finding O-04): a truncated fragment such as
+        #     The memo said "the plan is draconian and unworkable
+        # otherwise became a heading, and headings are classified as `headline`
+        # voice — which attributes quoted rhetoric to the outlet. Falling back
+        # to `paragraph` lets voice resolve to quoted_speaker/uncertain instead.
+        if (
+            len(stripped) <= 120
+            and not _SENTENCE_END.search(stripped)
+            and 0 < len(stripped.split()) <= 14
+            and _quote_marks_balanced(stripped)
+        ):
             return "heading", stripped
 
     # A block that is entirely wrapped in quotation marks is quoted material.

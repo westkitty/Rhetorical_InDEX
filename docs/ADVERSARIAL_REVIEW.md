@@ -145,10 +145,87 @@ Attacking the concept rather than the code:
 
 Recorded rather than silently carried; see `KNOWN_LIMITATIONS.md`.
 
-- Claim alignment is a **lexical baseline**, not semantic. It is honest about
-  this (returns `uncertain` below its threshold), but it will miss paraphrase.
+- Claim alignment is a **lexical baseline**, not semantic. (Superseded by the
+  M-01 closure below: bounded numeric/temporal/polarity divergence guards were
+  added, and `compatible` no longer grounds an omission. It still misses
+  paraphrase.)
 - Voice classification does not resolve *which* speaker a quote belongs to.
 - The Level 3 detector is not reachable from the browser build; that requires a
   service boundary which remains deliberately deferred.
 - 21 of 32 prototype-parity rows are UNVERIFIED for want of a browser in this
   environment.
+
+---
+
+# Independent pre-merge review closure (commit `6c52220` → this commit)
+
+An independent pre-merge review returned **NOT MERGE READY** with one Major
+blocker and six bounded findings. All are closed below.
+
+## M-01 (Major, merge blocker) — contradiction converted into evidentiary support
+
+**Reproduced:** `align_pair` classified factually contradictory claims as
+`compatible` / Medium / usable, because its only semantic guard was a
+negation-word regex. Peers asserting *"city spending rose 12 percent"* let the
+system emit a Material Omission asserting the target omitted *"rose 40
+percent"* — a figure **no source stated** — credited to two named sources.
+
+**Repair:**
+1. New `services/comparison/divergence.py`: deterministic, bounded, inspectable
+   conflict detection — numeric (percent / currency / clock / scaled integers,
+   normalized so `12%` == `12 percent`, `$2 million` == `$2,000,000`), temporal
+   (weekday / month-day / year), polarity (10 explicit antonym families), and
+   negation. Highly polysemous tokens are deliberately excluded.
+2. `align_pair` runs divergence checks **before** any agreement relation may be
+   assigned. Any conflict → `uncertain` / Low / non-usable. Explicit negation →
+   `contradictory`.
+3. `is_usable_for_omission` narrowed from
+   `{same_proposition, compatible, more_specific, less_specific}` to
+   **`same_proposition` only**, and additionally requires zero divergences. The
+   specificity relations are token-count comparisons, not entailment checks —
+   and the direction is counter-intuitive (`more_specific` means the *candidate*
+   exceeds the peer, exactly when the peer does not establish it).
+4. `evaluate_candidate_omission` skips any supporting claim that diverges from
+   the candidate, reports why, and asserts a closing invariant: every accepted
+   grounding alignment must be divergence-free and usable. A future loosening of
+   `is_usable_for_omission` still cannot emit an omission whose sources
+   contradict it.
+
+**Result:** all three reproductions now fail closed at `presence_elsewhere`; the
+genuine-omission positive control still passes.
+
+## Other findings
+
+| ID | Repair | Result |
+|---|---|---|
+| **O-01** | Added `tools/check_traceability.py`: parses every ID-prefixed row, counts statuses, compares to the declared summary, exits non-zero on drift. Totals regenerated from the rows, not hand-typed. | Closed — machine-verified |
+| **O-02** | `KNOWN_LIMITATIONS.md` rewritten to describe the actual guards, name what they do **not** cover, and state the fail-closed bias plus its accepted conservative false negatives. Removed the false claim that the ambiguous band was the safeguard. | Closed |
+| **O-03** | Removed tier-derived certainty from `HeuristicDetectorProvider`. Confidence now rises with the count of **independently satisfied positive criteria**; confusable-neighbour overlap lowers it. Rhetorical severity no longer feeds detection certainty. | Closed — P4+Medium and P3+Medium now reachable end-to-end |
+| **O-04** | A line with unbalanced quote marks can no longer satisfy the heading heuristic. Additionally, a span inside quotation marks **within a heading** now resolves to `quoted_speaker`, not `headline`. | Closed |
+| **N-01** | Python parity module renamed `SchemaLoadIntegrityTests` and documented as a load-integrity check, not a parity proof; the load-bearing TS↔Python detector is named explicitly. Added independent behavioral expectations that fail when a required value is removed. | Closed |
+| **N-02** | Parity matrix normalized to exactly one primary status per row; structural presence moved to the Evidence column. Totals recomputed: **9 PASS / 0 FAIL / 23 UNVERIFIED** (was an inconsistent 11/21). The checker rejects multi-status rows. | Closed |
+| **N-03** | `_BY_AGENT` given an explicit non-agent stop-list plus a numeric guard and a duration pattern, so "by Tuesday", "by three weeks" and "by 20 percent" no longer read as named agents. | Closed |
+
+## Test-the-tests (all mutations reverted)
+
+| Mutation | Result |
+|---|---|
+| Allow `compatible` to ground an omission | **2 failures** |
+| Disable the divergence gate in `align_pair` | **2 failures** |
+| Remove numeric divergence detection | **5 failures** |
+| Remove polarity divergence detection | **2 failures** |
+| Remove the omission conflicting-claim skip | **1 failure** |
+| Revert the unbalanced-quote heading guard | **2 failures** |
+| Revert the temporal-`by` guard | **1 failure** |
+| Reinstate tier-derived certainty | **1 failure** |
+| Remove a required voice class from `schema.json` | **2 failures** (Python) |
+| Add a rogue voice class to `schema.json` | **2 failures** (Node cross-language) |
+
+## Accepted residual behavior
+
+- `"$2 million"` vs `"$2,000,000"` — same fact, correctly **no conflict**, but
+  token overlap (0.60) falls below `same_proposition`, so it cannot ground an
+  omission. A conservative false negative, pinned by
+  `test_equivalent_value_written_differently_fails_closed`.
+- **P4 + Low confidence is not reachable** in the current heuristic provider
+  (`Z-35`, UNVERIFIED). Recorded rather than forced with contrived input.

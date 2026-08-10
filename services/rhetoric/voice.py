@@ -69,6 +69,18 @@ def classify(passage: Passage, start_char: int, end_char: int) -> tuple[str, flo
         raise ValueError("voice classification requires an in-bounds span")
 
     if passage.passage_type == "heading":
+        # A headline may itself quote a speaker — `Mayor Calls Plan "Draconian"`.
+        # The loading there belongs to the speaker, not the outlet, so a span
+        # inside quotation marks is attributed to the speaker even in a heading
+        # (review finding O-04). Only unquoted heading text is outlet voice.
+        heading_regions, heading_well_formed = quoted_regions(passage.text)
+        inside_quote = [
+            r for r in heading_regions if r.start <= start_char and end_char <= r.end
+        ]
+        if inside_quote:
+            return ("quoted_speaker", 0.8) if inside_quote[0].balanced else ("uncertain", 0.4)
+        if not heading_well_formed:
+            return "uncertain", 0.35
         return "headline", 0.95
 
     if passage.passage_type == "blockquote":
