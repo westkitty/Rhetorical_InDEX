@@ -154,6 +154,37 @@ def _spans_overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
     return min(a[1], b[1]) > max(a[0], b[0])
 
 
+def _coverage_components(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Merge overlapping or touching spans into connected coverage components.
+
+    Review finding F-01: split provenance was checked with `_spans_overlap`
+    against individual source spans, so a result merely had to TOUCH a cited
+    source to be accepted — a source at 50..60 licensed a result of 0..55,
+    which is 50 characters of text no annotator marked. Overlap is not
+    containment.
+
+    Coverage is therefore reduced to connected components first, and results
+    must sit wholly inside one of them:
+
+        [(0, 10), (8, 20), (40, 50)]  ->  [(0, 20), (40, 50)]
+
+    Touching intervals (``0..10`` and ``10..20``) merge, because adjacent
+    annotator spans describe continuous marked text with no unmarked gap
+    between them. Genuinely disconnected regions stay separate, which is what
+    stops a result bridging from one component across unmarked text to another.
+    """
+    if not spans:
+        return []
+    ordered = sorted(spans)
+    merged: list[list[int]] = [list(ordered[0])]
+    for start, end in ordered[1:]:
+        if start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return [(component[0], component[1]) for component in merged]
+
+
 @dataclass
 class DocumentReport:
     path: str
@@ -762,10 +793,26 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             # 40..50 sitting in the gap between them — and, because the hull
             # discarded passage, coordinates from a different passage could
             # collide numerically and ground a result that overlapped nothing.
+            #
+            # F-01: overlap is not containment. A source at 50..60 "overlapped"
+            # a result of 0..55, licensing 50 characters no annotator marked,
+            # and two sources at 0..10 and 90..100 each overlapped a bridging
+            # result of 5..95. Results must be WHOLLY CONTAINED in one
+            # connected coverage component of the actual cited spans on their
+            # own passage.
             source_ordinals = {s["passageOrdinal"] for s in sources}
             typed_sources = [
                 s for s in sources if _is_int(s["startChar"]) and _is_int(s["endChar"])
             ]
+            coverage_by_passage: dict[int, list[tuple[int, int]]] = {}
+            for source in typed_sources:
+                coverage_by_passage.setdefault(source["passageOrdinal"], []).append(
+                    (source["startChar"], source["endChar"])
+                )
+            components_by_passage = {
+                ordinal: _coverage_components(spans)
+                for ordinal, spans in coverage_by_passage.items()
+            }
             covered_sources: set[int] = set()
 
             for result in results:
@@ -780,19 +827,25 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 span = (result.get("startChar"), result.get("endChar"))
                 if not (_is_int(span[0]) and _is_int(span[1])):
                     continue
-                matched = [
-                    index for index, source in enumerate(typed_sources)
-                    if source["passageOrdinal"] == result_ordinal
-                    and _spans_overlap(span, (source["startChar"], source["endChar"]))
-                ]
-                if not matched:
+                components = components_by_passage.get(result_ordinal, [])
+                container = next(
+                    (c for c in components if span[0] >= c[0] and span[1] <= c[1]), None
+                )
+                if container is None:
                     err(
                         f"{label} decision 'split' produces gold "
                         f"{result.get('annotationId')!r} at {span} on passage {result_ordinal!r}, "
-                        "which overlaps no cited proposal span on that passage; a split divides "
-                        "the cited spans, it does not create findings in the gaps between them"
+                        f"which is not wholly contained in any connected cited-source coverage "
+                        f"component on that passage {components}; a split divides the text the "
+                        "annotators actually marked — it may not extend past it or bridge "
+                        "unmarked text between separate findings"
                     )
-                covered_sources.update(matched)
+                    continue
+                covered_sources.update(
+                    index for index, source in enumerate(typed_sources)
+                    if source["passageOrdinal"] == result_ordinal
+                    and _spans_overlap(span, (source["startChar"], source["endChar"]))
+                )
 
             for index, source in enumerate(typed_sources):
                 if index not in covered_sources:
@@ -857,6 +910,38 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 f"pressure and voice, pairwise span IoU >= {AUTO_MERGE_MIN_IOU}), and no resolution "
                 "names it — every final gold outcome must be traceable"
             )
+
+    # ---- F-02: one semantic occurrence, one gold annotation ----
+    #
+    # A gold finding is identified by WHAT it says about WHERE, not by its
+    # annotationId. Two annotations sharing (passageOrdinal, startChar,
+    # endChar, mechanismId) are the same finding recorded twice, and every
+    # metric computed from the corpus would count it twice — inflating support
+    # for whichever occurrence happened to be duplicated. Pressure, voice and
+    # reviewerConfidence are deliberately NOT part of the key: differing on
+    # them is a disagreement that adjudication must resolve down to one gold
+    # occurrence, not a licence to keep both.
+    #
+    # Multi-tagging stays valid: the same span under two DIFFERENT mechanisms
+    # is two genuine findings, and merely overlapping spans are untouched —
+    # only exact semantic-key duplicates are rejected.
+    semantic_keys: dict[tuple[int, int, int, str], str] = {}
+    for ann_id, ann in annotation_records.items():
+        ordinal, start, end = ann.get("passageOrdinal"), ann.get("startChar"), ann.get("endChar")
+        mechanism = ann.get("mechanismId")
+        if not (_is_int(ordinal) and _is_int(start) and _is_int(end) and isinstance(mechanism, str)):
+            continue
+        key = (ordinal, start, end, mechanism)
+        if key in semantic_keys:
+            err(
+                f"annotations[].annotationId {ann_id!r} duplicates the semantic gold key of "
+                f"{semantic_keys[key]!r} (passage {ordinal}, span {start}..{end}, mechanism "
+                f"{mechanism!r}); one occurrence must produce exactly one gold annotation — "
+                "pressure, voice or confidence disagreements are adjudicated down to one, not "
+                "recorded twice"
+            )
+        else:
+            semantic_keys[key] = ann_id
 
     return report
 

@@ -873,3 +873,68 @@ same for each. Recorded here as a known cosmetic wart for a future pass.
 Two pre-existing D-01 tests asserted on error-message text that the repairs
 changed; both still rejected their documents correctly, and only the message
 assertions were updated.
+
+---
+
+# Final gold span integrity closure (this commit)
+
+Two blockers, both in the split/gold path hardened in the E-round.
+
+## F-01 — split results extended beyond real source coverage
+
+The E-01 repair replaced the bounding hull with per-source overlap checks, but
+**overlap is not containment**. A cited source at 50..60 "overlapped" a result
+of 0..55, licensing fifty characters of text no annotator ever marked; and two
+sources at 0..10 and 90..100 each overlapped a bridging result of 5..95.
+
+Reproduced before fixing: case A (`0..55` and `55..100` from a `50..60`
+source) and case B (`5..95` from `0..10` + `90..100`) both **accepted**. Case C
+(cross-passage collision) was already closed by E-01.
+
+**Repair.** Cited source spans are reduced to connected coverage components
+per passage — overlapping or touching intervals merge, disconnected regions
+stay separate (`[(0,10),(8,20),(40,50)] -> [(0,20),(40,50)]`). Every split
+result must be **wholly contained** in one component on its own passage
+(`R.start >= C.start and R.end <= C.end`). No hull, no cross-passage
+substitution. The reverse check — every cited proposal represented by at least
+one result on its own passage — is retained.
+
+## F-02 — duplicate semantic gold counted twice
+
+Nothing stopped two `annotations[]` entries sharing
+`(passageOrdinal, startChar, endChar, mechanismId)` under different
+`annotationId`s. Every metric computed from the corpus would count that
+finding twice, inflating support for whichever occurrence happened to be
+duplicated. Reproduced as **accepted** via a split, via two `adjudicator_add`
+records, and with the copies differing only in `pressure`.
+
+**Repair.** A gold finding is identified by what it says about where, not by
+its id. The semantic key is `(passageOrdinal, startChar, endChar,
+mechanismId)`; duplicates are rejected regardless of differing
+`annotationId`, `pressure`, `voiceClass` or `reviewerConfidence` — those are
+disagreements adjudication must resolve down to one occurrence, not a licence
+to keep both. Legitimate structure is untouched: the same span under two
+different mechanisms is valid multi-tagging, and merely overlapping spans,
+different spans, and identical spans on different passages all remain valid.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| F-01 overlap-only split validation restored | **3 failures** |
+| F-02 semantic duplicate validation disabled | **7 failures** |
+
+Two pre-existing tests asserted on error text the repair changed; both still
+rejected their documents correctly and only the message assertions moved.
+
+## Final bounded falsification (corpus/gold integrity boundary only)
+
+Ten attack questions, twelve probes, **all safe**: results outside every
+coverage component, bridging disconnected components, cross-passage coordinate
+substitution, a cited source vanishing from a split, the same semantic gold
+twice, pressure/voice manufacturing copies, multi-tagging still working,
+malformed adjudicated data reaching metrics (fatal, never scored),
+disputed/draft documents entering metrics (never loaded), `unresolvable`
+inside an adjudicated document, and gold with zero or two provenance origins.
+
+**Critical remaining: 0. Major remaining: 0.** Bug sweeping stops here.

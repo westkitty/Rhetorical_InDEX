@@ -2159,7 +2159,7 @@ class D01SemanticResolutionGroundingTests(_CorpusProvenanceFixture):
         report = self.validate(doc)
         self.assertFalse(report.valid)
         self.assertTrue(
-            any("overlaps no cited proposal span on that passage" in e for e in report.errors),
+            any("not wholly contained in any connected cited-source coverage" in e for e in report.errors),
             report.errors)
 
     def test_valid_split_divides_the_source_region(self):
@@ -2250,7 +2250,7 @@ class E01SplitSpanProvenanceTests(_SpanProvenanceFixture):
         report = self.validate(doc)
         self.assertFalse(report.valid)
         self.assertTrue(
-            any("overlaps no cited proposal span on that passage" in e for e in report.errors),
+            any("not wholly contained in any connected cited-source coverage" in e for e in report.errors),
             report.errors)
 
     def test_cross_passage_coordinate_collision_is_rejected(self):
@@ -2290,6 +2290,184 @@ class E01SplitSpanProvenanceTests(_SpanProvenanceFixture):
              self.a("g2", 0, 5, 10, mechanism="presupposition")],
             [{"decision": "split", "adjudicatorId": "c",
               "proposalIds": ["p1"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+
+class F01SplitContainmentTests(_SpanProvenanceFixture):
+    """F-01: split results must be WHOLLY CONTAINED in a connected component of
+    the actual cited source coverage on their own passage.
+
+    Overlap is not containment: a source at 50..60 "overlapped" a result of
+    0..55, licensing fifty characters of text no annotator ever marked.
+    """
+
+    def _split(self, sources, annotations, proposal_ids, result_ids):
+        return self.doc(
+            [self.sub("a", sources), self.sub("b", [])], annotations,
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": proposal_ids, "resultingAnnotationIds": result_ids}])
+
+    def test_coverage_components_merge_overlapping_and_touching_spans(self):
+        from validate_corpus import _coverage_components
+
+        self.assertEqual(_coverage_components([(0, 10), (8, 20), (40, 50)]), [(0, 20), (40, 50)])
+        self.assertEqual(_coverage_components([(0, 10), (10, 20)]), [(0, 20)])
+        self.assertEqual(_coverage_components([(0, 10), (90, 100)]), [(0, 10), (90, 100)])
+        self.assertEqual(_coverage_components([]), [])
+
+    def test_results_contained_in_a_single_source_pass(self):
+        doc = self._split(
+            [self.p("p1", 0, 10, 30)],
+            [self.a("g1", 0, 10, 18), self.a("g2", 0, 18, 30, mechanism="presupposition")],
+            ["p1"], ["g1", "g2"])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_results_contained_in_a_connected_two_source_component_pass(self):
+        """10..25 and 20..35 connect into 10..35; results inside that pass."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 10, 25)]), self.sub("b", [self.p("p2", 0, 20, 35)])],
+            [self.a("g1", 0, 10, 22), self.a("g2", 0, 22, 35, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_result_extending_before_the_source_is_rejected(self):
+        doc = self._split(
+            [self.p("p1", 0, 50, 60)],
+            [self.a("g1", 0, 0, 55), self.a("g2", 0, 55, 60, mechanism="presupposition")],
+            ["p1"], ["g1", "g2"])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("not wholly contained in any connected cited-source coverage" in e
+                for e in report.errors), report.errors)
+
+    def test_result_extending_after_the_source_is_rejected(self):
+        doc = self._split(
+            [self.p("p1", 0, 50, 60)],
+            [self.a("g1", 0, 50, 55), self.a("g2", 0, 55, 100, mechanism="presupposition")],
+            ["p1"], ["g1", "g2"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_result_bridging_two_disconnected_components_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 5, 95), self.a("g2", 0, 90, 100, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_result_in_the_unmarked_gap_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 40, 50), self.a("g2", 0, 0, 10)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_cross_passage_coordinate_collision_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 1, 90, 100)])],
+            [self.a("g1", 0, 40, 50), self.a("g2", 0, 0, 10)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_cited_proposal_with_no_result_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 0, 5), self.a("g2", 0, 5, 10, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("no resulting gold annotation overlaps it" in e for e in report.errors),
+            report.errors)
+
+
+class F02DuplicateGoldTests(_SpanProvenanceFixture):
+    """F-02: one semantic occurrence produces exactly one gold annotation.
+
+    The semantic key is (passageOrdinal, startChar, endChar, mechanismId).
+    Pressure, voice and reviewerConfidence are deliberately excluded: differing
+    on them is a disagreement adjudication must resolve down to one gold
+    occurrence, not a licence to record the finding twice and have every
+    metric count it twice.
+    """
+
+    def _add(self, rid, note):
+        return {"decision": "adjudicator_add", "adjudicatorId": "c", "proposalIds": [],
+                "resultingAnnotationIds": [rid], "note": note}
+
+    def _two_gold(self, g1, g2, resolutions=None):
+        return self.doc(
+            [self.sub("a", []), self.sub("b", [])], [g1, g2],
+            resolutions if resolutions is not None
+            else [self._add(g1["annotationId"], "x"), self._add(g2["annotationId"], "y")])
+
+    def test_identical_semantic_key_under_different_ids_is_rejected(self):
+        report = self.validate(self._two_gold(self.a("g1", 0, 50, 60), self.a("g2", 0, 50, 60)))
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("duplicates the semantic gold key" in e for e in report.errors), report.errors)
+
+    def test_duplicate_differing_only_in_pressure_is_rejected(self):
+        doc = self._two_gold(
+            self.a("g1", 0, 50, 60, pressure="P2"), self.a("g2", 0, 50, 60, pressure="P4"))
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_duplicate_differing_only_in_voice_is_rejected(self):
+        doc = self._two_gold(
+            self.a("g1", 0, 50, 60, voiceClass="reporter"),
+            self.a("g2", 0, 50, 60, voiceClass="quoted_speaker"))
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_duplicate_differing_only_in_reviewer_confidence_is_rejected(self):
+        doc = self._two_gold(
+            self.a("g1", 0, 50, 60, reviewerConfidence="Low"),
+            self.a("g2", 0, 50, 60, reviewerConfidence="High"))
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_duplicate_produced_through_a_split_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 50, 60)]), self.sub("b", [])],
+            [self.a("g1", 0, 50, 60), self.a("g2", 0, 50, 60)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_duplicate_produced_through_two_resolutions_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 50, 60, pressure="P2")]),
+             self.sub("b", [self.p("p2", 0, 50, 60, pressure="P4")])],
+            [self.a("g1", 0, 50, 60, pressure="P2"), self.a("g2", 0, 50, 60, pressure="P4")],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["g1"]},
+             {"decision": "uphold_b", "adjudicatorId": "c",
+              "proposalIds": ["p2"], "resultingAnnotationIds": ["g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_duplicate_produced_through_adjudicator_add_records_is_rejected(self):
+        self.assertFalse(
+            self.validate(self._two_gold(self.a("g1", 0, 50, 60), self.a("g2", 0, 50, 60))).valid)
+
+    def test_same_span_different_mechanisms_is_valid_multi_tagging(self):
+        doc = self._two_gold(
+            self.a("g1", 0, 50, 60, mechanism="loaded_language"),
+            self.a("g2", 0, 50, 60, mechanism="presupposition"))
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_same_mechanism_different_spans_is_valid(self):
+        doc = self._two_gold(self.a("g1", 0, 0, 10), self.a("g2", 0, 90, 100))
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_partially_overlapping_occurrences_are_valid(self):
+        doc = self._two_gold(self.a("g1", 0, 0, 10), self.a("g2", 0, 5, 15))
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_same_span_and_mechanism_on_different_passages_is_valid(self):
+        doc = self._two_gold(self.a("g1", 0, 0, 10), self.a("g2", 1, 0, 10))
         self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
 
 

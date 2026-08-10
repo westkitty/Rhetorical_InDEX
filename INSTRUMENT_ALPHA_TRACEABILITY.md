@@ -420,11 +420,24 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-158 | Auto-merge clustering is occurrence-local (two findings per passage) | `test_two_distinct_occurrences_in_one_passage_both_auto_merge` | PASS |
 | H-159 | Occurrence-locality does not weaken the ambiguity guard | `test_genuinely_ambiguous_overlapping_proposals_still_escalate` | PASS |
 
+| H-160 | Coverage components merge overlapping/touching source spans correctly | `test_coverage_components_merge_overlapping_and_touching_spans` | PASS |
+| H-161 | Split gold cannot extend before its cited source coverage | `test_result_extending_before_the_source_is_rejected` | PASS |
+| H-162 | Split gold cannot extend after its cited source coverage | `test_result_extending_after_the_source_is_rejected` | PASS |
+| H-163 | Split gold cannot bridge two disconnected source components | `test_result_bridging_two_disconnected_components_is_rejected` | PASS |
+| H-164 | Split gold cannot sit in unmarked gap text | `test_result_in_the_unmarked_gap_is_rejected` | PASS |
+| H-165 | Split results wholly contained in one/two-source coverage still accepted | `test_results_contained_in_a_single_source_pass` / `test_results_contained_in_a_connected_two_source_component_pass` | PASS |
+| H-166 | Every cited split source is represented by a result | `test_cited_proposal_with_no_result_is_rejected` | PASS |
+| H-167 | Duplicate semantic gold key under different annotationIds is rejected | `test_identical_semantic_key_under_different_ids_is_rejected` | PASS |
+| H-168 | Pressure/voice/confidence differences cannot duplicate one gold occurrence | `test_duplicate_differing_only_in_pressure_is_rejected` / `..._voice_...` / `..._reviewer_confidence_...` | PASS |
+| H-169 | Duplicate gold via split, two resolutions, or adjudicator_add is rejected | `test_duplicate_produced_through_a_split_is_rejected` / `..._two_resolutions_...` / `..._adjudicator_add_records_...` | PASS |
+| H-170 | Same-span different-mechanism multi-tagging remains valid | `test_same_span_different_mechanisms_is_valid_multi_tagging` | PASS |
+| H-171 | Same mechanism at different spans / partial overlap / different passages remains valid | `test_same_mechanism_different_spans_is_valid` / `test_partially_overlapping_occurrences_are_valid` / `test_same_span_and_mechanism_on_different_passages_is_valid` | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 325 |
+| PASS | 337 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

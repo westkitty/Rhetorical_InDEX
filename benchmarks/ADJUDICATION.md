@@ -246,7 +246,7 @@ finding is not an uphold. The enforced relationships:
 |---|---|
 | `uphold_a` / `uphold_b` | the gold **exactly preserves** the cited proposal's `mechanismId`, `passageOrdinal`, `startChar`, `endChar`, `pressure` and `voiceClass`. `reviewerConfidence` may differ — it is a per-annotator epistemic report, not a property of the phenomenon. |
 | `merge` | sources share one `passageOrdinal` and one `mechanismId` **and a non-empty common span intersection** (`max(starts) < min(ends)`); the gold uses that same passage and mechanism, overlaps that common intersection, and does not extend beyond the outer bounds of the cited spans. Pressure and voice may be chosen by the adjudicator (that is often the disagreement being reconciled); the originals stay preserved in `annotatorSubmissions`. |
-| `split` | **every** resulting annotation overlaps at least one *actual* cited proposal span **on the same passage**, and **every** cited proposal is overlapped by at least one result on its own passage. A split may legitimately yield different `mechanismId`s — it may not relocate the finding. |
+| `split` | **every** resulting annotation is **wholly contained** in one connected component of the cited source coverage **on its own passage**, and **every** cited proposal is overlapped by at least one result on its own passage. A split may legitimately yield different `mechanismId`s — it may not relocate, extend past, or bridge across the text the annotators marked. |
 
 **Span provenance is per-span and per-passage (finding E-01/E-02).** Two
 weaker forms were rejected:
