@@ -25,14 +25,15 @@ from benchmarks.scripts.evaluate import evaluate, load_corpus  # noqa: E402
 
 
 PASSAGE_TEXT = "The council approved a draconian, reckless scheme on Tuesday."
-_GOLD_SPAN = "draconian, reckless scheme"
 
 
 def document(annotations, *, status="adjudicated", article_id="bench-t1"):
-    """A document that satisfies the corpus validator (M-09).
+    """A document that satisfies the corpus validator (M-09, hardened under A-02).
 
-    Adjudicated documents now require two independent annotators and preserved
-    original submissions, so these fixtures carry both.
+    Adjudicated documents require a preserved submission RECORD from at least
+    two independent annotators. A record's `proposals[]` may be empty — that is
+    a genuine hard negative, not missing data — so these fixtures always carry
+    two records regardless of whether `annotations` is empty.
     """
     return {
         "articleId": article_id,
@@ -45,23 +46,18 @@ def document(annotations, *, status="adjudicated", article_id="bench-t1"):
         ],
         "annotations": annotations,
         "annotatorSubmissions": [
-            {"proposalId": f"p-{index}-{who}", "annotatorId": who,
-             "mechanismId": ann["mechanismId"], "passageOrdinal": ann["passageOrdinal"],
-             "startChar": ann["startChar"], "endChar": ann["endChar"], "excerpt": ann["excerpt"],
-             "pressure": ann["pressure"], "reviewerConfidence": ann["reviewerConfidence"],
-             "voiceClass": ann.get("voiceClass", "reporter")}
-            for index, ann in enumerate(annotations)
-            for who in ("annotator-a", "annotator-b")
-        ] or [
-            # Hard-negative documents still need preserved independent
-            # submissions; both annotators proposed the same span and it was
-            # dropped during adjudication.
-            {"proposalId": f"p-empty-{who}", "annotatorId": who,
-             "mechanismId": "loaded_language", "passageOrdinal": 0,
-             "startChar": PASSAGE_TEXT.index(_GOLD_SPAN),
-             "endChar": PASSAGE_TEXT.index(_GOLD_SPAN) + len(_GOLD_SPAN),
-             "excerpt": _GOLD_SPAN,
-             "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter"}
+            {
+                "submissionId": f"sub-{who}",
+                "annotatorId": who,
+                "proposals": [
+                    {"proposalId": f"p-{index}-{who}",
+                     "mechanismId": ann["mechanismId"], "passageOrdinal": ann["passageOrdinal"],
+                     "startChar": ann["startChar"], "endChar": ann["endChar"], "excerpt": ann["excerpt"],
+                     "pressure": ann["pressure"], "reviewerConfidence": ann["reviewerConfidence"],
+                     "voiceClass": ann.get("voiceClass", "reporter")}
+                    for index, ann in enumerate(annotations)
+                ],
+            }
             for who in ("annotator-a", "annotator-b")
         ],
     }

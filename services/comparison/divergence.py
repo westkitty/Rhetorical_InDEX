@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Iterable
 
 # --------------------------------------------------------------------------
@@ -250,16 +251,63 @@ def describe(divergences: Iterable[Divergence]) -> str:
     return "; ".join(f"{d.kind}: {d.detail}" for d in items)
 
 
+def _exact_decimal(raw: str) -> Decimal:
+    """Parse a numeric literal exactly. Never routes through binary float."""
+    return Decimal(_strip_commas(raw))
+
+
+def _format_exact(value: Decimal) -> str:
+    """Exact fixed-point rendering: no scientific notation, no precision loss.
+
+    ``Decimal.normalize()`` is not used here because it can itself emit
+    scientific notation for trailing zeros (``Decimal("2000000").normalize()``
+    -> ``Decimal("2E+6")``). Formatting with the ``f`` presentation type keeps
+    every digit and forces fixed-point; only cosmetic trailing fractional
+    zeros are trimmed afterward, which never changes the represented value.
+    """
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
+
+
 def canonical_proposition(text: str) -> str:
     """Normalize a proposition for EXACT identity comparison.
 
-    Used by the propositional-identity gate (review finding M-01). Normalizes
-    only presentation-level variation that cannot change meaning:
+    Used by the propositional-identity gate (review finding M-01, hardened
+    under finding A-01). Normalizes only presentation-level variation that
+    cannot change meaning:
 
       * case, unicode form, whitespace, terminal punctuation
-      * numeric surface form — ``12%`` / ``12 percent`` -> ``«percent:12»``,
-        ``$2 million`` / ``$2,000,000`` -> ``«currency:2000000»``,
-        ``1,000`` / ``1000`` -> ``«num:1000»``
+      * numeric surface form — ``12%`` / ``12 percent`` -> ``«percent:x12»``,
+        ``$2 million`` / ``$2,000,000`` -> ``«currency:x2000000»``,
+        ``1,000`` / ``1000`` -> ``«num:x1000»``
+
+    Numeric normalization is EXACT decimal arithmetic (``Decimal``), never
+    binary float: float's ``%g`` formatting collapses distinct large integers
+    to the same 6-significant-digit string (``2_000_000`` and ``2_000_001``
+    both rendered ``"2e+06"``), which silently made different numeric facts
+    compare as the same proposition. Decimal has no such rounding.
+
+    All three numeric patterns (currency, percent, plain) are matched against
+    the ORIGINAL text in one pass with non-overlapping spans, then substituted
+    into a fresh output string — never by mutating ``text`` in place with
+    successive ``.sub()`` calls, which is what previously let a later regex
+    re-scan an already-generated marker (matching the digits inside the old
+    lossy "«currency:2e+06»") and corrupt it further.
+
+    What actually makes re-scanning safe, independent of substitution order,
+    is that every marker glues a word character directly against its leading
+    digit (``«num:x1000»``, not ``«num: 1000»``): this defeats ``_NUM_PLAIN``'s
+    negative lookbehind on any later pass over the same text — including a
+    second call to this function, so canonicalization is idempotent. Mutation
+    testing confirmed this precisely: restoring sequential ``.sub()`` while
+    keeping the guarded marker format does NOT reproduce corruption, because
+    the guard, not the substitution order, is what's load-bearing here. The
+    single non-overlapping pass is kept anyway because it is still better
+    engineering — one deterministic scan instead of three, with no dependence
+    on a later regex correctly declining to match a marker it was never meant
+    to see.
 
     Word ORDER is deliberately preserved, because order carries semantic role:
     "injured 12 and killed 40" and "injured 40 and killed 12" contain identical
@@ -270,27 +318,48 @@ def canonical_proposition(text: str) -> str:
 
     text = unicodedata.normalize("NFC", text)
 
-    # Canonicalize numerics before lowercasing so scale words match reliably.
-    def _currency(match: re.Match) -> str:
-        value = float(_strip_commas(match.group("value")))
+    consumed: list[tuple[int, int]] = []
+    markers: list[tuple[int, int, str]] = []
+
+    def _already_consumed(start: int) -> bool:
+        return any(s <= start < e for s, e in consumed)
+
+    for match in _NUM_CURRENCY.finditer(text):
+        value = _exact_decimal(match.group("value"))
         scale = match.group("scale")
         if scale:
-            value *= _SCALE[scale.lower()]
-        return f" «currency:{value:g}» "
+            value *= Decimal(_SCALE[scale.lower()])
+        consumed.append(match.span())
+        markers.append((match.start(), match.end(), f" «currency:x{_format_exact(value)}» "))
 
-    def _percent(match: re.Match) -> str:
-        return f" «percent:{float(_strip_commas(match.group('value'))):g}» "
+    for match in _NUM_PERCENT.finditer(text):
+        if _already_consumed(match.start()):
+            continue
+        value = _exact_decimal(match.group("value"))
+        consumed.append(match.span())
+        markers.append((match.start(), match.end(), f" «percent:x{_format_exact(value)}» "))
 
-    def _plain(match: re.Match) -> str:
-        value = float(_strip_commas(match.group("value")))
+    for match in _NUM_PLAIN.finditer(text):
+        if _already_consumed(match.start()):
+            continue
+        value = _exact_decimal(match.group("value"))
         scale = match.group("scale")
         if scale:
-            value *= _SCALE[scale.lower()]
-        return f" «num:{value:g}» "
+            value *= Decimal(_SCALE[scale.lower()])
+        consumed.append(match.span())
+        markers.append((match.start(), match.end(), f" «num:x{_format_exact(value)}» "))
 
-    text = _NUM_CURRENCY.sub(_currency, text)
-    text = _NUM_PERCENT.sub(_percent, text)
-    text = _NUM_PLAIN.sub(_plain, text)
+    markers.sort(key=lambda item: item[0])
+    rebuilt: list[str] = []
+    cursor = 0
+    for start, end, marker in markers:
+        if start < cursor:
+            continue  # defensive: priority scan above should already be non-overlapping
+        rebuilt.append(text[cursor:start])
+        rebuilt.append(marker)
+        cursor = end
+    rebuilt.append(text[cursor:])
+    text = "".join(rebuilt)
 
     text = text.lower()
     text = re.sub(r"[‘’]", "'", text)

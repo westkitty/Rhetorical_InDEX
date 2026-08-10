@@ -205,40 +205,106 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             f"annotators in annotatorIds, got {annotators!r}"
         )
 
-    proposals = data.get("annotatorSubmissions", [])
-    if not isinstance(proposals, list):
-        err("annotatorSubmissions must be an array")
-        proposals = []
+    # M-12 / A-02: each annotator's ORIGINAL independent submission RECORD must
+    # be preserved, even when that annotator proposed nothing. The unit of
+    # preservation is the record (one per annotator, carrying a `proposals`
+    # array that MAY be empty) — never an individual proposal. That is what
+    # makes a genuine hard negative ("two annotators independently reviewed
+    # this and found zero rhetorical mechanisms") representable and VALID,
+    # while a document with fewer than MIN_ANNOTATORS preserved records is
+    # REJECTED regardless of how many proposals those records happen to
+    # contain. Counting non-empty proposal lists (the previous `if proposals:`
+    # guard) is exactly the bug: it let an empty `annotatorSubmissions: []`
+    # skip this check entirely, silently discarding annotation history.
     proposal_ids: set[str] = set()
-    for index, proposal in enumerate(proposals):
+    if "annotatorSubmissions" not in data:
+        err("annotatorSubmissions is required for adjudicated documents")
+        submissions: list[Any] = []
+    else:
+        submissions = data["annotatorSubmissions"]
+        if not isinstance(submissions, list):
+            err("annotatorSubmissions must be an array")
+            submissions = []
+
+    submission_ids: set[str] = set()
+    submission_annotator_ids: set[str] = set()
+    for index, submission in enumerate(submissions):
         label = f"annotatorSubmissions[{index}]"
-        if not isinstance(proposal, dict):
+        if not isinstance(submission, dict):
             err(f"{label} is not an object")
             continue
-        for required in ("proposalId", "annotatorId", "mechanismId", "passageOrdinal",
-                         "startChar", "endChar", "excerpt", "pressure", "reviewerConfidence", "voiceClass"):
-            if required not in proposal:
-                err(f"{label} missing required field {required}")
-        pid = proposal.get("proposalId")
-        if isinstance(pid, str):
-            if pid in proposal_ids:
-                err(f"duplicate proposalId {pid!r}")
-            proposal_ids.add(pid)
-        ordinal = proposal.get("passageOrdinal")
-        if _is_int(ordinal) and ordinal in texts:
-            start, end, excerpt = proposal.get("startChar"), proposal.get("endChar"), proposal.get("excerpt")
-            if _is_int(start) and _is_int(end) and isinstance(excerpt, str):
-                if not (0 <= start < end <= len(texts[ordinal])) or texts[ordinal][start:end] != excerpt:
-                    err(f"{label}.excerpt does not round-trip against its passage")
 
-    # M-12: original independent submissions must be preserved so
-    # inter-annotator agreement stays computable after adjudication.
-    if proposals:
-        submitting = {p.get("annotatorId") for p in proposals if isinstance(p, dict)}
-        if len(submitting) < MIN_ANNOTATORS:
+        submission_id = submission.get("submissionId")
+        if not isinstance(submission_id, str) or not submission_id.strip():
+            err(f"{label}.submissionId must be a non-empty string")
+        elif submission_id in submission_ids:
+            err(f"duplicate submissionId {submission_id!r}")
+        else:
+            submission_ids.add(submission_id)
+
+        annotator_id = submission.get("annotatorId")
+        if not isinstance(annotator_id, str) or not annotator_id.strip():
+            err(f"{label}.annotatorId must be a non-empty string")
+        elif annotator_id in submission_annotator_ids:
             err(
-                f"annotatorSubmissions contain proposals from {len(submitting)} annotator(s); "
-                f"at least {MIN_ANNOTATORS} independent submissions must be preserved"
+                f"{label}.annotatorId {annotator_id!r} has more than one submission record; "
+                "each annotator contributes exactly one, whose proposals array may be empty"
+            )
+        else:
+            submission_annotator_ids.add(annotator_id)
+
+        proposals = submission.get("proposals")
+        if not isinstance(proposals, list):
+            err(f"{label}.proposals must be an array (use [] to record zero findings)")
+            continue
+
+        for p_index, proposal in enumerate(proposals):
+            p_label = f"{label}.proposals[{p_index}]"
+            if not isinstance(proposal, dict):
+                err(f"{p_label} is not an object")
+                continue
+            for required in ("proposalId", "mechanismId", "passageOrdinal", "startChar",
+                              "endChar", "excerpt", "pressure", "reviewerConfidence", "voiceClass"):
+                if required not in proposal:
+                    err(f"{p_label} missing required field {required}")
+
+            pid = proposal.get("proposalId")
+            if isinstance(pid, str):
+                if pid in proposal_ids:
+                    err(f"duplicate proposalId {pid!r}")
+                proposal_ids.add(pid)
+
+            mechanism = proposal.get("mechanismId")
+            if "mechanismId" in proposal and mechanism not in vocab.mechanism_ids():
+                err(f"{p_label}.mechanismId unknown: {mechanism!r}")
+
+            ordinal = proposal.get("passageOrdinal")
+            if _is_int(ordinal) and ordinal in texts:
+                start, end, excerpt = proposal.get("startChar"), proposal.get("endChar"), proposal.get("excerpt")
+                if _is_int(start) and _is_int(end) and isinstance(excerpt, str):
+                    if not (0 <= start < end <= len(texts[ordinal])) or texts[ordinal][start:end] != excerpt:
+                        err(f"{p_label}.excerpt does not round-trip against its passage")
+
+            if "pressure" in proposal and proposal.get("pressure") not in vocab.PRESSURE:
+                err(f"{p_label}.pressure invalid: {proposal.get('pressure')!r}")
+            if "reviewerConfidence" in proposal and proposal.get("reviewerConfidence") not in vocab.CONFIDENCE:
+                err(f"{p_label}.reviewerConfidence invalid: {proposal.get('reviewerConfidence')!r}")
+            if "voiceClass" in proposal and proposal.get("voiceClass") not in vocab.VOICE:
+                err(f"{p_label}.voiceClass invalid: {proposal.get('voiceClass')!r}")
+
+    if len(submission_annotator_ids) < MIN_ANNOTATORS:
+        err(
+            f"annotatorSubmissions contain records from {len(submission_annotator_ids)} distinct "
+            f"annotator(s); at least {MIN_ANNOTATORS} independent submission records must be "
+            "preserved (a record's proposals array may be empty, but the record itself must exist)"
+        )
+
+    if isinstance(annotators, list):
+        declared = {a for a in annotators if isinstance(a, str)}
+        if submission_annotator_ids and declared and submission_annotator_ids != declared:
+            err(
+                f"annotatorIds {sorted(declared)} does not match the annotators who actually have "
+                f"a preserved submission record {sorted(submission_annotator_ids)}"
             )
 
     for index, record in enumerate(data.get("resolutions", []) or []):

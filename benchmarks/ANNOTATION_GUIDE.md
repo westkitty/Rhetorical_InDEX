@@ -141,6 +141,12 @@ valuable documents in the corpus — a benchmark of only obvious positives
 measures nothing useful.
 
 An article with zero annotations is a legitimate, valuable document. Submit it.
+Your own submission record (`annotatorSubmissions`) must still be preserved
+when you found nothing — a record with `proposals: []` is what lets a later
+reader tell "this annotator reviewed the article and found nothing" apart from
+"this annotator's work was never recorded." Only the missing record is an
+error; an empty `proposals[]` inside a real record is exactly what a hard
+negative looks like.
 
 ---
 

@@ -26,7 +26,7 @@ from services.comparison import (  # noqa: E402
     align_pair,
 )
 from services.comparison.dependence import assess_independence  # noqa: E402
-from services.comparison.divergence import propositions_are_identical  # noqa: E402
+from services.comparison.divergence import canonical_proposition, propositions_are_identical  # noqa: E402
 from services.comparison.omission import (  # noqa: E402
     OmissionRejection,
     evaluate_candidate_omission,
@@ -135,6 +135,100 @@ class M01PropositionalIdentityTests(unittest.TestCase):
             claim("b", "the council approved the housing budget following long debate"),
         )
         self.assertFalse(alignment.is_usable_for_omission)
+
+
+class A01ExactNumericIdentityTests(unittest.TestCase):
+    """canonical_proposition must be EXACT, never lossy float formatting.
+
+    Finding A-01 (final pre-calibration audit): %g float formatting collapsed
+    2_000_000 and 2_000_001 to the same 6-significant-digit string, and
+    sequential in-place `.sub()` calls let a later regex re-match digits
+    inside an already-generated marker. Both are fixed by exact Decimal
+    arithmetic and a single non-overlapping-span substitution pass.
+    """
+
+    EQUIVALENT = (
+        ("scale word vs digits", "the fund holds $2 million", "the fund holds $2,000,000"),
+        ("percent vs percent word", "spending rose 12%", "spending rose 12 percent"),
+        ("trailing decimal zero", "spending rose 12.0%", "spending rose 12 percent"),
+        ("comma grouping", "1,000 residents applied", "1000 residents applied"),
+        ("trailing decimal zero, plain", "the rate is 1.20", "the rate is 1.2"),
+        ("case", "The Council Approved the Plan.", "the council approved the plan"),
+        ("whitespace", "the  council   approved the plan", "the council approved the plan"),
+        ("terminal punctuation", "the council approved the plan.", "the council approved the plan!"),
+    )
+
+    NON_EQUIVALENT = (
+        ("adjacent large currency", "the fund contains $2,000,000", "the fund contains $2,000,001"),
+        ("adjacent large plain integer", "the report cites 1000000 affected accounts",
+         "the report cites 1000001 affected accounts"),
+        ("adjacent large currency, 7 digits", "the fund contains $1,234,567", "the fund contains $1,234,568"),
+        ("adjacent large plain, 8 digits", "the count reached 12345678", "the count reached 12345679"),
+        ("decimal precision", "the rate was 12 percent", "the rate was 12.0001 percent"),
+        ("zero vs near-zero", "the margin was 0 percent", "the margin was 0.0001 percent"),
+        ("million boundary", "the total was 999999", "the total was 1000000"),
+        ("trillion boundary", "the total was 999999999999", "the total was 1000000000000"),
+    )
+
+    ROLE_SWAPS = (
+        ("number role swap", "injured 12 and killed 40", "injured 40 and killed 12"),
+        ("temporal role swap", "moved Tuesday to Thursday", "moved Thursday to Tuesday"),
+    )
+
+    def test_formatting_equivalent_pairs_canonicalize_equal(self):
+        for label, a, b in self.EQUIVALENT:
+            with self.subTest(label):
+                self.assertTrue(propositions_are_identical(a, b), f"{label}: {a!r} vs {b!r}")
+
+    def test_unicode_nfd_and_nfc_forms_are_equivalent(self):
+        import unicodedata
+        composed = unicodedata.normalize("NFC", "the café reopened")
+        decomposed = unicodedata.normalize("NFD", "the café reopened")
+        self.assertNotEqual(composed, decomposed, "test fixture must actually differ at the byte level")
+        self.assertTrue(propositions_are_identical(composed, decomposed))
+
+    def test_adjacent_and_near_neighbor_numbers_remain_distinct(self):
+        for label, a, b in self.NON_EQUIVALENT:
+            with self.subTest(label):
+                self.assertFalse(propositions_are_identical(a, b), f"{label}: {a!r} vs {b!r}")
+                self.assertNotEqual(canonical_proposition(a), canonical_proposition(b), label)
+
+    def test_word_order_still_carries_role_after_the_fix(self):
+        for label, a, b in self.ROLE_SWAPS:
+            with self.subTest(label):
+                self.assertFalse(propositions_are_identical(a, b), label)
+
+    def test_canonicalization_is_idempotent(self):
+        """A generated marker must never be re-tokenized by a second pass —
+        this is what the previous sequential `.sub()` bug violated."""
+        for text in (
+            "the fund contains $2,000,001",
+            "$2,000,000 and 12% and 1,000 dollars owed by Tuesday at 3:00pm",
+            "spending rose 12.0% while the count reached 999999999999",
+        ):
+            with self.subTest(text):
+                once = canonical_proposition(text)
+                twice = canonical_proposition(once)
+                self.assertEqual(once, twice, f"not idempotent: {once!r} -> {twice!r}")
+
+    def test_no_nested_or_scientific_notation_markers_survive(self):
+        for text in ("$2,000,000", "$2,000,001", "999999999999", "12.0001%"):
+            canon = canonical_proposition(text)
+            self.assertNotIn("e+", canon, f"scientific notation leaked into {canon!r}")
+            self.assertNotIn("e-", canon, f"scientific notation leaked into {canon!r}")
+            # A correctly-formed marker never contains a second guillemet pair
+            # nested inside the first (the old bug's signature).
+            self.assertEqual(canon.count("«"), canon.count("»"), canon)
+
+    def test_deterministic_property_adjacent_values_never_collide(self):
+        """canonical(n) != canonical(n + 1) across several magnitudes, fixed
+        deterministic data only — no randomized fuzzing."""
+        magnitudes = (1, 99, 1_000, 999_999, 1_000_000, 2_000_000, 999_999_999_999)
+        for n in magnitudes:
+            with self.subTest(n=n):
+                low = canonical_proposition(f"the total was {n}")
+                high = canonical_proposition(f"the total was {n + 1}")
+                self.assertNotEqual(low, high, f"{n} and {n + 1} collided")
 
 
 class M02IndependenceTests(unittest.TestCase):
@@ -275,6 +369,77 @@ class OmissionGateTests(unittest.TestCase):
             parse_instant("2026-07-10T08:00:00-05:00", field="t"),
             parse_instant("2026-07-10T13:00:00Z", field="t"),
         )
+
+
+class A01EndToEndOmissionTests(unittest.TestCase):
+    """A-01, exercised through the real omission gate, not just the identity function.
+
+    Section 5 of the audit's remediation instructions requires that the
+    identity gate reject a false match EVEN WITH divergence detection
+    disabled — otherwise the fix is only as strong as a second, coincidental
+    mechanism, which is exactly what the audit found was previously true.
+    """
+
+    TARGET = [claim("ct", "the town budget passed unanimously", "sentinel", "art-sn")]
+
+    def _set(self, **over):
+        base = dict(
+            comparison_set_id="cs", target_article_id="art-sn",
+            member_article_ids=("art-tw", "art-pj"), provenance_kind="retrieved",
+            source_of_article={"art-tw": "techwire", "art-pj": "policy"},
+            dependencies=(SourceDependency(("techwire", "policy"), "independent_reporting", "High"),),
+        )
+        base.update(over)
+        return ComparisonSet(**base)
+
+    def _evaluate(self, candidate_proposition, supporting_proposition, **over):
+        supporting_claims = [
+            claim("f1", supporting_proposition, "techwire", "art-tw"),
+            claim("f2", supporting_proposition, "policy", "art-pj"),
+        ]
+        kwargs = dict(
+            comparison_set=self._set(), candidate_proposition=candidate_proposition,
+            supporting_claims=supporting_claims, target_claims=self.TARGET,
+            dimension="Scale", target_published_at="2026-07-12T10:00:00Z",
+            knowable_at="2026-07-10T09:00:00Z", rationale="x",
+        )
+        kwargs.update(over)
+        return evaluate_candidate_omission(**kwargs)
+
+    def test_adjacent_currency_values_cannot_ground_an_omission(self):
+        with self.assertRaises(OmissionRejection) as ctx:
+            self._evaluate("the fund contains $2,000,000", "the fund contains $2,000,001")
+        self.assertEqual(ctx.exception.gate, "presence_elsewhere")
+
+    def test_adjacent_plain_integers_cannot_ground_an_omission(self):
+        with self.assertRaises(OmissionRejection) as ctx:
+            self._evaluate(
+                "the report cites 1000000 affected accounts",
+                "the report cites 999999 affected accounts",
+            )
+        self.assertEqual(ctx.exception.gate, "presence_elsewhere")
+
+    def test_identity_gate_alone_rejects_even_with_divergence_detection_disabled(self):
+        """Mutation-style check inline: with detect_divergence forced to return
+        nothing, the false match must STILL be refused. If disabling divergence
+        makes the false identity usable, the identity repair is incomplete."""
+        import services.comparison.claims as claims_module
+
+        original = claims_module.detect_divergence
+        claims_module.detect_divergence = lambda a, b: []
+        try:
+            with self.assertRaises(OmissionRejection) as ctx:
+                self._evaluate("the fund contains $2,000,000", "the fund contains $2,000,001")
+            self.assertEqual(ctx.exception.gate, "presence_elsewhere")
+        finally:
+            claims_module.detect_divergence = original
+            self.assertIs(claims_module.detect_divergence, original)
+
+    def test_genuinely_identical_large_numbers_still_ground_a_well_formed_omission(self):
+        """Sanity check: the fix must not have become so strict that true
+        identity stops working."""
+        omission = self._evaluate("the fund contains $2,000,000", "the fund contains $2,000,000")
+        self.assertEqual(len(omission.supporting_source_ids), 2)
 
 
 class M05UncertaintyTests(unittest.TestCase):
@@ -632,6 +797,21 @@ class M09CorpusIntegrityTests(unittest.TestCase):
         base.update(over)
         return base
 
+    def _proposal(self, who, annotation=None, **over):
+        annotation = annotation or self._annotation()
+        base = {
+            "proposalId": f"p-{who}", "mechanismId": annotation["mechanismId"], "passageOrdinal": 0,
+            "startChar": annotation["startChar"], "endChar": annotation["endChar"],
+            "excerpt": annotation["excerpt"], "pressure": "P3",
+            "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        return base
+
+    def _submission(self, who, proposals=None):
+        return {"submissionId": f"sub-{who}", "annotatorId": who,
+                "proposals": [self._proposal(who)] if proposals is None else proposals}
+
     def _document(self, **over):
         annotation = self._annotation()
         base = {
@@ -642,12 +822,8 @@ class M09CorpusIntegrityTests(unittest.TestCase):
             "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.TEXT}],
             "annotations": [annotation],
             "annotatorSubmissions": [
-                {"proposalId": f"p-{who}", "annotatorId": who,
-                 "mechanismId": annotation["mechanismId"], "passageOrdinal": 0,
-                 "startChar": annotation["startChar"], "endChar": annotation["endChar"],
-                 "excerpt": annotation["excerpt"], "pressure": "P3",
-                 "reviewerConfidence": "High", "voiceClass": "reporter"}
-                for who in ("annotator-a", "annotator-b")
+                self._submission("annotator-a"),
+                self._submission("annotator-b"),
             ],
         }
         base.update(over)
@@ -711,6 +887,209 @@ class M09CorpusIntegrityTests(unittest.TestCase):
     def test_original_submissions_must_be_preserved_from_two_annotators(self):
         single = [self._document()["annotatorSubmissions"][0]]
         self.assertFalse(self._validate(self._document(annotatorSubmissions=single)).valid)
+
+    def test_missing_annotator_submissions_is_rejected(self):
+        """A-02: the field being absent entirely must not read as zero errors."""
+        doc = self._document()
+        del doc["annotatorSubmissions"]
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("annotatorSubmissions" in e for e in report.errors))
+
+    def test_empty_annotator_submissions_is_rejected(self):
+        """A-02 root cause: `annotatorSubmissions: []` must never bypass preservation.
+
+        The original bug was `if proposals:` — an empty top-level array made the
+        preservation check itself not run, rather than run and fail. This must
+        FAIL, and for the right reason (fewer than MIN_ANNOTATORS records), not
+        pass by omission.
+        """
+        report = self._validate(self._document(annotatorSubmissions=[]))
+        self.assertFalse(report.valid)
+        self.assertTrue(any("distinct" in e and "annotator" in e for e in report.errors), report.errors)
+
+    def test_two_zero_proposal_submissions_is_a_valid_hard_negative(self):
+        """MUST PASS: two annotators, both independently found nothing."""
+        doc = self._document(
+            annotations=[],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+        )
+        report = self._validate(doc)
+        self.assertTrue(report.valid, report.errors)
+        self.assertTrue(report.scored)
+
+    def test_three_zero_proposal_submissions_is_valid(self):
+        doc = self._document(
+            annotatorIds=["annotator-a", "annotator-b", "annotator-c"],
+            annotations=[],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+                self._submission("annotator-c", proposals=[]),
+            ],
+        )
+        self.assertTrue(self._validate(doc).valid)
+
+    def test_one_finding_plus_one_zero_proposal_submission_is_valid(self):
+        annotation = self._annotation()
+        doc = self._document(
+            annotations=[annotation],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[self._proposal("annotator-a", annotation)]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+        )
+        self.assertTrue(self._validate(doc).valid)
+
+    def test_both_submissions_empty_but_adjudication_still_positive_is_structurally_valid(self):
+        """A third-party adjudicator finding something neither annotator flagged
+        is a coherence question for the adjudication protocol, not something the
+        corpus validator is positioned to reject."""
+        annotation = self._annotation()
+        doc = self._document(
+            annotations=[annotation],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+        )
+        self.assertTrue(self._validate(doc).valid)
+
+    def test_duplicate_submission_id_is_rejected(self):
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[])
+            | {"submissionId": "dup"},
+            self._submission("annotator-b", proposals=[])
+            | {"submissionId": "dup"},
+        ])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("duplicate submissionId" in e for e in report.errors))
+
+    def test_annotator_submitting_twice_is_rejected(self):
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[]) | {"submissionId": "sub-1"},
+            self._submission("annotator-a", proposals=[]) | {"submissionId": "sub-2"},
+        ])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_annotator_ids_must_agree_with_submission_records(self):
+        doc = self._document(
+            annotatorIds=["annotator-a", "annotator-c"],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[]),
+                self._submission("annotator-b", proposals=[]),
+            ],
+        )
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("does not match" in e for e in report.errors))
+
+    def test_duplicate_proposal_id_across_different_submissions_is_rejected(self):
+        annotation = self._annotation()
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[
+                self._proposal("annotator-a", annotation, proposalId="dup-prop")]),
+            self._submission("annotator-b", proposals=[
+                self._proposal("annotator-b", annotation, proposalId="dup-prop")]),
+        ])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("duplicate proposalId" in e for e in report.errors))
+
+    def test_proposal_excerpt_must_round_trip(self):
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[
+                self._proposal("annotator-a", excerpt="not the real text")]),
+            self._submission("annotator-b", proposals=[]),
+        ])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("round-trip" in e for e in report.errors))
+
+    def test_proposal_missing_voice_class_is_rejected(self):
+        annotation = self._annotation()
+        broken = {k: v for k, v in self._proposal("annotator-a", annotation).items() if k != "voiceClass"}
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[broken]),
+            self._submission("annotator-b", proposals=[]),
+        ])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_proposal_unknown_mechanism_is_rejected(self):
+        doc = self._document(annotatorSubmissions=[
+            self._submission("annotator-a", proposals=[
+                self._proposal("annotator-a", mechanismId="not_a_mechanism")]),
+            self._submission("annotator-b", proposals=[]),
+        ])
+        self.assertFalse(self._validate(doc).valid)
+
+    def test_resolution_referencing_unknown_proposal_is_rejected(self):
+        doc = self._document(resolutions=[{"decision": "drop", "proposalIds": ["nonexistent-proposal"]}])
+        report = self._validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("unknown proposalId" in e for e in report.errors))
+
+    def test_worked_example_carries_two_structured_submissions(self):
+        example = json.loads((ROOT / "benchmarks" / "corpus" / "_example.json").read_text())
+        report = self._validate(example)
+        self.assertTrue(report.valid, report.errors)
+        self.assertEqual(len(example["annotatorSubmissions"]), 2)
+
+    def test_evaluate_treats_malformed_adjudicated_material_as_fatal(self):
+        """evaluate.py's loader must not silently skip a broken adjudicated file."""
+        import tempfile
+        from evaluate import load_corpus
+        from validate_corpus import CorpusIntegrityError
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp)
+            (path / "broken.json").write_text(json.dumps(self._document(annotatorSubmissions=[])))
+            with self.assertRaises(CorpusIntegrityError):
+                load_corpus(path)
+
+    def test_preserved_submissions_recover_every_agreement_dimension(self):
+        """A-02 recoverability proof: the preserved data must be enough to later
+        compute inter-annotator agreement on presence, mechanism, span, pressure
+        and voice — without implementing the metric itself here."""
+        annotation_a = self._annotation(mechanismId="loaded_language", pressure="P3", voiceClass="reporter")
+        annotation_b = self._annotation(
+            annotationId="a2", mechanismId="euphemism_dysphemism", pressure="P2", voiceClass="quoted_speaker")
+        doc = self._document(
+            annotations=[annotation_a],
+            annotatorSubmissions=[
+                self._submission("annotator-a", proposals=[
+                    self._proposal("annotator-a", annotation_a, mechanismId="loaded_language",
+                                   pressure="P3", voiceClass="reporter")]),
+                self._submission("annotator-b", proposals=[
+                    self._proposal("annotator-b", annotation_b, mechanismId="euphemism_dysphemism",
+                                   pressure="P2", voiceClass="quoted_speaker")]),
+            ],
+        )
+        report = self._validate(doc)
+        self.assertTrue(report.valid, report.errors)
+
+        by_annotator = {s["annotatorId"]: s for s in doc["annotatorSubmissions"]}
+        self.assertEqual(set(by_annotator), {"annotator-a", "annotator-b"})  # identity
+        for who, expected_mechanism, expected_pressure, expected_voice in (
+            ("annotator-a", "loaded_language", "P3", "reporter"),
+            ("annotator-b", "euphemism_dysphemism", "P2", "quoted_speaker"),
+        ):
+            proposals = by_annotator[who]["proposals"]
+            self.assertEqual(len(proposals), 1)  # presence
+            proposal = proposals[0]
+            self.assertEqual(proposal["mechanismId"], expected_mechanism)  # mechanism
+            self.assertEqual((proposal["startChar"], proposal["endChar"]), (23, 49))  # span
+            self.assertEqual(proposal["pressure"], expected_pressure)  # pressure
+            self.assertEqual(proposal["voiceClass"], expected_voice)  # voice
+        self.assertNotEqual(
+            by_annotator["annotator-a"]["proposals"][0]["mechanismId"],
+            by_annotator["annotator-b"]["proposals"][0]["mechanismId"],
+            "the disagreement itself must survive adjudication, not just the final gold pick",
+        )
 
     def test_unresolved_unresolvable_cannot_be_adjudicated(self):
         report = self._validate(self._document(

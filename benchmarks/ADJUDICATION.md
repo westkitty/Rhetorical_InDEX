@@ -90,17 +90,35 @@ that agreement stays computable was not true. The format now separates:
 
 | Field | Contains |
 |---|---|
-| `annotatorSubmissions[]` | every annotator's ORIGINAL structured proposal — mechanism, passage, span, excerpt, pressure, confidence, voice — preserved verbatim |
+| `annotatorSubmissions[]` | one RECORD per annotator (`submissionId`, `annotatorId`, `proposals[]`), preserved verbatim and never overwritten |
 | `annotations[]` | the adjudicated GOLD result |
 | `resolutions[]` | which proposals produced which gold annotation, and the adjudicator's decision |
+
+`annotatorSubmissions[]` holds one entry per annotator, not one entry per
+proposal. Each entry's `proposals[]` array holds that annotator's original
+findings and — critically — **may be empty**. An empty `proposals[]` is not
+missing data; it is the annotator's own record that they independently
+reviewed the article and found nothing. This is what makes a genuine hard
+negative representable: two annotators, two preserved records, both with
+`proposals: []`, is valid adjudicated gold. What is invalid is having *fewer
+than two records*, regardless of how many proposals they contain — finding B
+of the pre-calibration audit (A-02) was exactly this: an implementation that
+counted non-empty proposal lists let `annotatorSubmissions: []` (or the field
+missing outright) silently bypass the preservation requirement, because an
+empty list and a missing list looked the same to that check. The fix is
+structural: the thing being counted is submission *records*, never proposals,
+so an empty `proposals[]` inside a real record no longer reads as "nothing was
+preserved."
 
 `annotatorSubmissions[]` is append-only and is **never** overwritten by
 adjudication. This makes presence, mechanism, span, pressure and voice agreement
 all computable from the file itself after the fact.
 
 `benchmarks/scripts/validate_corpus.py` enforces that adjudicated documents
-carry submissions from at least two distinct annotators and that every preserved
-proposal round-trips against its passage.
+carry a preserved submission record from at least two distinct annotators
+(each `submissionId` and `proposalId` globally unique, each `annotatorId`
+agreeing with `annotatorIds`), and that every preserved proposal round-trips
+against its passage.
 
 ## 8. Promotion checklist
 

@@ -321,12 +321,39 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-63 | Level 2 temporal `by` does not suppress findings | `tests/local-preview-voice.test.mjs` | PASS |
 | H-64 | Zero findings shows no peak pressure | `tests/local-preview-voice.test.mjs` | PASS |
 | H-65 | `qa:runtime` fails with an actionable message, not a Linux path | Executed: exits 2 with install instructions | PASS |
+| H-66 | Numeric proposition identity is exact (Decimal, not lossy float) | `test_adjacent_and_near_neighbor_numbers_remain_distinct` | PASS |
+| H-67 | Formatting-equivalent numeric propositions still canonicalize equal | `test_formatting_equivalent_pairs_canonicalize_equal` | PASS |
+| H-68 | Canonicalization marker re-processing is prevented (idempotent) | `test_canonicalization_is_idempotent` | PASS |
+| H-69 | No nested or scientific-notation markers survive canonicalization | `test_no_nested_or_scientific_notation_markers_survive` | PASS |
+| H-70 | Adjacent numeric values never collide across magnitudes | `test_deterministic_property_adjacent_values_never_collide` | PASS |
+| H-71 | Word order still carries semantic role after the exact-identity fix | `test_word_order_still_carries_role_after_the_fix` | PASS |
+| H-72 | Unicode NFD/NFC forms remain equivalent under exact identity | `test_unicode_nfd_and_nfc_forms_are_equivalent` | PASS |
+| H-73 | Adjacent currency values cannot ground a Material Omission | `test_adjacent_currency_values_cannot_ground_an_omission` | PASS |
+| H-74 | Adjacent plain integers cannot ground a Material Omission | `test_adjacent_plain_integers_cannot_ground_an_omission` | PASS |
+| H-75 | Identity gate alone rejects false matches with divergence detection disabled | `test_identity_gate_alone_rejects_even_with_divergence_detection_disabled` | PASS |
+| H-76 | Genuinely identical large numbers still ground a well-formed omission | `test_genuinely_identical_large_numbers_still_ground_a_well_formed_omission` | PASS |
+| H-77 | `annotatorSubmissions` is required for adjudicated documents | `test_missing_annotator_submissions_is_rejected` | PASS |
+| H-78 | Empty `annotatorSubmissions` is rejected, not silently bypassed | `test_empty_annotator_submissions_is_rejected` | PASS |
+| H-79 | Two zero-proposal submissions is a valid hard negative | `test_two_zero_proposal_submissions_is_a_valid_hard_negative` | PASS |
+| H-80 | Three zero-proposal submissions is valid | `test_three_zero_proposal_submissions_is_valid` | PASS |
+| H-81 | One finding plus one zero-proposal submission is valid | `test_one_finding_plus_one_zero_proposal_submission_is_valid` | PASS |
+| H-82 | Duplicate `submissionId` is rejected | `test_duplicate_submission_id_is_rejected` | PASS |
+| H-83 | An annotator submitting twice is rejected | `test_annotator_submitting_twice_is_rejected` | PASS |
+| H-84 | `annotatorIds` must agree with preserved submission records | `test_annotator_ids_must_agree_with_submission_records` | PASS |
+| H-85 | Duplicate `proposalId` across different submissions is rejected | `test_duplicate_proposal_id_across_different_submissions_is_rejected` | PASS |
+| H-86 | Preserved proposal excerpt must round-trip against its passage | `test_proposal_excerpt_must_round_trip` | PASS |
+| H-87 | Preserved proposal missing `voiceClass` is rejected | `test_proposal_missing_voice_class_is_rejected` | PASS |
+| H-88 | Preserved proposal with unknown mechanism is rejected | `test_proposal_unknown_mechanism_is_rejected` | PASS |
+| H-89 | A resolution referencing an unknown proposal is rejected | `test_resolution_referencing_unknown_proposal_is_rejected` | PASS |
+| H-90 | Worked example carries two real structured submissions | `test_worked_example_carries_two_structured_submissions` | PASS |
+| H-91 | `evaluate.py` treats malformed adjudicated material as fatal, not skipped | `test_evaluate_treats_malformed_adjudicated_material_as_fatal` | PASS |
+| H-92 | Preserved submissions recover every inter-annotator agreement dimension | `test_preserved_submissions_recover_every_agreement_dimension` | PASS |
 
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 231 |
+| PASS | 258 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

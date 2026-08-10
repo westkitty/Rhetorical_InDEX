@@ -139,5 +139,163 @@
       "position": "Marked as euphemism_dysphemism rather than loaded_language.",
       "resolvedAs": "uphold_a: 'siphon' imports evaluation without substituting a softened term; recorded as alternativeAcceptableMechanism."
     }
+  ],
+  "annotatorSubmissions": [
+    {
+      "submissionId": "sub-example-a",
+      "annotatorId": "annotator-example-a",
+      "proposals": [
+        {
+          "proposalId": "prop-a-0-load-17",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 0,
+          "startChar": 17,
+          "endChar": 41,
+          "excerpt": "Draconian Housing Scheme",
+          "pressure": "P4",
+          "reviewerConfidence": "High",
+          "voiceClass": "headline"
+        },
+        {
+          "proposalId": "prop-a-1-load-23",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 1,
+          "startChar": 23,
+          "endChar": 49,
+          "excerpt": "draconian, reckless scheme",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-a-1-load-83",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 1,
+          "startChar": 83,
+          "endChar": 89,
+          "excerpt": "siphon",
+          "pressure": "P2",
+          "reviewerConfidence": "Medium",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-a-2-pres-10",
+          "mechanismId": "presupposition",
+          "passageOrdinal": 2,
+          "startChar": 10,
+          "endChar": 65,
+          "excerpt": "refused to explain why they allowed the backlog to grow",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-a-2-agen-77",
+          "mechanismId": "agent_suppression",
+          "passageOrdinal": 2,
+          "startChar": 77,
+          "endChar": 105,
+          "excerpt": "were told nothing for months",
+          "pressure": "P3",
+          "reviewerConfidence": "Medium",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-a-3-fals-13",
+          "mechanismId": "false_dilemma",
+          "passageOrdinal": 3,
+          "startChar": 13,
+          "endChar": 67,
+          "excerpt": "either approve the levy or watch the district collapse",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-a-5-load-12",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 5,
+          "startChar": 12,
+          "endChar": 31,
+          "excerpt": "outrageous betrayal",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "quoted_speaker"
+        }
+      ]
+    },
+    {
+      "submissionId": "sub-example-b",
+      "annotatorId": "annotator-example-b",
+      "proposals": [
+        {
+          "proposalId": "prop-b-0-load-17",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 0,
+          "startChar": 17,
+          "endChar": 41,
+          "excerpt": "Draconian Housing Scheme",
+          "pressure": "P4",
+          "reviewerConfidence": "High",
+          "voiceClass": "headline"
+        },
+        {
+          "proposalId": "prop-b-1-load-23",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 1,
+          "startChar": 23,
+          "endChar": 49,
+          "excerpt": "draconian, reckless scheme",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-b-1-load-83",
+          "mechanismId": "euphemism_dysphemism",
+          "passageOrdinal": 1,
+          "startChar": 83,
+          "endChar": 89,
+          "excerpt": "siphon",
+          "pressure": "P2",
+          "reviewerConfidence": "Medium",
+          "voiceClass": "reporter",
+          "nearMissRationale": "Read as a softened substitute term rather than an evaluative label; adjudication upheld loaded_language instead (see disagreements)."
+        },
+        {
+          "proposalId": "prop-b-2-pres-10",
+          "mechanismId": "presupposition",
+          "passageOrdinal": 2,
+          "startChar": 10,
+          "endChar": 65,
+          "excerpt": "refused to explain why they allowed the backlog to grow",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-b-3-fals-13",
+          "mechanismId": "false_dilemma",
+          "passageOrdinal": 3,
+          "startChar": 13,
+          "endChar": 67,
+          "excerpt": "either approve the levy or watch the district collapse",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "reporter"
+        },
+        {
+          "proposalId": "prop-b-5-load-12",
+          "mechanismId": "loaded_language",
+          "passageOrdinal": 5,
+          "startChar": 12,
+          "endChar": 31,
+          "excerpt": "outrageous betrayal",
+          "pressure": "P3",
+          "reviewerConfidence": "High",
+          "voiceClass": "quoted_speaker"
+        }
+      ]
+    }
   ]
 }

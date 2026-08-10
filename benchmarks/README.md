@@ -31,6 +31,12 @@ bug — report it, because it was not produced by this harness.
 Files beginning with `_` are schema/example material and are deliberately
 skipped by the loader so they can never contribute to a score.
 
+Every adjudicated document must carry a preserved submission record
+(`annotatorSubmissions[]`) from at least two independent annotators — see
+`ADJUDICATION.md` §7. An adjudicated file that fails `validate_corpus.py` is a
+fatal corpus-integrity error, never a silent skip; a document is never scored
+on the strength of gold data that can't be shown to be genuine.
+
 ## Metrics the harness computes
 
 Per mechanism, never averaged into a headline number:

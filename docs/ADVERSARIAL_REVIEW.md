@@ -323,3 +323,111 @@ contradictory pairs could credit a source), span integrity under hostile HTML,
 coverage honesty under partial failure, taxonomy/implementation drift, benchmark
 order-independence, calibration language, artifact reproducibility, and network
 / secret introduction. **No new Critical or Major defect was found.**
+
+---
+
+# Final pre-calibration blocker closure (commit `03e744a` → this commit)
+
+A subsequent independent falsification audit of the hardening branch — one
+that explicitly distrusted the hardening report, the test counts and the
+"READY FOR MERGE" conclusion — reproduced two further Major defects that the
+pass above did not catch. Both are closed here.
+
+## A-01 (Major) — canonical_proposition was not exact
+
+`canonical_proposition` formatted normalized numbers with float `%g`, and
+substituted currency/percent/plain markers into the SAME string in three
+sequential in-place `.sub()` passes. Two independent failures compounded:
+
+- `%g` rounds to 6 significant digits: `2_000_000` and `2_000_001` both
+  format as `"2e+06"`.
+- because later regexes scanned the already-substituted text, a generated
+  marker like `«currency:2e+06»` could itself be re-matched — `_NUM_PLAIN`
+  caught the `"06"` inside it — corrupting the marker further.
+
+Net effect: `$2,000,000` and `$2,000,001` canonicalized to the same string,
+so `propositions_are_identical` returned `True` for genuinely different
+numeric facts. `detect_divergence` (a separate, exact-float check) still
+caught the specific case tested, which is why this did not fully collapse in
+practice — but that made it a coincidence of the divergence gate, not a
+property of the identity gate, which is exactly the thing M-01 was supposed
+to fix and document as exact.
+
+**Repair.** Numeric substitution now uses `Decimal`, not `float` — exact
+arbitrary-precision arithmetic with fixed-point (`%f`-style) rendering, never
+scientific notation. All three numeric patterns are matched against the
+ORIGINAL text once, with non-overlapping spans tracked explicitly, then
+assembled into a fresh output string — nothing is ever re-scanned. Each
+marker also glues a word character directly against its leading digit
+(`«num:x1000»`), which defeats `_NUM_PLAIN`'s negative lookbehind on any later
+pass, making `canonical_proposition` idempotent:
+`canonical_proposition(canonical_proposition(x)) == canonical_proposition(x)`.
+
+Verified end-to-end with divergence detection monkeypatched to a no-op: the
+identity gate alone still refuses `$2,000,000` vs `$2,000,001` as
+`same_proposition`, so the fix does not depend on the secondary check that
+happened to catch the original case.
+
+## A-02 (Major) — empty annotatorSubmissions bypassed the M-12 guarantee
+
+`validate_corpus.py` counted *distinct annotators appearing in non-empty
+proposals* (`if proposals: submitting = {...}`). An adjudicated document with
+`annotatorSubmissions: []`, or the field omitted entirely, made `proposals`
+falsy, which skipped the two-annotator preservation check outright. A document
+with zero preserved original annotator positions passed validation — the
+exact thing M-12 exists to prevent.
+
+The deeper problem was the data model, not just the guard: a flat list of
+individual proposals has no way to represent "this annotator reviewed the
+article and independently found nothing" as distinct from "this annotator's
+work was never recorded" — both look like zero entries in the list. The
+existing benchmark-harness test fixture had already worked around this by
+fabricating a fake positive proposal for hard-negative documents just to keep
+the flat list non-empty, which is a symptom of the same defect.
+
+**Repair.** `annotatorSubmissions[]` is now one RECORD per annotator
+(`submissionId`, `annotatorId`, `proposals[]`), not one entry per proposal.
+The record's existence — not the non-emptiness of its `proposals` array — is
+what is counted and required (`>= 2` distinct annotator records,
+`submissionId` and `proposalId` globally unique, `annotatorId` set agreeing
+with `annotatorIds`, every nested proposal fully validated and round-tripped
+against its passage). A hard negative — two annotators, two records, both
+`proposals: []`, `annotations: []` — is now representable and valid. A
+missing, empty, or single-annotator `annotatorSubmissions` is rejected
+regardless of anything else in the document. `benchmarks/corpus/_example.json`
+now carries two real structured submissions, including one genuine
+independent disagreement (`euphemism_dysphemism` vs `loaded_language` on
+"siphon") and one genuine independent miss, so the worked example actually
+demonstrates the mechanism it documents instead of omitting it.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| A-01 numeric canonicalization reverted to lossy `%g` | **13 failures** |
+| A-01 divergence detection (`detect_divergence`) disabled entirely | **13 failures — all pre-existing tests of divergence detection itself; every A-01 identity/omission test still passed**, confirming the identity gate does not depend on divergence detection |
+| A-01 sequential in-place `.sub()` restored, guarded marker format kept | **0 failures** — see note below |
+| A-02 `annotatorSubmissions: []` accepted (guard reverted to `if proposals:`-equivalent) | **2 failures** |
+| A-02 submission-record requirement removed entirely | **2 failures** |
+| A-02 empty `proposals[]` rejected (hard-negative regression) | **4 failures, 1 error** |
+
+Note on the sequential-`.sub()` mutation: restoring the old in-place
+substitution order while keeping the new guarded marker format
+(`«num:x1000»`, word character glued to the leading digit) did **not**
+reproduce the original corruption. This is a genuine, useful negative result:
+it shows the word-character marker guard — not the single-pass
+non-overlapping-span architecture — is what actually makes re-scanning safe.
+The single pass is kept regardless, as better engineering (one deterministic
+scan instead of three), but the report does not claim it is independently
+load-bearing for this defect, because the mutation just proved it isn't.
+
+## Second sweep
+
+Repeated the second-sweep attack surface against the A-01/A-02 delta
+specifically: adjacent-large-integer collisions, many-significant-digit and
+trailing-zero decimals, multiple/repeated numbers in one proposition, marker
+idempotence, two/three zero-proposal submissions, one-empty-one-positive,
+duplicate submission/proposal ids, annotator/submission mismatches,
+resolutions referencing unknown or wrong proposals, and re-running the
+role-swap and near-neighbor-numeric Material Omission attacks from the first
+hardening pass. No new Critical or Major defect was found in this delta.

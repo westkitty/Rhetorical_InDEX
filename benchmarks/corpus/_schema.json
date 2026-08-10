@@ -191,78 +191,98 @@
     },
     "annotatorSubmissions": {
       "type": "array",
-      "description": "M-12: each annotator's ORIGINAL independent proposal, preserved verbatim and never overwritten by adjudication. Required for adjudicated documents so inter-annotator agreement (presence, mechanism, span, pressure, voice) stays computable after the fact.",
+      "minItems": 2,
+      "description": "M-12 / A-02: one RECORD per annotator, each carrying that annotator's ORIGINAL independent proposals, preserved verbatim and never overwritten by adjudication. Required for adjudicated documents so inter-annotator agreement (presence, mechanism, span, pressure, voice) stays computable after the fact. The record itself — not a non-empty proposals array — is what proves an annotator reviewed the article: `proposals: []` is a valid, meaningful record of a genuine hard negative (the annotator independently found zero rhetorical mechanisms). A document with fewer than two preserved records is invalid regardless of how many proposals it contains.",
       "items": {
         "type": "object",
         "required": [
-          "proposalId",
+          "submissionId",
           "annotatorId",
-          "mechanismId",
-          "passageOrdinal",
-          "startChar",
-          "endChar",
-          "excerpt",
-          "pressure",
-          "reviewerConfidence",
-          "voiceClass"
+          "proposals"
         ],
         "properties": {
-          "proposalId": {
-            "type": "string"
+          "submissionId": {
+            "type": "string",
+            "description": "Unique across the document."
           },
           "annotatorId": {
-            "type": "string"
-          },
-          "mechanismId": {
-            "type": "string"
-          },
-          "passageOrdinal": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "startChar": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "endChar": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "excerpt": {
             "type": "string",
-            "description": "MUST equal passages[passageOrdinal].text[startChar:endChar]."
+            "description": "Must correspond to an entry in the document's annotatorIds."
           },
-          "pressure": {
-            "enum": [
-              "P1",
-              "P2",
-              "P3",
-              "P4"
-            ]
-          },
-          "reviewerConfidence": {
-            "enum": [
-              "Low",
-              "Medium",
-              "High"
-            ]
-          },
-          "voiceClass": {
-            "enum": [
-              "headline",
-              "reporter",
-              "editorial",
-              "quoted_speaker",
-              "paraphrased_source",
-              "document_material",
-              "uncertain"
-            ]
-          },
-          "alternativeAcceptableMechanism": {
-            "type": "string"
-          },
-          "nearMissRationale": {
-            "type": "string"
+          "proposals": {
+            "type": "array",
+            "description": "This annotator's original proposed findings. MAY be empty — an empty array asserts this annotator reviewed the article and independently found nothing, which is a valid and meaningful hard-negative result, distinct from the record being absent entirely.",
+            "items": {
+              "type": "object",
+              "required": [
+                "proposalId",
+                "mechanismId",
+                "passageOrdinal",
+                "startChar",
+                "endChar",
+                "excerpt",
+                "pressure",
+                "reviewerConfidence",
+                "voiceClass"
+              ],
+              "properties": {
+                "proposalId": {
+                  "type": "string",
+                  "description": "Unique across every submission in the document."
+                },
+                "mechanismId": {
+                  "type": "string"
+                },
+                "passageOrdinal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "startChar": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endChar": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "excerpt": {
+                  "type": "string",
+                  "description": "MUST equal passages[passageOrdinal].text[startChar:endChar]."
+                },
+                "pressure": {
+                  "enum": [
+                    "P1",
+                    "P2",
+                    "P3",
+                    "P4"
+                  ]
+                },
+                "reviewerConfidence": {
+                  "enum": [
+                    "Low",
+                    "Medium",
+                    "High"
+                  ]
+                },
+                "voiceClass": {
+                  "enum": [
+                    "headline",
+                    "reporter",
+                    "editorial",
+                    "quoted_speaker",
+                    "paraphrased_source",
+                    "document_material",
+                    "uncertain"
+                  ]
+                },
+                "alternativeAcceptableMechanism": {
+                  "type": "string"
+                },
+                "nearMissRationale": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
