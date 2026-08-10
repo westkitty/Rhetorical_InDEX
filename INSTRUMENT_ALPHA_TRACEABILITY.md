@@ -408,11 +408,23 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-147 | Independent third adjudicator is accepted | `test_independent_third_adjudicator_is_accepted` | PASS |
 | H-148 | annotatorIds strictly validated (duplicate/non-string/empty/bool/arity/type) | `StrictAnnotatorIdsTests` | PASS |
 
+| H-149 | Split result in the gap between disjoint sources is rejected (no bounding hull) | `test_result_in_the_gap_between_disjoint_sources_is_rejected` | PASS |
+| H-150 | Split cross-passage coordinate collision is rejected | `test_cross_passage_coordinate_collision_is_rejected` | PASS |
+| H-151 | Every cited split source must be represented by a result on its own passage | `test_cited_proposal_represented_by_no_result_is_rejected` | PASS |
+| H-152 | Valid single-source and multi-source splits still accepted | `test_single_source_split_into_two_overlapping_results` / `test_every_result_tied_to_an_actual_source_passes` | PASS |
+| H-153 | Split may yield different mechanismIds | `test_split_may_produce_different_mechanisms` | PASS |
+| H-154 | Merge of disjoint source spans is rejected (no bridging) | `test_two_disjoint_sources_cannot_be_merged` | PASS |
+| H-155 | Merge requires a non-empty common source intersection | `test_three_sources_without_a_common_intersection_are_rejected` | PASS |
+| H-156 | Merge gold may not extend beyond the cited source hull | `test_gold_extending_beyond_the_source_hull_is_rejected` | PASS |
+| H-157 | Valid overlapping merges (2 and 3 sources) still accepted | `test_two_overlapping_sources_reconcile` / `test_three_sources_with_a_common_intersection_pass` | PASS |
+| H-158 | Auto-merge clustering is occurrence-local (two findings per passage) | `test_two_distinct_occurrences_in_one_passage_both_auto_merge` | PASS |
+| H-159 | Occurrence-locality does not weaken the ambiguity guard | `test_genuinely_ambiguous_overlapping_proposals_still_escalate` | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 314 |
+| PASS | 325 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

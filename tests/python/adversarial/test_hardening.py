@@ -2127,7 +2127,9 @@ class D01SemanticResolutionGroundingTests(_CorpusProvenanceFixture):
               "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
         report = self.validate(doc)
         self.assertFalse(report.valid)
-        self.assertTrue(any("does not overlap cited proposal" in e for e in report.errors), report.errors)
+        self.assertTrue(
+            any("does not overlap the common source intersection" in e for e in report.errors),
+            report.errors)
 
     def test_merge_of_different_mechanisms_is_rejected(self):
         doc = self.doc(
@@ -2156,7 +2158,9 @@ class D01SemanticResolutionGroundingTests(_CorpusProvenanceFixture):
               "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
         report = self.validate(doc)
         self.assertFalse(report.valid)
-        self.assertTrue(any("outside the source region" in e for e in report.errors), report.errors)
+        self.assertTrue(
+            any("overlaps no cited proposal span on that passage" in e for e in report.errors),
+            report.errors)
 
     def test_valid_split_divides_the_source_region(self):
         """A split MAY yield different mechanismIds — it may not relocate."""
@@ -2167,6 +2171,232 @@ class D01SemanticResolutionGroundingTests(_CorpusProvenanceFixture):
             [{"decision": "split", "adjudicatorId": "c",
               "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
         self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+
+class _SpanProvenanceFixture(unittest.TestCase):
+    """Two passages with widely separated marked regions (0..10 and 90..100)
+    so an attack can place a result in the GAP between real source spans, and
+    so identical coordinates exist on two different passages."""
+
+    P0 = "A" * 10 + " " * 79 + "B" * 10 + "  end."
+    P1 = "C" * 10 + " " * 79 + "D" * 10 + "  end."
+
+    def _text(self, ordinal):
+        return self.P0 if ordinal == 0 else self.P1
+
+    def p(self, pid, ordinal, start, end, mechanism="loaded_language", **over):
+        base = {
+            "proposalId": pid, "mechanismId": mechanism, "passageOrdinal": ordinal,
+            "startChar": start, "endChar": end, "excerpt": self._text(ordinal)[start:end],
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        return base
+
+    def a(self, aid, ordinal, start, end, mechanism="loaded_language", **over):
+        base = {
+            "annotationId": aid, "mechanismId": mechanism, "passageOrdinal": ordinal,
+            "startChar": start, "endChar": end, "excerpt": self._text(ordinal)[start:end],
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        return base
+
+    def sub(self, who, proposals):
+        return {"submissionId": f"sub-{who}", "annotatorId": who, "proposals": proposals}
+
+    def doc(self, submissions, annotations, resolutions):
+        return {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": ["a", "b"],
+            "passages": [
+                {"ordinal": 0, "passageType": "paragraph", "text": self.P0},
+                {"ordinal": 1, "passageType": "paragraph", "text": self.P1},
+            ],
+            "annotations": annotations,
+            "annotatorSubmissions": submissions,
+            "resolutions": resolutions,
+        }
+
+    def validate(self, document):
+        from validate_corpus import validate_document
+        return validate_document(document, path="t.json", expected_taxonomy=vocab.taxonomy_version())
+
+
+class E01SplitSpanProvenanceTests(_SpanProvenanceFixture):
+    """E-01: split provenance must be per-span and per-passage.
+
+    The previous check built ONE global bounding hull — min(start)..max(end)
+    across all sources, ignoring passage — so sources at 0..10 and 90..100
+    produced a "region" of 0..100 that blessed an unrelated result at 40..50
+    sitting in the gap between them.
+    """
+
+    def test_single_source_split_into_two_overlapping_results(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [])],
+            [self.a("g1", 0, 0, 5), self.a("g2", 0, 5, 10, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_result_in_the_gap_between_disjoint_sources_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 40, 50), self.a("g2", 0, 0, 10)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("overlaps no cited proposal span on that passage" in e for e in report.errors),
+            report.errors)
+
+    def test_cross_passage_coordinate_collision_is_rejected(self):
+        """The hull discarded passage, so coordinates from passage 1 could
+        numerically bless a result on passage 0 that overlapped nothing."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 1, 90, 100)])],
+            [self.a("g1", 0, 40, 50), self.a("g2", 0, 0, 10)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_every_result_tied_to_an_actual_source_passes(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 0, 10), self.a("g2", 0, 90, 100)],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_cited_proposal_represented_by_no_result_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [self.p("p2", 0, 90, 100)])],
+            [self.a("g1", 0, 0, 5), self.a("g2", 0, 5, 10, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1", "g2"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("no resulting gold annotation overlaps it" in e for e in report.errors),
+            report.errors)
+
+    def test_split_may_produce_different_mechanisms(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10)]), self.sub("b", [])],
+            [self.a("g1", 0, 0, 5, mechanism="false_dilemma"),
+             self.a("g2", 0, 5, 10, mechanism="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["g1", "g2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+
+class E02MergeSpanProvenanceTests(_SpanProvenanceFixture):
+    """E-02: a merge reconciles ONE shared occurrence.
+
+    Overlapping the gold against each source independently was not enough:
+    two disjoint findings (0..10 and 90..100) both overlap a bridging gold of
+    5..95, so the old check accepted a span swallowing 80 characters of
+    unrelated text between them.
+    """
+
+    def test_two_overlapping_sources_reconcile(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10, pressure="P2")]),
+             self.sub("b", [self.p("p2", 0, 4, 14, pressure="P4")])],
+            [self.a("g1", 0, 4, 10)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_two_disjoint_sources_cannot_be_merged(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10, pressure="P2")]),
+             self.sub("b", [self.p("p2", 0, 90, 100, pressure="P4")])],
+            [self.a("g1", 0, 5, 95)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("no common overlap" in e for e in report.errors), report.errors)
+
+    def test_three_sources_without_a_common_intersection_are_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10, pressure="P2"),
+                            self.p("p3", 0, 8, 20, pressure="P1")]),
+             self.sub("b", [self.p("p2", 0, 15, 25, pressure="P4")])],
+            [self.a("g1", 0, 8, 20)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2", "p3"], "resultingAnnotationIds": ["g1"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_three_sources_with_a_common_intersection_pass(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 12, pressure="P2"),
+                            self.p("p3", 0, 2, 14, pressure="P1")]),
+             self.sub("b", [self.p("p2", 0, 4, 16, pressure="P4")])],
+            [self.a("g1", 0, 4, 12)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2", "p3"], "resultingAnnotationIds": ["g1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_gold_extending_beyond_the_source_hull_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", 0, 0, 10, pressure="P2")]),
+             self.sub("b", [self.p("p2", 0, 4, 14, pressure="P4")])],
+            [self.a("g1", 0, 0, 100)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["g1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(
+            any("extending outside the cited source spans" in e for e in report.errors),
+            report.errors)
+
+
+class AutoMergeOccurrenceLocalityTests(_SpanProvenanceFixture):
+    """Non-blocking cleanup: the auto-merge cluster is occurrence-local.
+
+    Matching on mechanism/passage/pressure/voice alone swept in every OTHER
+    occurrence of the same mechanism in the same passage, so a passage with two
+    distinct P3/reporter loaded_language findings gave each annotator two
+    "matching" proposals per gold and was rejected as ambiguous — a false
+    ambiguity between findings that were never in competition.
+    """
+
+    def test_two_distinct_occurrences_in_one_passage_both_auto_merge(self):
+        doc = {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": ["a", "b"],
+            "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.P0}],
+            "annotations": [self.a("g1", 0, 0, 10), self.a("g2", 0, 90, 100)],
+            "annotatorSubmissions": [
+                self.sub("a", [self.p("p1", 0, 0, 10), self.p("p2", 0, 90, 100)]),
+                self.sub("b", [self.p("p3", 0, 0, 10), self.p("p4", 0, 90, 100)]),
+            ],
+        }
+        report = self.validate(doc)
+        self.assertTrue(report.valid, report.errors)
+
+    def test_genuinely_ambiguous_overlapping_proposals_still_escalate(self):
+        """Occurrence-locality must not weaken the D-02 ambiguity guard: two
+        proposals from the SAME annotator both overlapping the same gold remain
+        an unresolvable cluster."""
+        doc = {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": ["a", "b"],
+            "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.P0}],
+            "annotations": [self.a("g1", 0, 0, 10)],
+            "annotatorSubmissions": [
+                self.sub("a", [self.p("p1", 0, 0, 10), self.p("p2", 0, 2, 10)]),
+                self.sub("b", [self.p("p3", 0, 0, 10)]),
+            ],
+        }
+        self.assertFalse(self.validate(doc).valid)
 
 
 class D02UnanimousAutoMergeTests(_CorpusProvenanceFixture):

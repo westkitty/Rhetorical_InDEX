@@ -245,8 +245,32 @@ finding is not an uphold. The enforced relationships:
 | Decision | Required source → result relationship |
 |---|---|
 | `uphold_a` / `uphold_b` | the gold **exactly preserves** the cited proposal's `mechanismId`, `passageOrdinal`, `startChar`, `endChar`, `pressure` and `voiceClass`. `reviewerConfidence` may differ — it is a per-annotator epistemic report, not a property of the phenomenon. |
-| `merge` | sources share one `passageOrdinal` and one `mechanismId`; the gold uses that same passage and mechanism and **overlaps every** cited source span. Pressure and voice may be chosen by the adjudicator (that is often the disagreement being reconciled); the originals stay preserved in `annotatorSubmissions`. |
-| `split` | every resulting annotation sits on a source passage and **overlaps the source region**. A split may legitimately yield different `mechanismId`s — it may not relocate the finding. |
+| `merge` | sources share one `passageOrdinal` and one `mechanismId` **and a non-empty common span intersection** (`max(starts) < min(ends)`); the gold uses that same passage and mechanism, overlaps that common intersection, and does not extend beyond the outer bounds of the cited spans. Pressure and voice may be chosen by the adjudicator (that is often the disagreement being reconciled); the originals stay preserved in `annotatorSubmissions`. |
+| `split` | **every** resulting annotation overlaps at least one *actual* cited proposal span **on the same passage**, and **every** cited proposal is overlapped by at least one result on its own passage. A split may legitimately yield different `mechanismId`s — it may not relocate the finding. |
+
+**Span provenance is per-span and per-passage (finding E-01/E-02).** Two
+weaker forms were rejected:
+
+- A `split` must not be validated against a global bounding hull
+  `min(start)..max(end)`. Sources at 0..10 and 90..100 produce a "region" of
+  0..100, which would bless an unrelated result at 40..50 sitting in the gap
+  between them; and because a hull discards `passageOrdinal`, coordinates from
+  one passage could numerically vouch for a result on another. Unrelated gap
+  text can never become a split result, and a cited proposal that no result
+  represents is an incomplete split.
+- A `merge` must not be validated by overlapping the gold against each source
+  independently. Two *disjoint* findings both overlap a bridging gold span, so
+  0..10 and 90..100 would license a gold of 5..95 swallowing eighty characters
+  of unrelated text. Disjoint cited spans are separate occurrences and need
+  separate resolutions; a merge reconciles **one** shared occurrence.
+
+**Auto-merge clustering is occurrence-local.** A proposal only joins the
+consensus cluster for a gold annotation if it actually overlaps that gold.
+Matching on mechanism/passage/pressure/voice alone swept in every other
+occurrence of the same mechanism in the same passage, so a passage with two
+distinct P3/reporter `loaded_language` findings looked ambiguous when the two
+findings were never in competition. Genuinely competing proposals — two from
+the same annotator both overlapping the same gold — still escalate.
 | `drop` | no resulting gold at all. |
 | `adjudicator_add` | no source proposals, exactly one result, an independent named adjudicator, and a rationale. This remains the **only** path to entirely new gold with no proposal origin. |
 

@@ -112,12 +112,24 @@ def _auto_merge_span(
     pressure = annotation.get("pressure")
     voice = annotation.get("voiceClass")
 
+    gold_span = (annotation.get("startChar"), annotation.get("endChar"))
+    if not (_is_int(gold_span[0]) and _is_int(gold_span[1])):
+        return None
+
+    # The cluster is OCCURRENCE-LOCAL: a proposal only qualifies if it actually
+    # overlaps the gold span it is supposed to be evidence for. Matching on
+    # mechanism/passage/pressure/voice alone swept in every OTHER occurrence of
+    # the same mechanism in the same passage, so a passage containing two
+    # distinct P3/reporter loaded_language findings gave each annotator two
+    # "matching" proposals per gold and was rejected as ambiguous — a false
+    # ambiguity between findings that were never in competition.
     qualifying = [
         p for p in proposals
         if p["mechanismId"] == mechanism
         and p["passageOrdinal"] == ordinal
         and p["pressure"] == pressure
         and p["voiceClass"] == voice
+        and _spans_overlap(gold_span, (p["startChar"], p["endChar"]))
     ]
 
     # Every declared annotator must appear exactly once in the cluster.
@@ -710,39 +722,85 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                     f"{label} decision 'merge' produces mechanism {result.get('mechanismId')!r} "
                     f"from sources of mechanism {sorted(source_mechanisms)}"
                 )
-            result_span = (result.get("startChar"), result.get("endChar"))
-            if _is_int(result_span[0]) and _is_int(result_span[1]):
-                for source in sources:
-                    if source["passageOrdinal"] != result.get("passageOrdinal"):
-                        continue
-                    if not _spans_overlap(result_span, (source["startChar"], source["endChar"])):
+            # E-02: a merge reconciles ONE shared occurrence. Overlapping the
+            # gold against each source independently is not enough: two
+            # disjoint findings (0..10 and 90..100) both overlap a bridging
+            # gold of 5..95, so the old check accepted a span that swallowed
+            # 80 characters of unrelated text between them. Require the
+            # sources themselves to share a non-empty common intersection.
+            source_spans = [(s["startChar"], s["endChar"]) for s in sources]
+            common_start = max(s[0] for s in source_spans)
+            common_end = min(s[1] for s in source_spans)
+            if common_start >= common_end:
+                err(
+                    f"{label} decision 'merge' cites proposals with no common overlap "
+                    f"({sorted(source_spans)}); disjoint findings are separate occurrences, not "
+                    "one occurrence to reconcile — use separate resolutions"
+                )
+            else:
+                result_span = (result.get("startChar"), result.get("endChar"))
+                if _is_int(result_span[0]) and _is_int(result_span[1]):
+                    if not _spans_overlap(result_span, (common_start, common_end)):
                         err(
                             f"{label} decision 'merge' produces a gold span {result_span} that does "
-                            f"not overlap cited proposal {source.get('proposalId')!r} "
-                            f"({source['startChar']}, {source['endChar']}); a merge reconciles the "
-                            "cited spans, it does not relocate the finding"
+                            f"not overlap the common source intersection ({common_start}, "
+                            f"{common_end}); a merge reconciles the shared occurrence"
+                        )
+                    hull = (min(s[0] for s in source_spans), max(s[1] for s in source_spans))
+                    if result_span[0] < hull[0] or result_span[1] > hull[1]:
+                        err(
+                            f"{label} decision 'merge' produces a gold span {result_span} extending "
+                            f"outside the cited source spans {hull}; a merge reconciles what the "
+                            "annotators marked, it does not enlarge the finding"
                         )
 
         if decision == "split" and sources and results:
+            # E-01: provenance must be per-span and per-passage. The previous
+            # check built one global bounding hull, min(start)..max(end) across
+            # ALL sources ignoring passage, so sources at 0..10 and 90..100
+            # produced a "region" of 0..100 that blessed an unrelated result at
+            # 40..50 sitting in the gap between them — and, because the hull
+            # discarded passage, coordinates from a different passage could
+            # collide numerically and ground a result that overlapped nothing.
             source_ordinals = {s["passageOrdinal"] for s in sources}
-            source_region = (
-                min(s["startChar"] for s in sources), max(s["endChar"] for s in sources),
-            )
+            typed_sources = [
+                s for s in sources if _is_int(s["startChar"]) and _is_int(s["endChar"])
+            ]
+            covered_sources: set[int] = set()
+
             for result in results:
-                if result.get("passageOrdinal") not in source_ordinals:
+                result_ordinal = result.get("passageOrdinal")
+                if result_ordinal not in source_ordinals:
                     err(
                         f"{label} decision 'split' produces gold "
-                        f"{result.get('annotationId')!r} on passage {result.get('passageOrdinal')!r}, "
+                        f"{result.get('annotationId')!r} on passage {result_ordinal!r}, "
                         f"outside its source passage(s) {sorted(source_ordinals)}"
                     )
                     continue
                 span = (result.get("startChar"), result.get("endChar"))
-                if _is_int(span[0]) and _is_int(span[1]) and not _spans_overlap(span, source_region):
+                if not (_is_int(span[0]) and _is_int(span[1])):
+                    continue
+                matched = [
+                    index for index, source in enumerate(typed_sources)
+                    if source["passageOrdinal"] == result_ordinal
+                    and _spans_overlap(span, (source["startChar"], source["endChar"]))
+                ]
+                if not matched:
                     err(
                         f"{label} decision 'split' produces gold "
-                        f"{result.get('annotationId')!r} at {span}, outside the source region "
-                        f"{source_region}; a split divides the cited region, it does not create "
-                        "unrelated findings elsewhere"
+                        f"{result.get('annotationId')!r} at {span} on passage {result_ordinal!r}, "
+                        "which overlaps no cited proposal span on that passage; a split divides "
+                        "the cited spans, it does not create findings in the gaps between them"
+                    )
+                covered_sources.update(matched)
+
+            for index, source in enumerate(typed_sources):
+                if index not in covered_sources:
+                    err(
+                        f"{label} decision 'split' cites proposal {source.get('proposalId')!r} "
+                        f"({source['startChar']}, {source['endChar']} on passage "
+                        f"{source['passageOrdinal']}) but no resulting gold annotation overlaps it "
+                        "on its own passage; every cited source must be represented in the split"
                     )
 
     # ---- D-03: EXACTLY ONE provenance per gold annotation ----

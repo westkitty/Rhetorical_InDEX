@@ -799,3 +799,77 @@ unanimous auto-merge with a redundant resolution, and a "valid split" placing
 a result outside its source region — and were corrected rather than the rules
 loosened. C-01 numeric regressions re-run unchanged. No new Critical or Major
 defect was found in these boundaries.
+
+---
+
+# Span-provenance closure (this commit)
+
+Two Major blockers, both the same shape as the D-round: a check confirmed a
+span relationship EXISTED without confirming it was the *right* relationship.
+Both lived in the D-01 code written one commit earlier.
+
+## E-01 — split validated against a bounding hull, not real source spans
+
+The split check computed one global region, `min(start)..max(end)` across all
+cited sources, **ignoring `passageOrdinal`**. Two consequences, both
+reproduced before fixing:
+
+| Attack | Before |
+|---|---|
+| sources 0..10 and 90..100 → result 40..50 (the gap between them) | **accepted** — hull was 0..100 |
+| p1 on passage 0 (0..10), p2 on passage 1 (90..100) → result on passage 0 at 40..50 | **accepted** — hull discarded passage, so foreign coordinates vouched for it |
+
+**Repair.** Provenance is now per-span and per-passage: every result must
+overlap at least one *actual* cited proposal span on the same passage, and
+every cited proposal must be overlapped by at least one result on its own
+passage. No hull is computed. Unrelated gap text can never become a split
+result, and a cited source no result represents is an incomplete split.
+
+## E-02 — merge could bridge disjoint source findings
+
+Overlapping the gold against each source independently is satisfied by a
+bridging span: sources at 0..10 and 90..100 both overlap a gold of 5..95,
+which swallows eighty characters of unrelated text and presents two separate
+occurrences as one reconciled finding. Reproduced as **accepted**.
+
+**Repair.** The sources themselves must share a non-empty common intersection
+(`max(starts) < min(ends)`); the gold must overlap that intersection and must
+not extend beyond the outer bounds of the cited spans. Disjoint cited spans
+are separate occurrences requiring separate resolutions.
+
+## Non-blocking cleanup taken: occurrence-local auto-merge
+
+The auto-merge cluster matched on mechanism/passage/pressure/voice alone, so
+every *other* occurrence of the same mechanism in the same passage joined the
+cluster. A passage with two distinct P3/reporter `loaded_language` findings
+therefore gave each annotator two "matching" proposals per gold and was
+rejected as ambiguous — a false ambiguity between findings never in
+competition. A proposal now only qualifies if it actually overlaps the gold it
+is evidence for. Verified that this does **not** weaken the D-02 ambiguity
+guard: two proposals from the same annotator both overlapping the same gold
+still escalate.
+
+## Non-blocking cleanup declined: generic `uphold`
+
+Replacing `uphold_a`/`uphold_b` with a single `uphold` is defensible — `a`/`b`
+has no stable meaning beyond two annotators, and `proposalIds` already
+identifies the actual proposal. It was **not** done, deliberately: it is a
+vocabulary migration touching `VALID_RESOLUTION_DECISIONS`,
+`RESOLUTION_CARDINALITY`, the schema enum, the schema's per-decision
+conditionals, the worked example, ADJUDICATION.md and the tests — not a
+trivial edit, and the brief said not to let an optional cleanup expand the
+task. The current naming costs documentation clarity, not correctness: the
+validator treats both variants identically and the cardinality contract is the
+same for each. Recorded here as a known cosmetic wart for a future pass.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| E-01 bounding-hull split logic restored | **6 failures** |
+| E-02 common-intersection requirement removed | **1 failure** |
+| E-02 hull-containment requirement removed | **1 failure** |
+
+Two pre-existing D-01 tests asserted on error-message text that the repairs
+changed; both still rejected their documents correctly, and only the message
+assertions were updated.
