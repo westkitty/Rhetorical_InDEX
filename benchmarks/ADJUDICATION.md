@@ -37,17 +37,29 @@ auto-merged if it matched **any one** preserved proposal. That is not
 consensus — it is evidence that a single annotator proposed it. One annotator
 proposing a finding the other did not is a *presence disagreement* (§3), and a
 pressure or voice difference is likewise an escalation trigger, so none of
-those may auto-merge. `benchmarks/scripts/validate_corpus.py` now requires
-proposals from at least two distinct annotators agreeing on mechanism,
-passage, pressure and voice with pairwise span IoU ≥ 0.8, and requires the
-gold span to equal the intersection exactly.
+those may auto-merge.
 
-**Three or more annotators.** Every preserved proposal matching the gold's
-mechanism, passage, pressure and voice forms the agreeing set. That set must
-cover at least two distinct annotators, **every pair** in it must clear the
-IoU threshold, and the merged span is the intersection over the whole set.
-A proposal differing on pressure or voice is simply not in the set, which is
-exactly why those disagreements fall through to "adjudication required".
+**Auto-merge requires UNANIMITY (finding D-02).** Requiring merely "at least
+two agreeing annotators" was still wrong once a document had three or more:
+A and B agreeing while C proposed a different pressure, a different voice, or
+nothing at all still auto-merged on the strength of A+B, discarding exactly
+the dissent the corpus exists to preserve. The enforced rule is now:
+
+- **every** annotator declared in `annotatorIds` must contribute **exactly
+  one** qualifying proposal to the consensus cluster;
+- all of them must agree on `mechanismId`, `passageOrdinal`, `pressure` and
+  `voiceClass` (`reviewerConfidence` need not match);
+- **every pair** of their spans must reach IoU ≥ 0.8;
+- the gold span must equal the intersection across **all** participants.
+
+Any missing proposal, any extra ambiguous matching proposal from the same
+annotator, any pressure/voice/mechanism dissent, or any sub-threshold span
+disagreement means **adjudication is required**.
+
+This is deliberately stricter than majority vote. At Alpha, conservative
+escalation is preferable to silently erasing a dissenting annotator: an
+escalated case costs an adjudicator's time, whereas an erased dissent
+corrupts the calibration signal permanently and invisibly.
 
 ## 3. Everything else goes to an adjudicator
 
@@ -167,7 +179,19 @@ The rule now enforced: a gold annotation is valid only if it is grounded in
    `merge`, a `split`, or an `adjudicator_add`.
 
 A gold annotation grounded **both** ways, or named by two resolutions, is an
-error — provenance is exactly one record per outcome.
+error — provenance is exactly one record per outcome. Finding D-03: this was
+documented but not enforced, so a document could label gold that both
+annotators had in fact proposed identically as an `adjudicator_add` ("nobody
+proposed this"), misrepresenting where the finding came from. Both origins
+are now computed for every annotation and checked against a closed table:
+
+| auto-merge origin | resolution links | verdict |
+|---|---|---|
+| yes | 0 | **valid** — uncontested auto-merge |
+| no | 1 | **valid** — adjudicated |
+| no | 0 | rejected: ungrounded |
+| yes | ≥ 1 | rejected: conflicting provenance |
+| no | > 1 | rejected: duplicate provenance |
 
 ### Resolution cardinality (finding C-03)
 
@@ -196,8 +220,11 @@ presented as agreement.
 Every resolution record is additionally validated:
 
 - `resolutionId`, if present, is unique.
-- `adjudicatorId` is **required and non-empty** — a resolution is by
-  definition an adjudicator's decision, and the adjudicator must be named.
+- `adjudicatorId` is **required, non-empty, and must NOT appear in
+  `annotatorIds`** — §3 says the adjudicator is a third person who has not
+  annotated the document, and finding D-01's companion check now enforces it.
+  An annotator adjudicating their own disagreement can manufacture consensus
+  single-handed.
 - every id in `proposalIds` must reference a real preserved proposal, and
   every id in `resultingAnnotationIds` a real entry in `annotations[]` —
   including when the document has zero real proposals (a resolution cannot
@@ -205,6 +232,23 @@ Every resolution record is additionally validated:
   against).
 - `adjudicator_add` must carry a non-empty `note` or `rationale` explaining
   what the adjudicator saw and why.
+
+### The result must derive from the cited proposals (finding D-01)
+
+Reference-existence and cardinality prove only that a resolution points at
+real records — not that its gold has anything to do with them. An `uphold_a`
+citing a `loaded_language` proposal could emit a `false_dilemma` annotation on
+an unrelated span; a `merge` or `split` could manufacture findings elsewhere
+in the article entirely. An "uphold" that silently substitutes a different
+finding is not an uphold. The enforced relationships:
+
+| Decision | Required source → result relationship |
+|---|---|
+| `uphold_a` / `uphold_b` | the gold **exactly preserves** the cited proposal's `mechanismId`, `passageOrdinal`, `startChar`, `endChar`, `pressure` and `voiceClass`. `reviewerConfidence` may differ — it is a per-annotator epistemic report, not a property of the phenomenon. |
+| `merge` | sources share one `passageOrdinal` and one `mechanismId`; the gold uses that same passage and mechanism and **overlaps every** cited source span. Pressure and voice may be chosen by the adjudicator (that is often the disagreement being reconciled); the originals stay preserved in `annotatorSubmissions`. |
+| `split` | every resulting annotation sits on a source passage and **overlaps the source region**. A split may legitimately yield different `mechanismId`s — it may not relocate the finding. |
+| `drop` | no resulting gold at all. |
+| `adjudicator_add` | no source proposals, exactly one result, an independent named adjudicator, and a rationale. This remains the **only** path to entirely new gold with no proposal origin. |
 
 This closes the gap a mechanical validator can actually close. It does not
 try to detect every case where an adjudicator *should* have escalated a
@@ -224,9 +268,13 @@ Before setting `adjudicationStatus: "adjudicated"`:
 - [ ] every `excerpt` round-trips exactly against its passage
 - [ ] `disagreements[]` retained in full
 - [ ] taxonomy version recorded and matches the version annotated against
-- [ ] every gold annotation is either a genuine two-annotator auto-merge (§2)
-      or has exactly one `resolutions[]` record naming it and the adjudicator,
-      with a decision-consistent cardinality (§7b)
+- [ ] every gold annotation is either a **unanimous** auto-merge of every
+      declared annotator (§2) or has exactly one `resolutions[]` record naming
+      it, never both (§7b truth table)
+- [ ] every resolution's result actually derives from the proposals it cites
+- [ ] no `adjudicatorId` appears in `annotatorIds`
+- [ ] `annotatorIds` are ≥ 2 unique non-empty strings matching the preserved
+      submission annotators exactly
 
 ## 9. Re-adjudication on taxonomy change
 

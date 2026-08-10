@@ -391,11 +391,28 @@ Status vocabulary: **PASS** (executed evidence) · **FAIL** · **UNVERIFIED**
 | H-131 | Schema requires ≥2 unique annotatorIds | `test_schema_requires_two_unique_annotator_ids` | PASS |
 | H-132 | Schema documents the Python-only semantic boundary honestly | `test_schema_documents_the_python_only_semantic_boundary` | PASS |
 
+| H-133 | Uphold result must derive from (exactly preserve) the cited proposal | `test_false_uphold_producing_a_different_finding_is_rejected` | PASS |
+| H-134 | Uphold may differ only in reviewerConfidence | `test_uphold_may_differ_in_reviewer_confidence` | PASS |
+| H-135 | Merge result must derive from the cited proposals (passage, mechanism, overlap) | `test_false_merge_producing_an_unrelated_mechanism_is_rejected` / `test_merge_relocating_the_finding_is_rejected` | PASS |
+| H-136 | Split results remain tied to the source passage and region | `test_false_split_producing_findings_elsewhere_is_rejected` | PASS |
+| H-137 | Valid uphold / merge / split are still accepted | `test_valid_uphold_preserving_the_proposal_exactly` / `test_valid_merge_reconciles_a_real_disagreement` / `test_valid_split_divides_the_source_region` | PASS |
+| H-138 | Third-annotator pressure dissent blocks auto-merge | `test_two_agree_one_pressure_dissent_fails` | PASS |
+| H-139 | Third-annotator voice dissent blocks auto-merge | `test_two_agree_one_voice_dissent_fails` | PASS |
+| H-140 | Third-annotator mechanism dissent blocks auto-merge | `test_two_agree_one_mechanism_dissent_fails` | PASS |
+| H-141 | Every declared annotator must participate in an auto-merge | `test_two_agree_one_absent_fails` | PASS |
+| H-142 | Ambiguous multi-proposal cluster from one annotator escalates | `test_an_annotator_with_two_matching_proposals_is_ambiguous_and_fails` | PASS |
+| H-143 | Unanimous 3/3 agreement still auto-merges | `test_three_of_three_agree_passes` | PASS |
+| H-144 | Auto-merge + resolution on the same gold is rejected | `test_auto_merge_plus_resolution_is_conflicting_provenance` | PASS |
+| H-145 | Gold with neither origin is rejected | `test_neither_origin_is_ungrounded` | PASS |
+| H-146 | Adjudicator cannot be an original annotator | `test_original_annotator_cannot_adjudicate` | PASS |
+| H-147 | Independent third adjudicator is accepted | `test_independent_third_adjudicator_is_accepted` | PASS |
+| H-148 | annotatorIds strictly validated (duplicate/non-string/empty/bool/arity/type) | `StrictAnnotatorIdsTests` | PASS |
+
 ## Totals
 
 | Status | Count |
 |---|---:|
-| PASS | 298 |
+| PASS | 314 |
 | FAIL | 0 |
 | UNVERIFIED | 15 |
 | N/A | 0 |

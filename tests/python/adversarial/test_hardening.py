@@ -1910,9 +1910,17 @@ class C03ResolutionCardinalityTests(unittest.TestCase):
         self.assertTrue(any("distinct annotator" in e for e in report.errors), report.errors)
 
     def test_valid_merge_from_two_annotators(self):
-        doc = self._doc(self._one_each(), [self._a()], [{
-            "decision": "merge", "adjudicatorId": "c",
-            "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        """A real merge is one the annotators could NOT auto-merge — here they
+        disagree on pressure, so the adjudicator reconciles. (Identical
+        proposals would already be an auto-merge, and layering a resolution on
+        top of that is conflicting provenance under D-03, not a valid merge.)"""
+        end = self.TEXT.index(self.SPAN) + len(self.SPAN)
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("p1", pressure="P2")]),
+             self._sub("annotator-b", [self._p("p2", pressure="P4", endChar=end + 4)])],
+            [self._a(pressure="P3")],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
         self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
 
     def test_split_with_one_result_is_rejected(self):
@@ -1930,9 +1938,14 @@ class C03ResolutionCardinalityTests(unittest.TestCase):
         self.assertFalse(self._validate(doc).valid)
 
     def test_valid_split_produces_two_gold_annotations(self):
+        """D-01: both results must stay inside the source region — a split
+        divides the cited span, it does not create findings elsewhere."""
+        start = self.TEXT.index(self.SPAN)
+        end = start + len(self.SPAN)
         doc = self._doc(
             [self._sub("annotator-a", [self._p("p1")]), self._sub("annotator-b", [])],
-            [self._a(), self._a(aid="a2", startChar=4, endChar=11)],
+            [self._a(endChar=start + 9),
+             self._a(aid="a2", startChar=start + 11, endChar=end, mechanismId="presupposition")],
             [{"decision": "split", "adjudicatorId": "c",
               "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
         self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
@@ -1952,11 +1965,17 @@ class C03ResolutionCardinalityTests(unittest.TestCase):
         self.assertTrue(self._validate(doc).valid, self._validate(doc).errors)
 
     def test_two_resolutions_cannot_claim_the_same_gold_annotation(self):
-        doc = self._doc(self._one_each(), [self._a()], [
-            {"decision": "uphold_a", "adjudicatorId": "c",
-             "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]},
-            {"decision": "uphold_b", "adjudicatorId": "c",
-             "proposalIds": ["p2"], "resultingAnnotationIds": ["a1"]}])
+        """Isolates the duplicate-provenance case: the two proposals disagree on
+        pressure, so there is no auto-merge origin competing for the error and
+        the failure must be the duplicate link itself."""
+        doc = self._doc(
+            [self._sub("annotator-a", [self._p("p1", pressure="P2")]),
+             self._sub("annotator-b", [self._p("p2", pressure="P4")])],
+            [self._a(pressure="P2")], [
+                {"decision": "uphold_a", "adjudicatorId": "c",
+                 "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]},
+                {"decision": "uphold_b", "adjudicatorId": "c",
+                 "proposalIds": ["p2"], "resultingAnnotationIds": ["a1"]}])
         report = self._validate(doc)
         self.assertFalse(report.valid)
         self.assertTrue(any("claimed by 2 resolutions" in e for e in report.errors), report.errors)
@@ -1976,6 +1995,360 @@ class C03ResolutionCardinalityTests(unittest.TestCase):
         # deliberately has no cardinality entry.
         self.assertEqual(
             set(RESOLUTION_CARDINALITY) | {"unresolvable"}, VALID_RESOLUTION_DECISIONS)
+
+
+class _CorpusProvenanceFixture(unittest.TestCase):
+    """Shared fixture for the D-01/D-02/D-03 provenance closure.
+
+    The passage carries two clearly distinct rhetorical regions so an attack
+    can point a resolution at gold that has nothing to do with its sources.
+    """
+
+    TEXT = ("The council approved a draconian, reckless scheme on Tuesday "
+            "or watch the district collapse entirely.")
+    LOADED = "draconian, reckless scheme"
+    DILEMMA = "watch the district collapse"
+
+    @property
+    def LS(self):
+        return self.TEXT.index(self.LOADED)
+
+    @property
+    def LE(self):
+        return self.LS + len(self.LOADED)
+
+    @property
+    def FS(self):
+        return self.TEXT.index(self.DILEMMA)
+
+    @property
+    def FE(self):
+        return self.FS + len(self.DILEMMA)
+
+    def p(self, pid, **over):
+        base = {
+            "proposalId": pid, "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": self.LS, "endChar": self.LE,
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def a(self, aid="a1", **over):
+        base = {
+            "annotationId": aid, "mechanismId": "loaded_language", "passageOrdinal": 0,
+            "startChar": self.LS, "endChar": self.LE,
+            "pressure": "P3", "reviewerConfidence": "High", "voiceClass": "reporter",
+        }
+        base.update(over)
+        base["excerpt"] = self.TEXT[base["startChar"]:base["endChar"]]
+        return base
+
+    def sub(self, who, proposals):
+        return {"submissionId": f"sub-{who}", "annotatorId": who, "proposals": proposals}
+
+    def doc(self, submissions, annotations, resolutions=None, annotator_ids=None):
+        document = {
+            "articleId": "t1", "genre": "straight_news",
+            "taxonomyVersion": vocab.taxonomy_version(), "adjudicationStatus": "adjudicated",
+            "annotatorIds": annotator_ids if annotator_ids is not None else ["a", "b"],
+            "passages": [{"ordinal": 0, "passageType": "paragraph", "text": self.TEXT}],
+            "annotations": annotations,
+            "annotatorSubmissions": submissions,
+        }
+        if resolutions is not None:
+            document["resolutions"] = resolutions
+        return document
+
+    def validate(self, document):
+        from validate_corpus import validate_document
+        return validate_document(document, path="t.json", expected_taxonomy=vocab.taxonomy_version())
+
+
+class D01SemanticResolutionGroundingTests(_CorpusProvenanceFixture):
+    """D-01: a resolution must be shown to DERIVE its gold from the proposals
+    it cites. Cardinality and reference-existence only prove it points at real
+    records — not that the result has anything to do with them.
+    """
+
+    def test_false_uphold_producing_a_different_finding_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])],
+            [self.a(mechanismId="false_dilemma", startChar=self.FS, endChar=self.FE)],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("does not substitute a different finding" in e for e in report.errors),
+                        report.errors)
+
+    def test_uphold_differing_only_in_pressure_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])],
+            [self.a(pressure="P1")],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_uphold_may_differ_in_reviewer_confidence(self):
+        """reviewerConfidence is a per-annotator epistemic report, not a
+        property of the phenomenon being upheld."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", reviewerConfidence="Low")]), self.sub("b", [])],
+            [self.a(reviewerConfidence="High")],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_valid_uphold_preserving_the_proposal_exactly(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])],
+            [self.a()],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_false_merge_producing_an_unrelated_mechanism_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4")])],
+            [self.a(mechanismId="presupposition", startChar=self.FS, endChar=self.FE)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_merge_relocating_the_finding_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4")])],
+            [self.a(pressure="P3", startChar=0, endChar=11)],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("does not overlap cited proposal" in e for e in report.errors), report.errors)
+
+    def test_merge_of_different_mechanisms_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4", mechanismId="presupposition")])],
+            [self.a(pressure="P3")],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_valid_merge_reconciles_a_real_disagreement(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4", endChar=self.LE + 4)])],
+            [self.a(pressure="P3")],
+            [{"decision": "merge", "adjudicatorId": "c",
+              "proposalIds": ["p1", "p2"], "resultingAnnotationIds": ["a1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_false_split_producing_findings_elsewhere_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])],
+            [self.a(startChar=self.FS, endChar=self.FE, mechanismId="false_dilemma"),
+             self.a(aid="a2", startChar=0, endChar=11, mechanismId="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("outside the source region" in e for e in report.errors), report.errors)
+
+    def test_valid_split_divides_the_source_region(self):
+        """A split MAY yield different mechanismIds — it may not relocate."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])],
+            [self.a(endChar=self.LS + 9),
+             self.a(aid="a2", startChar=self.LS + 11, endChar=self.LE, mechanismId="presupposition")],
+            [{"decision": "split", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1", "a2"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+
+class D02UnanimousAutoMergeTests(_CorpusProvenanceFixture):
+    """D-02: auto-merge requires EVERY declared annotator to participate.
+
+    "At least two agreed" silently erased the third annotator's dissent.
+    """
+
+    def test_two_of_two_agree_passes(self):
+        doc = self.doc([self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")])], [self.a()])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_two_of_two_disagree_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4")])],
+            [self.a(pressure="P2")])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_three_of_three_agree_passes(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]), self.sub("c", [self.p("p3")])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_two_agree_one_absent_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]), self.sub("c", [])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_two_agree_one_pressure_dissent_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]),
+             self.sub("c", [self.p("p3", pressure="P4")])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_two_agree_one_voice_dissent_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]),
+             self.sub("c", [self.p("p3", voiceClass="quoted_speaker")])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_two_agree_one_mechanism_dissent_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]),
+             self.sub("c", [self.p("p3", mechanismId="presupposition")])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_three_spans_one_breaking_iou_fails(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")]),
+             self.sub("c", [self.p("p3", endChar=self.LE + 30)])],
+            [self.a()], annotator_ids=["a", "b", "c"])
+        self.assertFalse(self.validate(doc).valid)
+
+    def test_an_annotator_with_two_matching_proposals_is_ambiguous_and_fails(self):
+        """An ambiguous cluster cannot be resolved deterministically, so it
+        escalates rather than picking one arbitrarily."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1"), self.p("p1b", endChar=self.LE + 2)]),
+             self.sub("b", [self.p("p2")])],
+            [self.a()])
+        self.assertFalse(self.validate(doc).valid)
+
+
+class D03ExactlyOneProvenanceTests(_CorpusProvenanceFixture):
+    """D-03: every gold annotation has exactly one recorded origin."""
+
+    def test_auto_merge_with_zero_resolutions_is_valid(self):
+        doc = self.doc([self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")])], [self.a()])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_no_auto_merge_with_one_resolution_is_valid(self):
+        doc = self.doc(
+            [self.sub("a", []), self.sub("b", [])], [self.a()],
+            [{"decision": "adjudicator_add", "adjudicatorId": "c", "proposalIds": [],
+              "resultingAnnotationIds": ["a1"], "note": "adjudicator saw it"}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_neither_origin_is_ungrounded(self):
+        doc = self.doc([self.sub("a", []), self.sub("b", [])], [self.a()])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("no machine-readable provenance" in e for e in report.errors), report.errors)
+
+    def test_auto_merge_plus_resolution_is_conflicting_provenance(self):
+        """The exact D-03 attack: gold both annotators clearly proposed,
+        relabelled as an adjudicator_add ("nobody proposed this")."""
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")])], [self.a()],
+            [{"decision": "adjudicator_add", "adjudicatorId": "c", "proposalIds": [],
+              "resultingAnnotationIds": ["a1"], "note": "added by adjudicator"}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("CONFLICTING provenance" in e for e in report.errors), report.errors)
+
+    def test_duplicate_resolution_links_are_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1", pressure="P2")]),
+             self.sub("b", [self.p("p2", pressure="P4")])],
+            [self.a(pressure="P2")],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]},
+             {"decision": "uphold_b", "adjudicatorId": "c",
+              "proposalIds": ["p2"], "resultingAnnotationIds": ["a1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("claimed by 2 resolutions" in e for e in report.errors), report.errors)
+
+
+class AdjudicatorIndependenceTests(_CorpusProvenanceFixture):
+    """ADJUDICATION.md §3: the adjudicator is a third person who has not
+    annotated the document. Documented since the protocol was written, never
+    enforced until now."""
+
+    def test_original_annotator_cannot_adjudicate(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])], [self.a()],
+            [{"decision": "uphold_a", "adjudicatorId": "a",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        report = self.validate(doc)
+        self.assertFalse(report.valid)
+        self.assertTrue(any("independent third person" in e for e in report.errors), report.errors)
+
+    def test_independent_third_adjudicator_is_accepted(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])], [self.a()],
+            [{"decision": "uphold_a", "adjudicatorId": "c",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        self.assertTrue(self.validate(doc).valid, self.validate(doc).errors)
+
+    def test_empty_adjudicator_id_is_rejected(self):
+        doc = self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [])], [self.a()],
+            [{"decision": "uphold_a", "adjudicatorId": "   ",
+              "proposalIds": ["p1"], "resultingAnnotationIds": ["a1"]}])
+        self.assertFalse(self.validate(doc).valid)
+
+
+class StrictAnnotatorIdsTests(_CorpusProvenanceFixture):
+    """The Python validator is the load-bearing scoring gate; nothing in this
+    pipeline executes the JSON Schema, so annotatorIds is enforced here to the
+    same strictness the schema promises.
+
+    The old check was `{a for a in annotators if isinstance(a, str)}` — it
+    silently DISCARDED non-string entries and de-duplicated repeats before
+    counting, so both ["a","b","b"] and ["a",7,"b"] passed.
+    """
+
+    def _doc_with_ids(self, ids):
+        return self.doc(
+            [self.sub("a", [self.p("p1")]), self.sub("b", [self.p("p2")])],
+            [self.a()], annotator_ids=ids)
+
+    def test_duplicate_annotator_ids_are_rejected(self):
+        report = self.validate(self._doc_with_ids(["a", "b", "b"]))
+        self.assertFalse(report.valid)
+        self.assertTrue(any("duplicate entry" in e for e in report.errors), report.errors)
+
+    def test_non_string_annotator_id_is_rejected(self):
+        report = self.validate(self._doc_with_ids(["a", 7, "b"]))
+        self.assertFalse(report.valid)
+        self.assertTrue(any("must be a string" in e for e in report.errors), report.errors)
+
+    def test_empty_annotator_id_is_rejected(self):
+        self.assertFalse(self.validate(self._doc_with_ids(["a", "", "b"])).valid)
+
+    def test_boolean_annotator_id_is_rejected(self):
+        self.assertFalse(self.validate(self._doc_with_ids([True, "b"])).valid)
+
+    def test_fewer_than_two_annotator_ids_is_rejected(self):
+        self.assertFalse(self.validate(self._doc_with_ids(["a"])).valid)
+
+    def test_non_array_annotator_ids_is_rejected(self):
+        self.assertFalse(self.validate(self._doc_with_ids("a,b")).valid)
+
+    def test_declared_ids_must_equal_submission_annotators(self):
+        self.assertFalse(self.validate(self._doc_with_ids(["a", "z"])).valid)
 
 
 class B05SchemaParityTests(unittest.TestCase):

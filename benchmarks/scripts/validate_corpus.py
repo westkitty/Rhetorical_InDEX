@@ -74,47 +74,72 @@ def _span_iou(a: tuple[int, int], b: tuple[int, int]) -> float:
     return overlap / union if union > 0 else 0.0
 
 
-def _auto_merge_span(annotation: dict, proposals: list[dict[str, Any]]) -> tuple[int, int] | None:
+def _auto_merge_span(
+    annotation: dict, proposals: list[dict[str, Any]], declared_annotators: set[str]
+) -> tuple[int, int] | None:
     """The protocol-defined merged span, if this gold annotation is a genuine
-    auto-merge; ``None`` if adjudication was required instead.
+    UNANIMOUS auto-merge; ``None`` if adjudication was required instead.
 
-    ADJUDICATION.md §2: two annotations merge WITHOUT adjudication only when
-    they share mechanism, passage, pressure and voice, and their spans overlap
-    at IoU >= 0.8. The merged span is the INTERSECTION — the text both
-    annotators agreed carries the mechanism.
+    ADJUDICATION.md §2: annotations merge WITHOUT adjudication only when they
+    share mechanism, passage, pressure and voice, and their spans overlap at
+    IoU >= AUTO_MERGE_MIN_IOU. The merged span is the INTERSECTION — the text
+    every annotator agreed carries the mechanism.
 
-    Policy for three or more annotators (defined here, deliberately, rather
-    than left ambiguous): every preserved proposal matching the gold's
-    mechanism/passage/pressure/voice is taken as the agreeing set, that set
-    must cover at least MIN_ANNOTATORS distinct annotators, EVERY pair in it
-    must meet the IoU threshold, and the merged span is the intersection over
-    the whole set. A proposal that agrees on mechanism/passage but differs on
-    pressure or voice is simply not in the set — which is what makes a
-    pressure or voice disagreement fall through to "adjudication required"
-    rather than quietly auto-merging.
+    Review finding D-02: requiring merely "at least MIN_ANNOTATORS agreeing
+    annotators" silently erased dissent once a document had three or more
+    annotators. A and B agreeing while C proposed a different pressure, a
+    different voice, or nothing at all still auto-merged on the strength of
+    A+B — discarding exactly the disagreement the corpus exists to preserve.
+
+    The policy is therefore UNANIMITY, deliberately stricter than majority
+    vote: EVERY annotator declared in ``annotatorIds`` must contribute
+    EXACTLY ONE qualifying proposal to the consensus cluster. Any of
+
+      * an annotator with no matching proposal (absence / presence dissent)
+      * an annotator with more than one matching proposal (ambiguous cluster)
+      * a pressure, voice or mechanism difference (those proposals simply do
+        not qualify, so their annotator ends up absent)
+      * any proposal pair below the IoU threshold
+
+    means adjudication is required. At Alpha, conservative escalation is
+    preferable to silently erasing a dissenting annotator.
     """
+    if not declared_annotators:
+        return None
+
     mechanism = annotation.get("mechanismId")
     ordinal = annotation.get("passageOrdinal")
     pressure = annotation.get("pressure")
     voice = annotation.get("voiceClass")
 
-    agreeing = [
+    qualifying = [
         p for p in proposals
         if p["mechanismId"] == mechanism
         and p["passageOrdinal"] == ordinal
         and p["pressure"] == pressure
         and p["voiceClass"] == voice
     ]
-    if len({p["annotatorId"] for p in agreeing}) < MIN_ANNOTATORS:
+
+    # Every declared annotator must appear exactly once in the cluster.
+    by_annotator: dict[str, list[dict[str, Any]]] = {}
+    for proposal in qualifying:
+        by_annotator.setdefault(proposal["annotatorId"], []).append(proposal)
+    if set(by_annotator) != declared_annotators:
+        return None
+    if any(len(group) != 1 for group in by_annotator.values()):
         return None
 
-    spans = [(p["startChar"], p["endChar"]) for p in agreeing]
+    spans = [(p["startChar"], p["endChar"]) for p in qualifying]
     for i in range(len(spans)):
         for j in range(i + 1, len(spans)):
             if _span_iou(spans[i], spans[j]) < AUTO_MERGE_MIN_IOU:
                 return None
 
     return (max(s[0] for s in spans), min(s[1] for s in spans))
+
+
+def _spans_overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
+    return min(a[1], b[1]) > max(a[0], b[0])
 
 
 @dataclass
@@ -275,12 +300,38 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             err(f"{label}.voiceClass is required and must be a known voice: {ann.get('voiceClass')!r}")
 
     # ---- adjudication coherence ----
+    # The Python validator is the load-bearing scoring gate; the JSON Schema is
+    # documentation that nothing in this pipeline executes. So annotatorIds is
+    # validated here to the same strictness the schema promises (array, >= 2
+    # items, unique, every item a non-empty string) rather than relying on
+    # `{a for a in annotators if isinstance(a, str)}`, which silently DISCARDED
+    # non-string entries and de-duplicated repeats before counting — so
+    # ["a", 7, "b"] and ["a", "b", "b"] both passed.
     annotators = data.get("annotatorIds")
-    if not isinstance(annotators, list) or len({a for a in annotators if isinstance(a, str)}) < MIN_ANNOTATORS:
-        err(
-            f"adjudicated documents require at least {MIN_ANNOTATORS} distinct independent "
-            f"annotators in annotatorIds, got {annotators!r}"
-        )
+    declared_annotators: set[str] = set()
+    if not isinstance(annotators, list):
+        err(f"annotatorIds must be an array, got {annotators!r}")
+    else:
+        seen_annotators: set[str] = set()
+        for index, entry in enumerate(annotators):
+            # bool is a subclass of str-adjacent int trickery elsewhere; here it
+            # is simply not a string, and must not be coerced into one.
+            if not isinstance(entry, str) or isinstance(entry, bool):
+                err(f"annotatorIds[{index}] must be a string, got {entry!r}")
+                continue
+            if not entry.strip():
+                err(f"annotatorIds[{index}] must be a non-empty string")
+                continue
+            if entry in seen_annotators:
+                err(f"annotatorIds contains duplicate entry {entry!r}")
+                continue
+            seen_annotators.add(entry)
+        declared_annotators = seen_annotators
+        if len(annotators) < MIN_ANNOTATORS or len(seen_annotators) < MIN_ANNOTATORS:
+            err(
+                f"adjudicated documents require at least {MIN_ANNOTATORS} distinct independent "
+                f"annotators in annotatorIds, got {annotators!r}"
+            )
 
     # M-12 / A-02: each annotator's ORIGINAL independent submission RECORD must
     # be preserved, even when that annotator proposed nothing. The unit of
@@ -304,6 +355,9 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
     # survive to the grounding check below.
     proposal_records: list[dict[str, Any]] = []
     proposal_id_owner: dict[str, str] = {}
+    # D-01: resolutions must be shown to DERIVE their gold from the proposals
+    # they cite, so the full source record has to be reachable by id.
+    proposal_by_id: dict[str, dict[str, Any]] = {}
     if "annotatorSubmissions" not in data:
         err("annotatorSubmissions is required for adjudicated documents")
         submissions: list[Any] = []
@@ -440,6 +494,7 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
                 })
                 if isinstance(own_id, str):
                     proposal_id_owner[own_id] = annotator_id
+                    proposal_by_id[own_id] = proposal_records[-1]
 
     if len(submission_annotator_ids) < MIN_ANNOTATORS:
         err(
@@ -518,6 +573,16 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
         if not isinstance(adjudicator_id, str) or not adjudicator_id.strip():
             err(f"{label}.adjudicatorId must be a non-empty string — every resolution is an "
                 "adjudicator's decision and must name who made it")
+        elif adjudicator_id in declared_annotators:
+            # ADJUDICATION.md §3: "The adjudicator is a third person who has
+            # not annotated the document." That was documented but never
+            # enforced, so an annotator could adjudicate their own
+            # disagreement and manufacture consensus single-handed.
+            err(
+                f"{label}.adjudicatorId {adjudicator_id!r} is also a declared annotator on this "
+                "document; the adjudicator must be an independent third person who did not "
+                "annotate it"
+            )
 
         if "resultingAnnotationId" in record:
             err(
@@ -597,30 +662,142 @@ def validate_document(data: Any, *, path: str, expected_taxonomy: str) -> Docume
             if not isinstance(note, str) or not note.strip():
                 err(f"{label} decision 'adjudicator_add' requires a non-empty note or rationale")
 
+        # ---- D-01: the result must actually DERIVE from the cited proposals ----
+        #
+        # Cardinality and reference-existence prove only that a resolution
+        # points at real records. They do not prove the gold has anything to do
+        # with the proposals it names: an `uphold_a` citing a loaded_language
+        # proposal could produce a false_dilemma annotation on an unrelated
+        # span, and both a `merge` and a `split` could manufacture findings
+        # somewhere else in the article entirely. "Uphold" that silently
+        # substitutes a different finding is not an uphold.
+        sources = [proposal_by_id[pid] for pid in proposal_id_refs if pid in proposal_by_id]
+        results = [annotation_records[rid] for rid in resulting_ids if rid in annotation_records]
+
+        if decision in {"uphold_a", "uphold_b"} and len(sources) == 1 and len(results) == 1:
+            source, result = sources[0], results[0]
+            for field in ("mechanismId", "passageOrdinal", "startChar", "endChar", "pressure", "voiceClass"):
+                # reviewerConfidence is deliberately excluded: it is a
+                # per-annotator epistemic report, not a property of the
+                # rhetorical phenomenon being upheld.
+                if result.get(field) != source.get(field):
+                    err(
+                        f"{label} decision {decision!r} claims to uphold proposal "
+                        f"{source.get('proposalId')!r}, but the resulting gold annotation differs on "
+                        f"{field} ({source.get(field)!r} -> {result.get(field)!r}); an uphold "
+                        "preserves the cited proposal, it does not substitute a different finding"
+                    )
+
+        if decision == "merge" and sources and results:
+            result = results[0]
+            source_ordinals = {s["passageOrdinal"] for s in sources}
+            source_mechanisms = {s["mechanismId"] for s in sources}
+            if len(source_ordinals) != 1:
+                err(f"{label} decision 'merge' cites proposals on different passages {sorted(source_ordinals)}")
+            elif result.get("passageOrdinal") not in source_ordinals:
+                err(
+                    f"{label} decision 'merge' produces gold on passage "
+                    f"{result.get('passageOrdinal')!r} but its sources are on {sorted(source_ordinals)}"
+                )
+            if len(source_mechanisms) != 1:
+                err(
+                    f"{label} decision 'merge' cites proposals of different mechanisms "
+                    f"{sorted(source_mechanisms)}; reconciling different mechanisms is a "
+                    "'split' or an 'uphold', not a merge"
+                )
+            elif result.get("mechanismId") not in source_mechanisms:
+                err(
+                    f"{label} decision 'merge' produces mechanism {result.get('mechanismId')!r} "
+                    f"from sources of mechanism {sorted(source_mechanisms)}"
+                )
+            result_span = (result.get("startChar"), result.get("endChar"))
+            if _is_int(result_span[0]) and _is_int(result_span[1]):
+                for source in sources:
+                    if source["passageOrdinal"] != result.get("passageOrdinal"):
+                        continue
+                    if not _spans_overlap(result_span, (source["startChar"], source["endChar"])):
+                        err(
+                            f"{label} decision 'merge' produces a gold span {result_span} that does "
+                            f"not overlap cited proposal {source.get('proposalId')!r} "
+                            f"({source['startChar']}, {source['endChar']}); a merge reconciles the "
+                            "cited spans, it does not relocate the finding"
+                        )
+
+        if decision == "split" and sources and results:
+            source_ordinals = {s["passageOrdinal"] for s in sources}
+            source_region = (
+                min(s["startChar"] for s in sources), max(s["endChar"] for s in sources),
+            )
+            for result in results:
+                if result.get("passageOrdinal") not in source_ordinals:
+                    err(
+                        f"{label} decision 'split' produces gold "
+                        f"{result.get('annotationId')!r} on passage {result.get('passageOrdinal')!r}, "
+                        f"outside its source passage(s) {sorted(source_ordinals)}"
+                    )
+                    continue
+                span = (result.get("startChar"), result.get("endChar"))
+                if _is_int(span[0]) and _is_int(span[1]) and not _spans_overlap(span, source_region):
+                    err(
+                        f"{label} decision 'split' produces gold "
+                        f"{result.get('annotationId')!r} at {span}, outside the source region "
+                        f"{source_region}; a split divides the cited region, it does not create "
+                        "unrelated findings elsewhere"
+                    )
+
+    # ---- D-03: EXACTLY ONE provenance per gold annotation ----
+    #
+    # Both origins are computed for every annotation and the pair is checked
+    # against a closed truth table. Previously an annotation with one
+    # resolution link was accepted without ever asking whether it ALSO had a
+    # clear two-annotator auto-merge origin — so a document could, for
+    # instance, claim `adjudicator_add` ("no annotator proposed this") over
+    # gold that both annotators had in fact proposed identically, which
+    # misrepresents where the finding came from.
+    #
+    #   auto_merge | resolutions | verdict
+    #   -----------+-------------+--------------------------------
+    #   True       | 0           | VALID (uncontested auto-merge)
+    #   False      | 1           | VALID (adjudicated)
+    #   False      | 0           | ungrounded
+    #   True       | >= 1        | conflicting provenance
+    #   False      | > 1         | duplicate provenance
     for ann_id, ann in annotation_records.items():
         links = grounded_by_resolution.get(ann_id, 0)
-        if links > 1:
+        merged = _auto_merge_span(ann, proposal_records, declared_annotators)
+        auto_merge_origin = (
+            merged is not None and (ann.get("startChar"), ann.get("endChar")) == merged
+        )
+
+        if auto_merge_origin and links == 0:
+            continue
+        if not auto_merge_origin and links == 1:
+            continue
+
+        if auto_merge_origin and links >= 1:
+            err(
+                f"annotations[].annotationId {ann_id!r} has CONFLICTING provenance: it is already a "
+                f"unanimous auto-merge of the declared annotators AND is claimed by {links} "
+                "resolution(s). Exactly one origin must be recorded, so the file cannot say two "
+                "different things about where the finding came from"
+            )
+        elif links > 1:
             err(
                 f"annotations[].annotationId {ann_id!r} is claimed by {links} resolutions; each "
                 "gold annotation must have exactly one provenance record"
             )
-            continue
-        if links == 1:
-            continue
-        merged = _auto_merge_span(ann, proposal_records)
-        if merged is None:
-            err(
-                f"annotations[].annotationId {ann_id!r} has no machine-readable provenance: it is "
-                f"not an auto-merge agreed by at least {MIN_ANNOTATORS} independent annotators "
-                "(same mechanism, passage, pressure and voice, pairwise span IoU >= "
-                f"{AUTO_MERGE_MIN_IOU}), and no resolution names it — every final gold outcome "
-                "must be traceable"
-            )
-        elif (ann.get("startChar"), ann.get("endChar")) != merged:
+        elif merged is not None:
             err(
                 f"annotations[].annotationId {ann_id!r} claims an auto-merge but its span "
                 f"({ann.get('startChar')}, {ann.get('endChar')}) is not the protocol-defined "
                 f"intersection of the agreeing proposals {merged}; adjudicate instead"
+            )
+        else:
+            err(
+                f"annotations[].annotationId {ann_id!r} has no machine-readable provenance: it is "
+                "not a unanimous auto-merge of every declared annotator (same mechanism, passage, "
+                f"pressure and voice, pairwise span IoU >= {AUTO_MERGE_MIN_IOU}), and no resolution "
+                "names it — every final gold outcome must be traceable"
             )
 
     return report

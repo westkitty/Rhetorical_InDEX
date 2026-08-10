@@ -699,3 +699,103 @@ arbitrary-precision collisions at 30/50/100 digits across every scale word,
 huge presentation equivalents still match, and the new grammar introduces no
 backtracking pathology (100k-digit non-percent 0.005s; 20k-comma run 0.099s).
 No new Critical or Major defect was found in these boundaries.
+
+---
+
+# Gold-provenance closure (this commit)
+
+Three Major corpus-provenance defects plus a validation-parity gap. All three
+sat *inside* code the previous closure had just rewritten and mutation-tested
+— each is a case where a check verified that a link EXISTED without verifying
+that it MEANT anything.
+
+## D-01 — resolution links existed but were not semantically grounded
+
+Cardinality, reference-existence and the distinct-annotator rule all passed
+while the gold had nothing to do with the proposals cited. Reproduced before
+fixing:
+
+| Attack | Before |
+|---|---|
+| `uphold_a` citing a `loaded_language` proposal, producing a `false_dilemma` gold on an unrelated span | **accepted** |
+| `merge` of two `loaded_language` proposals producing a `presupposition` gold elsewhere | **accepted** |
+| `split` of one span producing two unrelated findings elsewhere in the passage | **accepted** |
+
+An "uphold" that silently substitutes a different finding is not an uphold.
+
+**Repair.** Per-decision source→result relationships are now enforced:
+`uphold_*` must exactly preserve the cited proposal's mechanism, passage,
+span, pressure and voice (`reviewerConfidence` excluded — it is a
+per-annotator epistemic report, not a property of the phenomenon); `merge`
+requires one shared passage and mechanism across sources, and gold that
+overlaps **every** cited span; `split` requires every result to sit on a
+source passage and overlap the source region (different mechanisms are
+allowed, relocation is not).
+
+## D-02 — three-plus-annotator dissent disappeared
+
+The previous closure's "at least MIN_ANNOTATORS agreeing" rule was still
+majority-flavoured. With three annotators, A and B agreeing auto-merged while
+C's dissent — a different pressure, a different voice, or no proposal at all —
+was silently discarded. That is precisely the calibration signal the corpus
+exists to preserve, and unlike an escalated case it is lost invisibly and
+permanently.
+
+**Repair.** Auto-merge now requires **unanimity**: every annotator declared in
+`annotatorIds` must contribute exactly one qualifying proposal, all agreeing
+on mechanism/passage/pressure/voice, every pair at IoU ≥ 0.8, gold span equal
+to the intersection across all participants. An annotator contributing two
+matching proposals makes the cluster ambiguous and also escalates. Documented
+in ADJUDICATION.md §2 as deliberately stricter than majority vote.
+
+## D-03 — exactly-one provenance was documented, not enforced
+
+The docs said gold grounded both by auto-merge and by resolution is an error.
+The validator checked only the resolution side, so a document could label gold
+that both annotators had proposed identically as an `adjudicator_add`
+("nobody proposed this") — a false account of where the finding came from.
+
+**Repair.** Both origins are computed for every annotation and checked against
+a closed truth table: `(auto-merge, 0)` and `(no auto-merge, 1)` are the only
+valid states; ungrounded, conflicting and duplicate provenance are each
+rejected with their own message.
+
+## Adjudicator independence and annotatorIds
+
+ADJUDICATION.md §3 has always said the adjudicator is a third person who has
+not annotated the document. Nothing enforced it, so an annotator could
+adjudicate their own disagreement and manufacture consensus single-handed.
+`adjudicatorId` must now be a non-empty string absent from `annotatorIds`.
+
+`annotatorIds` was validated with `{a for a in annotators if isinstance(a, str)}`,
+which **discarded** non-string entries and **de-duplicated** repeats before
+counting — so `["a","b","b"]` and `["a",7,"b"]` both passed a check whose
+stated purpose was "at least 2 distinct annotators". Since nothing in this
+pipeline executes the JSON Schema, the Python validator now enforces what the
+schema promises: an array of ≥ 2 unique non-empty strings, booleans rejected,
+matching the preserved submission annotators exactly.
+
+## Mutation evidence (all reverted)
+
+| Guard mutated | Result |
+|---|---|
+| A. uphold may point to unrelated gold | **2 failures** |
+| B. merge result unrelated to sources | **3 failures** |
+| C. back to ≥2-of-N auto-merge consensus | **5 failures** |
+| D. dual-provenance check skipped | **1 failure** |
+| E. adjudicatorId allowed in annotatorIds | **1 failure** |
+| F. duplicate annotatorIds allowed | **1 failure** |
+
+## Focused sweep
+
+Confined to the five named boundaries. Adjudicator-identity edges (non-string
+id, id matching a submission annotator absent from `annotatorIds`), D-01 with
+a source proposal that failed type validation (no record to derive from),
+cross-passage split sources, hard-negative documents with zero gold, and the
+auto-merge helper called with an empty or superset declared-annotator set all
+fail closed. Three pre-existing test fixtures were themselves found to be
+semantically incoherent by the new rules — a "valid merge" that was actually a
+unanimous auto-merge with a redundant resolution, and a "valid split" placing
+a result outside its source region — and were corrected rather than the rules
+loosened. C-01 numeric regressions re-run unchanged. No new Critical or Major
+defect was found in these boundaries.
